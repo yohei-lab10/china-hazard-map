@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>中国自然災害ハザードマップ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ink: #14181F;
+    --ink-soft: #1D232D;
+    --ink-line: #2B3340;
+    --paper: #F7F4EC;
+    --paper-dim: #ECE7D9;
+    --cinnabar: #B23A2E;
+    --jade: #3F6659;
+    --gold: #B8935A;
+    --steel: #3B5B7A;
+    --text-muted: #8A93A3;
+    --text-faint: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--ink); }
+  body { font-family: 'Noto Sans JP', sans-serif; }
+
+  #app {
+    position: relative;
+    width: 100%;
+    max-width: 430px;
+    height: 100vh;
+    max-height: 860px;
+    margin: 0 auto;
+    background: var(--ink);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .masthead-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 16px 10px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .seal-logo {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--cinnabar);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Noto Serif JP', serif; font-weight: 700; color: var(--paper); font-size: 12px;
+    flex-shrink: 0;
+  }
+  .brand-title {
+    font-family: 'Noto Serif JP', serif; font-weight: 900; font-size: 16.5px;
+    color: var(--paper); letter-spacing: 0.5px;
+  }
+  .mono-small {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.6px;
+    color: var(--text-faint); text-transform: uppercase;
+  }
+  .rule-red { height: 2px; background: var(--cinnabar); }
+  .rule-thin { height: 1px; background: var(--ink-line); margin-top: 2px; }
+
+  /* Layer toggle chips */
+  .layer-bar {
+    display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto;
+    border-bottom: 1px solid var(--ink-line); flex-shrink: 0; background: var(--ink-soft);
+  }
+  .layer-chip {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 500;
+    padding: 6px 11px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+    border: 1px solid var(--ink-line); background: transparent; color: var(--text-muted);
+    cursor: pointer;
+  }
+  .layer-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .layer-chip.active { color: var(--paper); border-color: currentColor; }
+
+  /* Map */
+  #map { flex: 1; width: 100%; background: var(--ink-soft); }
+  .leaflet-popup-content-wrapper {
+    background: var(--ink-soft); color: var(--paper-dim); border: 1px solid var(--ink-line);
+    border-radius: 6px; font-family: 'Noto Sans JP', sans-serif;
+  }
+  .leaflet-popup-tip { background: var(--ink-soft); }
+  .leaflet-popup-content { margin: 10px 12px; font-size: 12px; line-height: 1.6; }
+  .popup-title { font-family: 'Noto Serif JP', serif; font-weight: 700; font-size: 13px; color: var(--paper); margin-bottom: 4px; }
+  .popup-row { color: var(--text-muted); font-size: 11px; }
+
+  .status-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 16px; border-top: 1px solid var(--ink-line); background: var(--ink-soft); flex-shrink: 0;
+  }
+  .legend-note { font-family: 'Noto Sans JP', sans-serif; font-size: 10px; color: var(--text-faint); line-height: 1.5; padding: 0 16px 10px; background: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div>
+    <div class="masthead-top">
+      <div class="brand">
+        <div class="seal-logo">災</div>
+        <div class="brand-title">中国自然災害ハザードマップ</div>
+      </div>
+    </div>
+    <div class="rule-red"></div>
+    <div class="rule-thin"></div>
+  </div>
+
+  <div class="layer-bar" id="layerBar"></div>
+
+  <div id="map"></div>
+
+  <div class="status-bar">
+    <span class="mono-small" id="statusLabel">読み込み中…</span>
+    <span class="mono-small" id="countLabel"></span>
+  </div>
+  <div class="legend-note" id="legendNote"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script>
+const COLORS = { earthquake: '#B23A2E', typhoon: '#3B5B7A', flood: '#3F6659', lightning: '#B8935A' };
+
+const LAYERS = [
+  { key: 'earthquake', label: '地震', color: COLORS.earthquake,
+    note: '地震: USGS地震カタログAPIより過去30日・M4.0以上を中国域でリアルタイム取得。円の大きさはマグニチュード。' },
+  { key: 'typhoon', label: '台風', color: COLORS.typhoon,
+    note: '台風: 2019〜2023年に中国へ上陸した実際の主要台風(Doksuri/Muifa/In-fa/Lekima)。経路は上陸地点を基にした概略線で、IBTrACSの6時間毎の実測点ではない。本番運用ではIBTrACS全件データへの置き換えが必要。' },
+  { key: 'flood', label: '洪水', color: COLORS.flood,
+    note: '洪水: 実際に発生した大規模洪水災害(鄭州2021・北京2023・安徽2024・長江1998)の中心地点。円は概略範囲で、実際の浸水域ではない。本番運用ではGlobal Flood Database(実測浸水ポリゴン)への置き換えが必要。' },
+  { key: 'lightning', label: '雷', color: COLORS.lightning,
+    note: '雷: WWLLN落雷密度統計に基づく、中国南部〜華東沿岸の落雷多発傾向を簡易可視化した参考データ(概算)。' },
+];
+
+// --- Real historical events (verified via web search; landfall/coords approximate to nearest city) ---
+// 本番運用では /data/typhoons.geojson 等、fetch_typhoons.py が生成する実データに置き換える
+const TYPHOON_SAMPLE = [
+  { name: '台風 Doksuri(2023)', points: [[20.5,128.0],[22.5,122.0],[24.0,120.0],[24.82,118.57]], landfall: '福建省 晋江市', date: '2023-07-28', note: '1949年以降で福建省歴代2位の勢力。北京・河北まで記録的豪雨をもたらした' },
+  { name: '台風 Muifa(2022)', points: [[27.9,128.5],[28.6,124.9],[29.5,122.5],[29.99,122.30]], landfall: '浙江省 舟山市', date: '2022-09-14' },
+  { name: '台風 In-fa(2021)', points: [[24.8,127.0],[27.0,124.5],[29.0,122.3],[29.99,122.30]], landfall: '浙江省 舟山市', date: '2021-07-25' },
+  { name: '台風 Lekima(2019)', points: [[22.0,130.0],[26.0,125.5],[28.0,121.8],[28.37,121.36]], landfall: '浙江省 温嶺市', date: '2019-08-10' },
+];
+
+// 本番運用では /data/floods.geojson 等、fetch_floods.py が生成する実データ(DFO/Global Flood Database)に置き換える
+const FLOOD_SAMPLE = [
+  { name: '河南省 鄭州 豪雨洪水', center: [34.75,113.65], date: '2021-07', desc: '記録的短時間豪雨。33名以上死亡、約300万人が影響を受けた(河南省政府発表ベース)' },
+  { name: '北京・河北 豪雨洪水(台風Doksuri余波)', center: [39.90,116.41], date: '2023-07〜08', desc: '1860年の観測開始以来最大級の72時間降水量を記録' },
+  { name: '安徽省 宿松県ほか 梅雨前線豪雨', center: [30.15,116.15], date: '2024-06〜07', desc: '安徽省で約99万人が影響、24万人超が避難' },
+  { name: '長江・淮河流域 大洪水(1998年)', center: [29.7,116.0], date: '1998夏', desc: '中国現代史上最大級の洪水災害の一つ' },
+];
+
+// Approx lightning hotspot centers (illustrative density weighting), incl. East China coast
+const LIGHTNING_SAMPLE = [
+  [23.1,113.3,0.9],[22.5,114.0,0.8],[21.0,110.3,0.7], // 華南
+  [28.2,121.0,0.55],[30.9,121.6,0.5],[31.2,121.5,0.5], // 華東沿岸
+  [22.2,113.5,0.85],[23.5,116.7,0.6],
+  [29.9,118.0,0.4],[32.0,118.8,0.35],
+];
+
+let map, layerGroups = {};
+let activeLayers = new Set(['earthquake']);
+
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: true }).setView([31.0, 117.0], 5);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd', maxZoom: 12,
+  }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 12,
+  }).addTo(map);
+
+  layerGroups.earthquake = L.layerGroup().addTo(map);
+  layerGroups.typhoon = L.layerGroup().addTo(map);
+  layerGroups.flood = L.layerGroup().addTo(map);
+  layerGroups.lightning = L.layerGroup();
+}
+
+function renderLayerBar() {
+  const bar = document.getElementById('layerBar');
+  bar.innerHTML = LAYERS.map(l => {
+    const active = activeLayers.has(l.key);
+    return `<button class="layer-chip${active ? ' active' : ''}" style="color:${active ? l.color : ''}" data-key="${l.key}">
+      <span class="dot" style="background:${l.color};"></span>${l.label}
+    </button>`;
+  }).join('');
+  bar.querySelectorAll('.layer-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      if (activeLayers.has(key)) {
+        activeLayers.delete(key);
+        map.removeLayer(layerGroups[key]);
+      } else {
+        activeLayers.add(key);
+        map.addLayer(layerGroups[key]);
+      }
+      renderLayerBar();
+      updateLegend();
+    });
+  });
+}
+
+function updateLegend() {
+  const notes = LAYERS.filter(l => activeLayers.has(l.key)).map(l => l.note);
+  document.getElementById('legendNote').innerHTML = notes.join('<br><br>') || '表示するレイヤーを上のタブから選択してください。';
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadEarthquakes() {
+  document.getElementById('statusLabel').textContent = '地震データ取得中…';
+  try {
+    // China bounding box (approx): lon 73-135, lat 18-54
+    const url = 'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=' +
+      new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10) +
+      '&minlatitude=18&maxlatitude=54&minlongitude=73&maxlongitude=135&minmagnitude=3.5';
+    const res = await fetch(url);
+    const data = await res.json();
+    let count = 0;
+    (data.features || []).forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const mag = f.properties.mag || 0;
+      const marker = L.circleMarker([lat, lon], {
+        radius: Math.max(4, mag * 2.2),
+        color: COLORS.earthquake, weight: 1.5, fillColor: COLORS.earthquake, fillOpacity: 0.35,
+      });
+      const date = new Date(f.properties.time).toLocaleString('ja-JP');
+      marker.bindPopup(`<div class="popup-title">M${mag.toFixed(1)} 地震</div>
+        <div class="popup-row">${escapeHtml(f.properties.place)}</div>
+        <div class="popup-row">${date}</div>`);
+      marker.addTo(layerGroups.earthquake);
+      count++;
+    });
+    document.getElementById('statusLabel').textContent = '最終更新 ' + new Date().toLocaleString('ja-JP');
+    document.getElementById('countLabel').textContent = `地震 ${count}件(過去30日・M3.5+)`;
+  } catch (e) {
+    document.getElementById('statusLabel').textContent = '地震データの取得に失敗しました';
+  }
+}
+
+function drawTyphoonSample() {
+  TYPHOON_SAMPLE.forEach(t => {
+    const line = L.polyline(t.points, { color: COLORS.typhoon, weight: 2.5, opacity: 0.85, dashArray: '4,4' });
+    line.bindPopup(`<div class="popup-title">${escapeHtml(t.name)}</div>
+      <div class="popup-row">上陸地点: ${escapeHtml(t.landfall)}</div>
+      <div class="popup-row">${escapeHtml(t.date)}</div>
+      ${t.note ? `<div class="popup-row">${escapeHtml(t.note)}</div>` : ''}`);
+    line.addTo(layerGroups.typhoon);
+    const last = t.points[t.points.length - 1];
+    L.circleMarker(last, { radius: 6, color: COLORS.typhoon, weight: 1.5, fillColor: COLORS.typhoon, fillOpacity: 0.7 })
+      .bindPopup(`<div class="popup-title">${escapeHtml(t.name)} 上陸</div>
+        <div class="popup-row">${escapeHtml(t.landfall)} ・ ${escapeHtml(t.date)}</div>`)
+      .addTo(layerGroups.typhoon);
+  });
+}
+
+async function loadTyphoons() {
+  // data/typhoons.geojson があれば優先(GitHub Actionsが定期生成する実データ)。無ければ組み込みサンプルを表示。
+  try {
+    const res = await fetch('data/typhoons.geojson');
+    if (!res.ok) throw new Error('not found');
+    const geojson = await res.json();
+    if (!geojson.features || geojson.features.length === 0) throw new Error('empty');
+    geojson.features.forEach(f => {
+      const coords = f.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+      const p = f.properties || {};
+      const line = L.polyline(coords, { color: COLORS.typhoon, weight: 2.5, opacity: 0.85, dashArray: '4,4' });
+      line.bindPopup(`<div class="popup-title">${escapeHtml(p.name || '台風')}</div>
+        <div class="popup-row">${escapeHtml(p.start_time || '')} 〜 ${escapeHtml(p.end_time || '')}</div>
+        ${p.max_wind_kt ? `<div class="popup-row">最大風速: ${p.max_wind_kt}kt</div>` : ''}`);
+      line.addTo(layerGroups.typhoon);
+    });
+  } catch (e) {
+    drawTyphoonSample();
+  }
+}
+
+function drawFloodSample() {
+  FLOOD_SAMPLE.forEach(f => {
+    const circle = L.circle(f.center, { radius: 45000, color: COLORS.flood, weight: 1.5, fillColor: COLORS.flood, fillOpacity: 0.22 });
+    circle.bindPopup(`<div class="popup-title">${escapeHtml(f.name)}</div>
+      <div class="popup-row">${escapeHtml(f.desc)}</div>
+      <div class="popup-row">${escapeHtml(f.date)}</div>`);
+    circle.addTo(layerGroups.flood);
+  });
+}
+
+async function loadFloods() {
+  // data/floods.geojson があれば優先(手動または自動生成した実データ)。無ければ組み込みサンプルを表示。
+  try {
+    const res = await fetch('data/floods.geojson');
+    if (!res.ok) throw new Error('not found');
+    const geojson = await res.json();
+    if (!geojson.features || geojson.features.length === 0) throw new Error('empty');
+    geojson.features.forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const p = f.properties || {};
+      const circle = L.circle([lat, lon], { radius: 45000, color: COLORS.flood, weight: 1.5, fillColor: COLORS.flood, fillOpacity: 0.22 });
+      circle.bindPopup(`<div class="popup-title">洪水イベント</div>
+        <div class="popup-row">${escapeHtml(p.began || '')} 〜 ${escapeHtml(p.ended || '')}</div>
+        ${p.main_cause ? `<div class="popup-row">${escapeHtml(p.main_cause)}</div>` : ''}`);
+      circle.addTo(layerGroups.flood);
+    });
+  } catch (e) {
+    drawFloodSample();
+  }
+}
+
+function loadLightning() {
+  const heatPoints = LIGHTNING_SAMPLE.map(p => [p[0], p[1], p[2]]);
+  const heat = L.heatLayer(heatPoints, { radius: 40, blur: 30, maxZoom: 8, gradient: { 0.3: '#3B5B7A', 0.6: '#B8935A', 1.0: '#B23A2E' } });
+  heat.addTo(layerGroups.lightning);
+}
+
+initMap();
+renderLayerBar();
+updateLegend();
+loadEarthquakes();
+loadTyphoons();
+loadFloods();
+loadLightning();
+</script>
+</body>
+</html>
