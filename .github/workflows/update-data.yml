@@ -1,6 +1,6 @@
 name: Update Hazard Data
 
-on:
+"on":
   schedule:
     # 地震: 毎日 UTC 6:00(日本時間 15:00)
     - cron: "0 6 * * *"
