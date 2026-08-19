@@ -890,14 +890,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          99.4461,
-          35.4713
+          99.4311,
+          35.4477
         ]
       },
       "properties": {
         "mag": 4.4,
         "place": "204 km NW of Oula Xiuma, China",
-        "time": 1785442448778,
+        "time": 1785442448577,
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000th2x"
       }
@@ -1077,14 +1077,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          130.5047,
-          32.7155
+          130.4986,
+          32.719
         ]
       },
       "properties": {
         "mag": 4.4,
         "place": "14 km ESE of Shimabara, Japan",
-        "time": 1785325673799,
+        "time": 1785325673752,
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgmj"
       }
@@ -1196,14 +1196,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          130.7799,
-          32.6443
+          130.6922,
+          32.6073
         ]
       },
       "properties": {
-        "mag": 4.7,
-        "place": "8 km SSW of Mifune, Japan",
-        "time": 1785241578600,
+        "mag": 4.6,
+        "place": "3 km ESE of Uki, Japan",
+        "time": 1785241578097,
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgcq"
       }
@@ -1213,14 +1213,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          130.675,
-          32.43
+          130.6832,
+          32.441
         ]
       },
       "properties": {
         "mag": 4.4,
         "place": "10 km SE of Honmachi, Japan",
-        "time": 1785233378222,
+        "time": 1785233378140,
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgc8"
       }
@@ -1230,14 +1230,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          130.753,
-          32.5747
+          130.7587,
+          32.5942
         ]
       },
       "properties": {
-        "mag": 4.4,
-        "place": "10 km ESE of Uki, Japan",
-        "time": 1785232993200,
+        "mag": 4.3,
+        "place": "9 km ESE of Uki, Japan",
+        "time": 1785232993014,
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgc6"
       }
