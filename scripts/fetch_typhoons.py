@@ -21,6 +21,7 @@ cronでの定期実行例(月1回・毎月1日午前3時):
 import argparse
 import json
 import io
+import sys
 import requests
 import pandas as pd
 from datetime import datetime
@@ -34,11 +35,32 @@ IBTRACS_WP_CSV_URL = (
 # 中国沿岸域(上陸判定用の簡易バウンディングボックス)
 CHINA_COASTAL_BBOX = {"minlat": 18, "maxlat": 41, "minlon": 108, "maxlon": 123}
 
+# NCEIのサーバーによってはUser-Agent無しのリクエストを拒否することがあるため明示的に指定
+REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (compatible; china-hazard-map-bot/1.0; "
+        "+https://github.com/yohei-lab10/china-hazard-map)"
+    )
+}
+
 
 def fetch_raw_csv() -> pd.DataFrame:
-    res = requests.get(IBTRACS_WP_CSV_URL, timeout=120)
-    res.raise_for_status()
+    print(f"[fetch_typhoons] IBTrACSへリクエスト送信: {IBTRACS_WP_CSV_URL}", flush=True)
+    try:
+        res = requests.get(IBTRACS_WP_CSV_URL, headers=REQUEST_HEADERS, timeout=120)
+    except requests.exceptions.RequestException as e:
+        print(f"[fetch_typhoons] ネットワークエラー: {e}", flush=True)
+        raise
+
+    print(f"[fetch_typhoons] HTTPステータス: {res.status_code}, 本文サイズ: {len(res.content)} bytes", flush=True)
+
+    if res.status_code != 200:
+        print(f"[fetch_typhoons] 応答本文の先頭300文字: {res.text[:300]!r}", flush=True)
+        res.raise_for_status()
+
+    # IBTrACSのCSVは1行目がヘッダ、2行目が単位のため2行目をスキップ
     df = pd.read_csv(io.StringIO(res.text), skiprows=[1], low_memory=False)
+    print(f"[fetch_typhoons] CSV読み込み完了: {len(df)}行, カラム: {list(df.columns)[:8]}...", flush=True)
     return df
 
 
@@ -46,6 +68,7 @@ def filter_china_typhoons(df: pd.DataFrame, years: int) -> pd.DataFrame:
     df["ISO_TIME"] = pd.to_datetime(df["ISO_TIME"], errors="coerce")
     cutoff = datetime.now() - pd.DateOffset(years=years)
     df = df[df["ISO_TIME"] >= cutoff]
+    print(f"[fetch_typhoons] 直近{years}年でフィルタ後: {len(df)}行", flush=True)
 
     df["LAT"] = pd.to_numeric(df["LAT"], errors="coerce")
     df["LON"] = pd.to_numeric(df["LON"], errors="coerce")
@@ -57,7 +80,9 @@ def filter_china_typhoons(df: pd.DataFrame, years: int) -> pd.DataFrame:
         (df["LON"] <= CHINA_COASTAL_BBOX["maxlon"])
     )
     relevant_sids = df.loc[in_bbox, "SID"].unique()
-    return df[df["SID"].isin(relevant_sids)]
+    result = df[df["SID"].isin(relevant_sids)]
+    print(f"[fetch_typhoons] 中国沿岸バウンディングボックスに該当する台風: {len(relevant_sids)}個", flush=True)
+    return result
 
 
 def to_geojson(df: pd.DataFrame) -> dict:
@@ -85,4 +110,25 @@ def to_geojson(df: pd.DataFrame) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument
+    ap.add_argument("--years", type=int, default=10, help="過去何年分を取得するか")
+    ap.add_argument("--out", type=str, default="../data/typhoons.geojson")
+    args = ap.parse_args()
+
+    try:
+        df = fetch_raw_csv()
+        df = filter_china_typhoons(df, args.years)
+        geojson = to_geojson(df)
+
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(geojson, f, ensure_ascii=False, indent=2)
+
+        print(f"[fetch_typhoons] {len(geojson['features'])}件の台風トラックを {args.out} に保存しました", flush=True)
+    except Exception:
+        import traceback
+        print("[fetch_typhoons] エラーが発生しました:", flush=True)
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
