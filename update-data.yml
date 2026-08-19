@@ -1,0 +1,41 @@
+name: ハザードデータ定期更新
+
+on:
+  schedule:
+    # 毎日 UTC21:00 (日本時間 朝6:00) に地震データを更新
+    - cron: '0 21 * * *'
+    # 毎月1日 UTC18:00 (日本時間 3:00) に台風データを更新
+    - cron: '0 18 1 * *'
+  workflow_dispatch: {}  # GitHubの画面/アプリから手動実行するためのトリガー
+
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 依存パッケージをインストール
+        run: pip install -r scripts/requirements.txt
+
+      - name: 地震データを取得
+        run: python scripts/fetch_earthquakes.py --days 30 --minmag 3.5 --out data/earthquakes.geojson
+
+      - name: 台風データを取得
+        run: python scripts/fetch_typhoons.py --years 10 --out data/typhoons.geojson
+
+      - name: 変更をコミット
+        run: |
+          git config user.name "hazardmap-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/earthquakes.geojson data/typhoons.geojson
+          git diff --cached --quiet || git commit -m "chore: ハザードデータを自動更新 ($(date -u +%Y-%m-%d))"
+          git push
