@@ -1,0 +1,1671 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.9755,
+          29.0998
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "151 km NW of Uken, Japan",
+        "time": 1787139807209,
+        "depth_km": 227.931,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tluu"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.5097,
+          37.8621
+        ]
+      },
+      "properties": {
+        "mag": 4.7,
+        "place": "265 km SSE of Dunhuang, China",
+        "time": 1787116944762,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tltq"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.324,
+          19.1513
+        ]
+      },
+      "properties": {
+        "mag": 4.8,
+        "place": "62 km NNE of Namuac, Philippines",
+        "time": 1787113374144,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tlta"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.4104,
+          37.758
+        ]
+      },
+      "properties": {
+        "mag": 4.5,
+        "place": "274 km SSE of Dunhuang, China",
+        "time": 1787090395525,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tlrq"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.6095,
+          37.8208
+        ]
+      },
+      "properties": {
+        "mag": 5.9,
+        "place": "270 km WSW of Yanglong, China",
+        "time": 1787088988032,
+        "depth_km": 6,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tlrj"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.6142,
+          32.5029
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "39 km WSW of Kyelang, India",
+        "time": 1787062203059,
+        "depth_km": 45.866,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tlnz"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.1863,
+          33.4318
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "14 km S of Maebaru-chūō, Japan",
+        "time": 1786916236420,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/usd0015eab"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.9208,
+          38.6186
+        ]
+      },
+      "properties": {
+        "mag": 4.1,
+        "place": "49 km N of Murghob, Tajikistan",
+        "time": 1786812446516,
+        "depth_km": 99.461,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tl2a"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          122.2931,
+          24.4732
+        ]
+      },
+      "properties": {
+        "mag": 4.9,
+        "place": "63 km ESE of Yilan, Taiwan",
+        "time": 1786793415368,
+        "depth_km": 66.357,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tl0a"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.2629,
+          36.8572
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "70 km NNW of Barishal, Pakistan",
+        "time": 1786595053980,
+        "depth_km": 57.968,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tkdf"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.3579,
+          36.7849
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "59 km NNW of Barishal, Pakistan",
+        "time": 1786581318815,
+        "depth_km": 58.893,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tkci"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          122.2726,
+          20.4966
+        ]
+      },
+      "properties": {
+        "mag": 4.7,
+        "place": "31 km E of Basco, Philippines",
+        "time": 1786569920192,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tkax"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.4343,
+          32.4765
+        ]
+      },
+      "properties": {
+        "mag": 4.6,
+        "place": "15 km WSW of Honmachi, Japan",
+        "time": 1786569689025,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tkaw"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.6514,
+          21.9386
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "11 km SW of Hengchun, Taiwan",
+        "time": 1786564461437,
+        "depth_km": 15.766,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tka7"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.3037,
+          42.0411
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "66 km E of Chayek, Kyrgyzstan",
+        "time": 1786518892581,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tk5x"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.4504,
+          32.4564
+        ]
+      },
+      "properties": {
+        "mag": 4.9,
+        "place": "14 km WSW of Honmachi, Japan",
+        "time": 1786507551903,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tk5c"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          131.424,
+          30.9744
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "48 km ENE of Nishinoomote, Japan",
+        "time": 1786402794062,
+        "depth_km": 35,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tjtz"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.6343,
+          28.6111
+        ]
+      },
+      "properties": {
+        "mag": 4.5,
+        "place": "12 km SE of Baixi, China",
+        "time": 1786397504273,
+        "depth_km": 55.31,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tjt8"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.5394,
+          32.4131
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "11 km SSW of Honmachi, Japan",
+        "time": 1786322891028,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tkn7"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78.3442,
+          30.868
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "14 km ENE of Barkot, India",
+        "time": 1786305092991,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tjh9"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.3704,
+          32.4533
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "16 km E of Amakusa, Japan",
+        "time": 1786230127025,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tjbm"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.613,
+          20.2183
+        ]
+      },
+      "properties": {
+        "mag": 3.8,
+        "place": "30 km NW of Nashik, India",
+        "time": 1786206658034,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tjd3"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          82.875,
+          39.6351
+        ]
+      },
+      "properties": {
+        "mag": 4.8,
+        "place": "158 km NNE of Darya Boyi, China",
+        "time": 1786160726267,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tj68"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.853,
+          32.7786
+        ]
+      },
+      "properties": {
+        "mag": 4.5,
+        "place": "2 km ESE of Mehmand Chak, Pakistan",
+        "time": 1786159804685,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tj67"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.6417,
+          28.4697
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "7 km WNW of Xunchang, China",
+        "time": 1786089733202,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tjz8"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.7523,
+          28.505
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "6 km NNE of Xunchang, China",
+        "time": 1786079310903,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tivz"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.9588,
+          22.6929
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "30 km ENE of Shwebo, Burma (Myanmar)",
+        "time": 1786048368799,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tiq3"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.7231,
+          32.6611
+        ]
+      },
+      "properties": {
+        "mag": 4.6,
+        "place": "5 km ENE of Matsubase, Japan",
+        "time": 1786013364271,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tijg"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.4686,
+          35.4698
+        ]
+      },
+      "properties": {
+        "mag": 4,
+        "place": "203 km NW of Oula Xiuma, China",
+        "time": 1785976493300,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tigp"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.6765,
+          29.0283
+        ]
+      },
+      "properties": {
+        "mag": 4.8,
+        "place": "62 km NNE of Shi Yomi, India",
+        "time": 1785975317634,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tigl"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.455,
+          32.4463
+        ]
+      },
+      "properties": {
+        "mag": 4.9,
+        "place": "15 km WSW of Honmachi, Japan",
+        "time": 1785970764692,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tig8"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.681,
+          29.0027
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "60 km NNE of Shi Yomi, India",
+        "time": 1785924369955,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ti9w"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.6484,
+          21.8724
+        ]
+      },
+      "properties": {
+        "mag": 4.8,
+        "place": "56 km WSW of Monywa, Burma (Myanmar)",
+        "time": 1785888718154,
+        "depth_km": 107.563,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ti5u"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          131.0474,
+          30.2082
+        ]
+      },
+      "properties": {
+        "mag": 4.8,
+        "place": "43 km ESE of Koseda, Japan",
+        "time": 1785873418739,
+        "depth_km": 44.967,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ti40"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.7613,
+          28.5388
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "10 km NNE of Xunchang, China",
+        "time": 1785859114535,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ti0y"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.7633,
+          28.6876
+        ]
+      },
+      "properties": {
+        "mag": 4.9,
+        "place": "14 km ESE of Yibin, China",
+        "time": 1785733248666,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thqf"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          82.6058,
+          28.5389
+        ]
+      },
+      "properties": {
+        "mag": 4,
+        "place": "54 km NE of Tulsīpur, Nepal",
+        "time": 1785705736837,
+        "depth_km": 19.476,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tinm"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.644,
+          28.5952
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "14 km SE of Baixi, China",
+        "time": 1785700442212,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tinl"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.5433,
+          28.4435
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "2 km ENE of Qingfu, China",
+        "time": 1785698963669,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tink"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.7446,
+          28.5301
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "8 km NNE of Xunchang, China",
+        "time": 1785694905760,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thn0"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.3272,
+          35.3923
+        ]
+      },
+      "properties": {
+        "mag": 4.9,
+        "place": "207 km NW of Oula Xiuma, China",
+        "time": 1785681102674,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thm7"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          128.5322,
+          27.4479
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "13 km NNW of China, Japan",
+        "time": 1785665436633,
+        "depth_km": 61.951,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tin4"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.6919,
+          32.3966
+        ]
+      },
+      "properties": {
+        "mag": 4.6,
+        "place": "14 km SE of Honmachi, Japan",
+        "time": 1785664808813,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thlf"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          91.4718,
+          33.5255
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "233 km NNW of Nagqu, China",
+        "time": 1785640537010,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thk5"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          131.9561,
+          32.0214
+        ]
+      },
+      "properties": {
+        "mag": 5.3,
+        "place": "44 km SE of Tsunō, Japan",
+        "time": 1785611453802,
+        "depth_km": 35,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thhk"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.4599,
+          32.4488
+        ]
+      },
+      "properties": {
+        "mag": 4.6,
+        "place": "14 km WSW of Honmachi, Japan",
+        "time": 1785600441753,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thgz"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.5789,
+          32.654
+        ]
+      },
+      "properties": {
+        "mag": 4.9,
+        "place": "8 km W of Matsubase, Japan",
+        "time": 1785588443360,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thgg"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          133.1523,
+          53.5895
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "53 km NNE of Tokur, Russia",
+        "time": 1785567726338,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000they"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.4261,
+          35.4802
+        ]
+      },
+      "properties": {
+        "mag": 4.7,
+        "place": "206 km NW of Oula Xiuma, China",
+        "time": 1785547776859,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thdc"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.2878,
+          23.1907
+        ]
+      },
+      "properties": {
+        "mag": 4.5,
+        "place": "54 km NE of Simao, China",
+        "time": 1785533050934,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thc9"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          128.0296,
+          28.2012
+        ]
+      },
+      "properties": {
+        "mag": 4.6,
+        "place": "95 km WNW of Amagi, Japan",
+        "time": 1785502720829,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000th7y"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.9255,
+          20.8038
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "157 km SSW of Hengchun, Taiwan",
+        "time": 1785485467484,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tibj"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.4461,
+          35.4713
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "204 km NW of Oula Xiuma, China",
+        "time": 1785442448778,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000th2x"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4235,
+          23.0993
+        ]
+      },
+      "properties": {
+        "mag": 4.5,
+        "place": "98 km E of Yujing, Taiwan",
+        "time": 1785430715880,
+        "depth_km": 18.282,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000th0z"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.6356,
+          32.7068
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "3 km NW of Uto, Japan",
+        "time": 1785419259044,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgy8"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.6389,
+          37.8995
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "66 km ESE of Murghob, Tajikistan",
+        "time": 1785404315546,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgx5"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.53,
+          38.0465
+        ]
+      },
+      "properties": {
+        "mag": 4.5,
+        "place": "51 km ESE of Murghob, Tajikistan",
+        "time": 1785403248309,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgx1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.6572,
+          26.9657
+        ]
+      },
+      "properties": {
+        "mag": 4.1,
+        "place": "117 km WNW of Ie, Japan",
+        "time": 1785393017848,
+        "depth_km": 132.116,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ti23"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.3474,
+          32.264
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "7 km NW of Minamata, Japan",
+        "time": 1785372974715,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ti1k"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.5159,
+          32.4953
+        ]
+      },
+      "properties": {
+        "mag": 4.8,
+        "place": "7 km W of Honmachi, Japan",
+        "time": 1785356195520,
+        "depth_km": 11.68,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgt4"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          96.0221,
+          22.0075
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "7 km WNW of Mandalay, Burma (Myanmar)",
+        "time": 1785333763362,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgnj"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.5078,
+          32.512
+        ]
+      },
+      "properties": {
+        "mag": 4.6,
+        "place": "8 km W of Honmachi, Japan",
+        "time": 1785333754648,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgn1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.4586,
+          32.3461
+        ]
+      },
+      "properties": {
+        "mag": 5.3,
+        "place": "12 km N of Tsunagi, Japan",
+        "time": 1785331176674,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgmx"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.5047,
+          32.7155
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "14 km ESE of Shimabara, Japan",
+        "time": 1785325673799,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgmj"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          131.0035,
+          30.1513
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "43 km SE of Koseda, Japan",
+        "time": 1785309189999,
+        "depth_km": 27.294,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000thtv"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          131.0099,
+          32.8556
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "11 km SW of Aso, Japan",
+        "time": 1785308376780,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tglh"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78.9587,
+          41.1814
+        ]
+      },
+      "properties": {
+        "mag": 4.6,
+        "place": "102 km WNW of Aykol, China",
+        "time": 1785305397133,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgla"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.5429,
+          35.5303
+        ]
+      },
+      "properties": {
+        "mag": 4.1,
+        "place": "196 km SW of Xihai, China",
+        "time": 1785291804996,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgjt"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.102,
+          35.5401
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "218 km SSW of Shaliuhe, China",
+        "time": 1785253102200,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgep"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.4731,
+          32.6459
+        ]
+      },
+      "properties": {
+        "mag": 4.8,
+        "place": "17 km W of Uki, Japan",
+        "time": 1785247318034,
+        "depth_km": 13.288,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgd4"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.7799,
+          32.6443
+        ]
+      },
+      "properties": {
+        "mag": 4.7,
+        "place": "8 km SSW of Mifune, Japan",
+        "time": 1785241578600,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgcq"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.675,
+          32.43
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "10 km SE of Honmachi, Japan",
+        "time": 1785233378222,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgc8"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.753,
+          32.5747
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "10 km ESE of Uki, Japan",
+        "time": 1785232993200,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgc6"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.3836,
+          35.32
+        ]
+      },
+      "properties": {
+        "mag": 4.7,
+        "place": "198 km NW of Oula Xiuma, China",
+        "time": 1785232321259,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgc3"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.6069,
+          32.5364
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "3 km N of Honmachi, Japan",
+        "time": 1785229071007,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000th9z"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.5387,
+          32.3684
+        ]
+      },
+      "properties": {
+        "mag": 4.9,
+        "place": "15 km NNE of Tsunagi, Japan",
+        "time": 1785226734042,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgbn"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.5385,
+          32.3769
+        ]
+      },
+      "properties": {
+        "mag": 5.6,
+        "place": "15 km SSW of Honmachi, Japan",
+        "time": 1785226114854,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgbm"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.5669,
+          35.3948
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "191 km NW of Oula Xiuma, China",
+        "time": 1785225849517,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgbk"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.7206,
+          32.6142
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "5 km E of Uki, Japan",
+        "time": 1785225560362,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgbh"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.671,
+          32.6786
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "0 km SE of Uto, Japan",
+        "time": 1785224733729,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000th9v"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.8342,
+          32.4437
+        ]
+      },
+      "properties": {
+        "mag": 4.5,
+        "place": "22 km NW of Yunomae, Japan",
+        "time": 1785224419645,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000th9w"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.6843,
+          32.6297
+        ]
+      },
+      "properties": {
+        "mag": 6.8,
+        "place": "The 2026 Kumamoto Region, Japan Earthquake",
+        "time": 1785223634942,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgb9"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.5557,
+          35.429
+        ]
+      },
+      "properties": {
+        "mag": 5.8,
+        "place": "194 km NW of Oula Xiuma, China",
+        "time": 1785209645627,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tga9"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.4752,
+          35.4217
+        ]
+      },
+      "properties": {
+        "mag": 5.7,
+        "place": "199 km NW of Oula Xiuma, China",
+        "time": 1785208568865,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tga6"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.6649,
+          35.3264
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "western Xizang",
+        "time": 1785126683536,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t3lc"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.5417,
+          23.1812
+        ]
+      },
+      "properties": {
+        "mag": 4.5,
+        "place": "10 km NE of Yujing, Taiwan",
+        "time": 1785118490866,
+        "depth_km": 22.804,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t3kn"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.8416,
+          24.8895
+        ]
+      },
+      "properties": {
+        "mag": 4.7,
+        "place": "14 km ESE of Pinglin, Taiwan",
+        "time": 1785069377506,
+        "depth_km": 94.522,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t3gt"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          133.4355,
+          38.4122
+        ]
+      },
+      "properties": {
+        "mag": 4.4,
+        "place": "259 km N of Ama, Japan",
+        "time": 1785045532196,
+        "depth_km": 445.264,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t3f0"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.2638,
+          25.9839
+        ]
+      },
+      "properties": {
+        "mag": 4.5,
+        "place": "54 km SE of Tuensang, India",
+        "time": 1785020966701,
+        "depth_km": 69.714,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t3di"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.6994,
+          35.6631
+        ]
+      },
+      "properties": {
+        "mag": 4.3,
+        "place": "57 km S of Gahkuch, Pakistan",
+        "time": 1785005669217,
+        "depth_km": 62.346,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t3ce"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.6933,
+          18.672
+        ]
+      },
+      "properties": {
+        "mag": 4,
+        "place": "58 km WSW of Pyay, Burma (Myanmar)",
+        "time": 1784830897812,
+        "depth_km": 54.334,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tgp3"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.1205,
+          27.8995
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "79 km SE of Tatsugō, Japan",
+        "time": 1784798542368,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t2n3"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.0165,
+          23.3303
+        ]
+      },
+      "properties": {
+        "mag": 4.6,
+        "place": "71 km ESE of Mawlaik, Burma (Myanmar)",
+        "time": 1784779574311,
+        "depth_km": 69.909,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t2lg"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5859,
+          23.5655
+        ]
+      },
+      "properties": {
+        "mag": 4.1,
+        "place": "45 km S of Hualien City, Taiwan",
+        "time": 1784753829879,
+        "depth_km": 27.376,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t2iy"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.5278,
+          28.1539
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "87 km NE of Tawang, India",
+        "time": 1784660157736,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t2ak"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.4361,
+          23.1468
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "61 km NE of Simao, China",
+        "time": 1784634187526,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t25s"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.6944,
+          22.5516
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "38 km ENE of Chongzuo, China",
+        "time": 1784558449910,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t1y6"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.941,
+          19.8853
+        ]
+      },
+      "properties": {
+        "mag": 4.2,
+        "place": "62 km S of Basco, Philippines",
+        "time": 1784543027920,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t1ww"
+      }
+    }
+  ]
+}
