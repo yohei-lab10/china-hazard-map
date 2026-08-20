@@ -28,6 +28,10 @@ import pandas as pd
 # 中国全土のバウンディングボックス
 CHINA_BBOX = {"minlat": 18, "maxlat": 54, "minlon": 73, "maxlon": 135}
 
+# DFOのCSVはバージョンによって列名が異なるため、候補を複数持たせて最初に見つかったものを使う
+AREA_COL_CANDIDATES = ["Affected Sq Km", "Area", "Area_km2", "AffectedArea"]
+SEVERITY_COL_CANDIDATES = ["Severity", "Severity *"]
+
 
 def fetch_csv(url: str) -> pd.DataFrame:
     res = requests.get(url, timeout=120)
@@ -35,7 +39,15 @@ def fetch_csv(url: str) -> pd.DataFrame:
     return pd.read_csv(io.StringIO(res.text), low_memory=False)
 
 
+def find_column(df: pd.DataFrame, candidates: list[str]) -> str | None:
+    for c in candidates:
+        if c in df.columns:
+            return c
+    return None
+
+
 def filter_china(df: pd.DataFrame) -> pd.DataFrame:
+    # DFOのCSVは列名が "Country" "long" "lat" 等(バージョンにより異なるため要確認)
     if "Country" in df.columns:
         df = df[df["Country"].astype(str).str.contains("China", case=False, na=False)]
     lat_col = "lat" if "lat" in df.columns else "Centroid Y"
@@ -50,16 +62,27 @@ def filter_china(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def to_geojson(df: pd.DataFrame) -> dict:
+    area_col = find_column(df, AREA_COL_CANDIDATES)
+    severity_col = find_column(df, SEVERITY_COL_CANDIDATES)
+    print(f"[fetch_floods] 冠水面積カラム: {area_col}, 深刻度カラム: {severity_col}")
+
     features = []
     for _, row in df.iterrows():
+        dead = pd.to_numeric(row.get("Dead"), errors="coerce")
+        displaced = pd.to_numeric(row.get("Displaced"), errors="coerce")
+        area = pd.to_numeric(row.get(area_col), errors="coerce") if area_col else None
+        severity = pd.to_numeric(row.get(severity_col), errors="coerce") if severity_col else None
+
         features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [row["lon"], row["lat"]]},
             "properties": {
                 "began": row.get("Began"),
                 "ended": row.get("Ended"),
-                "dead": row.get("Dead"),
-                "displaced": row.get("Displaced"),
+                "dead": None if pd.isna(dead) else float(dead),
+                "displaced": None if pd.isna(displaced) else float(displaced),
+                "affected_sq_km": None if area is None or pd.isna(area) else float(area),
+                "severity": None if severity is None or pd.isna(severity) else float(severity),
                 "main_cause": row.get("MainCause"),
             },
         })
@@ -79,9 +102,8 @@ def main():
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(geojson, f, ensure_ascii=False, indent=2)
 
-    print(f"{len(geojson['features'])}件の洪水イベントを {args.out} に保存しました")
+    print(f"[fetch_floods] {len(geojson['features'])}件の洪水イベントを {args.out} に保存しました")
 
 
 if __name__ == "__main__":
     main()
-
