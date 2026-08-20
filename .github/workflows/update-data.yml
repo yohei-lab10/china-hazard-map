@@ -12,8 +12,8 @@ name: Update Hazard Data
         description: "Run elevation hazard backfill (rarely needed — elevation barely changes)"
         type: boolean
         default: false
-      flood_csv_url:
-        description: "DFO flood CSV URL (leave empty to skip flood update)"
+      flood_gpkg_url:
+        description: "DFO flood GeoPackage (.gpkg) URL (leave empty to skip flood update)"
         type: string
         default: ""
 
@@ -95,7 +95,7 @@ jobs:
 
   update-floods:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.flood_csv_url != ''
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.flood_gpkg_url != ''
     steps:
       - uses: actions/checkout@v4
 
@@ -104,10 +104,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pandas requests
+        run: pip install geopandas requests
 
       - name: Fetch floods
-        run: python scripts/fetch_floods.py --csv-url "${{ github.event.inputs.flood_csv_url }}" --out data/floods.geojson
+        run: python scripts/fetch_floods.py --gpkg-url "${{ github.event.inputs.flood_gpkg_url }}" --out data/floods.geojson
 
       - name: Commit and push if changed
         run: |
