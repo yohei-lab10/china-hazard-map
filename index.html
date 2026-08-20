@@ -119,7 +119,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 <script>
-const COLORS = { earthquake: '#B23A2E', typhoon: '#3B5B7A', flood: '#3F6659', lightning: '#B8935A' };
+const COLORS = { earthquake: '#B23A2E', typhoon: '#3B5B7A', flood: '#3F6659', lightning: '#B8935A', risk: '#D94A34' };
 
 const LAYERS = [
   { key: 'earthquake', label: '地震', color: COLORS.earthquake,
@@ -130,6 +130,8 @@ const LAYERS = [
     note: '洪水: 実際に発生した大規模洪水災害(鄭州2021・北京2023・安徽2024・長江1998)の中心地点。円は概略範囲で、実際の浸水域ではない。本番運用ではGlobal Flood Database(実測浸水ポリゴン)への置き換えが必要。' },
   { key: 'lightning', label: '雷', color: COLORS.lightning,
     note: '雷: WWLLN落雷密度統計に基づく、中国南部〜華東沿岸の落雷多発傾向を簡易可視化した参考データ(概算)。' },
+  { key: 'risk', label: '総合リスク', color: COLORS.risk,
+    note: '総合リスク: 過去の台風(経路×最大風速)と洪水(推定冠水面積)を正規化して合成した過去データベースのヒートマップ。冠水面積データが無い期間・地域は、低地で多雨傾向の既知の河川流域を簡易代替指標として使用。台風・洪水データが自動/手動更新されるたびに反映される。将来のリスクを予測するものではない。' },
 ];
 
 // --- Real historical events (verified via web search; landfall/coords approximate to nearest city) ---
@@ -157,6 +159,15 @@ const LIGHTNING_SAMPLE = [
   [29.9,118.0,0.4],[32.0,118.8,0.35],
 ];
 
+// 冠水面積データが無い場合の代替指標: 低地・多雨傾向で知られる主要河川流域/デルタ(簡易・概算)
+const LOWLAND_FLOOD_PRONE_PROXY = [
+  { center: [31.0, 121.4], weight: 0.7, name: '長江デルタ' },
+  { center: [23.1, 113.3], weight: 0.65, name: '珠江デルタ' },
+  { center: [34.75, 113.65], weight: 0.6, name: '黄河下流・鄭州周辺' },
+  { center: [30.5, 114.3], weight: 0.55, name: '長江中流・武漢周辺' },
+  { center: [39.9, 116.4], weight: 0.5, name: '海河流域・北京周辺' },
+];
+
 let map, layerGroups = {};
 let activeLayers = new Set(['earthquake']);
 
@@ -174,6 +185,7 @@ function initMap() {
   layerGroups.typhoon = L.layerGroup().addTo(map);
   layerGroups.flood = L.layerGroup().addTo(map);
   layerGroups.lightning = L.layerGroup();
+  layerGroups.risk = L.layerGroup();
 }
 
 function renderLayerBar() {
@@ -256,25 +268,35 @@ function drawTyphoonSample() {
   });
 }
 
-async function loadTyphoons() {
-  // data/typhoons.geojson があれば優先(GitHub Actionsが定期生成する実データ)。無ければ組み込みサンプルを表示。
+// 台風・洪水それぞれのGeoJSONをキャッシュし、リスクヒートマップ構築に再利用する
+let typhoonGeojsonCache = null;
+let floodGeojsonCache = null;
+
+async function fetchGeojsonSafe(path) {
   try {
-    const res = await fetch('data/typhoons.geojson');
-    if (!res.ok) throw new Error('not found');
+    const res = await fetch(path);
+    if (!res.ok) return null;
     const geojson = await res.json();
-    if (!geojson.features || geojson.features.length === 0) throw new Error('empty');
-    geojson.features.forEach(f => {
-      const coords = f.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
-      const p = f.properties || {};
-      const line = L.polyline(coords, { color: COLORS.typhoon, weight: 2.5, opacity: 0.85, dashArray: '4,4' });
-      line.bindPopup(`<div class="popup-title">${escapeHtml(p.name || '台風')}</div>
-        <div class="popup-row">${escapeHtml(p.start_time || '')} 〜 ${escapeHtml(p.end_time || '')}</div>
-        ${p.max_wind_kt ? `<div class="popup-row">最大風速: ${p.max_wind_kt}kt</div>` : ''}`);
-      line.addTo(layerGroups.typhoon);
-    });
+    if (!geojson.features || geojson.features.length === 0) return null;
+    return geojson;
   } catch (e) {
-    drawTyphoonSample();
+    return null;
   }
+}
+
+async function loadTyphoons() {
+  const geojson = await fetchGeojsonSafe('data/typhoons.geojson');
+  typhoonGeojsonCache = geojson;
+  if (!geojson) { drawTyphoonSample(); return; }
+  geojson.features.forEach(f => {
+    const coords = f.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+    const p = f.properties || {};
+    const line = L.polyline(coords, { color: COLORS.typhoon, weight: 2.5, opacity: 0.85, dashArray: '4,4' });
+    line.bindPopup(`<div class="popup-title">${escapeHtml(p.name || '台風')}</div>
+      <div class="popup-row">${escapeHtml(p.start_time || '')} 〜 ${escapeHtml(p.end_time || '')}</div>
+      ${p.max_wind_kt ? `<div class="popup-row">最大風速: ${p.max_wind_kt}kt</div>` : ''}`);
+    line.addTo(layerGroups.typhoon);
+  });
 }
 
 function drawFloodSample() {
@@ -288,24 +310,19 @@ function drawFloodSample() {
 }
 
 async function loadFloods() {
-  // data/floods.geojson があれば優先(手動または自動生成した実データ)。無ければ組み込みサンプルを表示。
-  try {
-    const res = await fetch('data/floods.geojson');
-    if (!res.ok) throw new Error('not found');
-    const geojson = await res.json();
-    if (!geojson.features || geojson.features.length === 0) throw new Error('empty');
-    geojson.features.forEach(f => {
-      const [lon, lat] = f.geometry.coordinates;
-      const p = f.properties || {};
-      const circle = L.circle([lat, lon], { radius: 45000, color: COLORS.flood, weight: 1.5, fillColor: COLORS.flood, fillOpacity: 0.22 });
-      circle.bindPopup(`<div class="popup-title">洪水イベント</div>
-        <div class="popup-row">${escapeHtml(p.began || '')} 〜 ${escapeHtml(p.ended || '')}</div>
-        ${p.main_cause ? `<div class="popup-row">${escapeHtml(p.main_cause)}</div>` : ''}`);
-      circle.addTo(layerGroups.flood);
-    });
-  } catch (e) {
-    drawFloodSample();
-  }
+  const geojson = await fetchGeojsonSafe('data/floods.geojson');
+  floodGeojsonCache = geojson;
+  if (!geojson) { drawFloodSample(); return; }
+  geojson.features.forEach(f => {
+    const [lon, lat] = f.geometry.coordinates;
+    const p = f.properties || {};
+    const circle = L.circle([lat, lon], { radius: 45000, color: COLORS.flood, weight: 1.5, fillColor: COLORS.flood, fillOpacity: 0.22 });
+    circle.bindPopup(`<div class="popup-title">洪水イベント</div>
+      <div class="popup-row">${escapeHtml(p.began || '')} 〜 ${escapeHtml(p.ended || '')}</div>
+      ${p.affected_sq_km ? `<div class="popup-row">推定冠水面積: ${p.affected_sq_km}km²</div>` : ''}
+      ${p.main_cause ? `<div class="popup-row">${escapeHtml(p.main_cause)}</div>` : ''}`);
+    circle.addTo(layerGroups.flood);
+  });
 }
 
 function loadLightning() {
@@ -314,12 +331,70 @@ function loadLightning() {
   heat.addTo(layerGroups.lightning);
 }
 
+// 台風・洪水データが両方読み込み終わってから、冠水面積を主指標にリスクヒートマップを構築する
+function buildRiskHeatmap() {
+  const points = [];
+
+  // 台風: 経路上の各点を最大風速(kt)で重み付け。風速がなければ中程度の重みを与える。
+  if (typhoonGeojsonCache) {
+    const winds = typhoonGeojsonCache.features.map(f => f.properties?.max_wind_kt).filter(w => typeof w === 'number');
+    const maxWind = winds.length ? Math.max(...winds) : 100;
+    typhoonGeojsonCache.features.forEach(f => {
+      const w = f.properties?.max_wind_kt;
+      const weight = typeof w === 'number' ? Math.min(1, w / maxWind) : 0.4;
+      f.geometry.coordinates.forEach(([lon, lat]) => {
+        points.push([lat, lon, weight]);
+      });
+    });
+  } else {
+    TYPHOON_SAMPLE.forEach(t => {
+      t.points.forEach(([lat, lon]) => points.push([lat, lon, 0.5]));
+    });
+  }
+
+  // 洪水: 冠水面積(affected_sq_km)を最優先の重みにする。
+  // データが無い場合のみ、既知の低地・多雨傾向の河川流域を代替指標として使う。
+  let anyFloodArea = false;
+  if (floodGeojsonCache) {
+    const feats = floodGeojsonCache.features;
+    const areaVals = feats.map(f => f.properties?.affected_sq_km).filter(v => typeof v === 'number');
+    if (areaVals.length > 0) {
+      anyFloodArea = true;
+      const maxArea = Math.max(...areaVals);
+      feats.forEach(f => {
+        const area = f.properties?.affected_sq_km;
+        if (typeof area !== 'number') return;
+        const weight = Math.min(1, area / maxArea);
+        const [lon, lat] = f.geometry.coordinates;
+        points.push([lat, lon, weight]);
+      });
+    }
+  }
+
+  if (!anyFloodArea) {
+    // 冠水面積データが取得できていない → 代替指標(既知の低地・多雨河川流域)を使う
+    LOWLAND_FLOOD_PRONE_PROXY.forEach(p => {
+      points.push([p.center[0], p.center[1], p.weight]);
+    });
+  }
+
+  const heat = L.heatLayer(points, {
+    radius: 35, blur: 28, maxZoom: 8, max: 1.0,
+    gradient: { 0.2: '#3B5B7A', 0.5: '#B8935A', 0.8: '#B23A2E', 1.0: '#D94A34' },
+  });
+  heat.addTo(layerGroups.risk);
+}
+
 initMap();
 renderLayerBar();
 updateLegend();
 loadEarthquakes();
-loadTyphoons();
-loadFloods();
+
+// 台風・洪水を両方読み込んでからリスクヒートマップを構築する
+Promise.all([loadTyphoons(), loadFloods()]).then(() => {
+  buildRiskHeatmap();
+});
+
 loadLightning();
 </script>
 </body>
