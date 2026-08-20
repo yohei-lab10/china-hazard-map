@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
 
       - name: Fetch earthquakes
-        run: python scripts/fetch_earthquakes.py --days 30 --minmag 3.5 --out data/earthquakes.geojson
+        run: python scripts/fetch_earthquakes.py --backfill-years 50 --minmag 5.0 --out data/earthquakes.geojson
 
       - name: Commit and push if changed
         run: |
