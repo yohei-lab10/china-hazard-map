@@ -213,8 +213,32 @@ const COLORS = {
 // Risk-intensity gradient used inside every hazard heatmap (severity, independent of peril type)
 const HAZARD_GRADIENT = { 0.33: '#3F8F5F', 0.66: '#D9A22C', 1.0: '#C13A2E' };
 
-// Bounding box used to keep hazard layers on land/coast only (excludes open-ocean track points)
+// Bounding box used as a cheap first-pass filter before the coastline polygon test
 const CHINA_LAND_BBOX = { minlat: 18, maxlat: 41, minlon: 97, maxlon: 123 };
+
+// Rough coastline polygon (mainland China only, Taiwan Strait kept on the mainland side)
+// used to exclude open-water track points that a simple bounding box would still include
+// (e.g. the East China Sea, Yellow Sea, and Bohai Sea). Approximate, for visualization only.
+const CHINA_COASTLINE_POLYGON = [
+  [97, 18], [108, 18], [110, 20.2], [112.5, 21.5], [113.6, 22.2], [116.7, 23.4],
+  [118.2, 24.5], [119.6, 24.9], [120.2, 26.0], [120.8, 27.9], [121.6, 29.0],
+  [121.9, 30.8], [122.1, 31.6], [121.0, 32.1], [120.2, 33.3], [119.5, 34.3],
+  [119.0, 35.1], [119.6, 36.0], [120.8, 37.0], [121.6, 37.4], [122.6, 37.8],
+  [121.0, 38.9], [122.5, 40.0], [124.3, 40.0], [125.0, 41.0], [97, 41],
+];
+
+// Ray-casting point-in-polygon test
+function isOnLand(lat, lon) {
+  const poly = CHINA_COASTLINE_POLYGON;
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
 
 const LAYERS = [
   { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
@@ -235,7 +259,7 @@ const METHODOLOGY = [
   { label: 'Lightning', color: COLORS.lightning,
     desc: 'Source: WWLLN lightning climatology. Illustrative strike-density weighting across known high-frequency coastal zones.' },
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
-    desc: 'Source: IBTrACS (NOAA). Weight = peak wind speed (kt) / max recorded peak wind speed, per storm. Only track points over land or near coast are used. 3-tier scale: <0.33 low, 0.33–0.66 moderate, >0.66 severe.' },
+    desc: 'Source: IBTrACS (NOAA). Weight = peak wind speed (kt) / max recorded peak wind speed, per storm. Track points are filtered to mainland China using a bounding box plus an approximate coastline polygon, so open-water segments (East/Yellow/Bohai Sea) are excluded. 3-tier scale: <0.33 low, 0.33–0.66 moderate, >0.66 severe.' },
   { label: 'Flood Hazard', color: COLORS.floodHazard,
     desc: 'Source: Dartmouth Flood Observatory. Weight = estimated inundated area (km²) / max recorded area. Fallback: known low-lying river basins when area data is unavailable. 3-tier scale: <0.33 low, 0.33–0.66 moderate, >0.66 severe.' },
   { label: 'Elevation Hazard', color: COLORS.elevationHazard,
@@ -267,8 +291,10 @@ const LIGHTNING_SAMPLE = [
 ];
 
 function inLandBbox(lat, lon) {
-  return lat >= CHINA_LAND_BBOX.minlat && lat <= CHINA_LAND_BBOX.maxlat &&
-         lon >= CHINA_LAND_BBOX.minlon && lon <= CHINA_LAND_BBOX.maxlon;
+  // Cheap first-pass filter, then a finer coastline polygon check to exclude open water
+  const inBox = lat >= CHINA_LAND_BBOX.minlat && lat <= CHINA_LAND_BBOX.maxlat &&
+                lon >= CHINA_LAND_BBOX.minlon && lon <= CHINA_LAND_BBOX.maxlon;
+  return inBox && isOnLand(lat, lon);
 }
 
 let map, layerGroups = {};
@@ -316,9 +342,34 @@ function renderLayerBar() {
   });
 }
 
+let legendExpanded = new Set();
+
 function updateLegend() {
-  const notes = LAYERS.filter(l => activeLayers.has(l.key)).map(l => l.note);
-  document.getElementById('legendNote').innerHTML = notes.join('<br><br>') || 'Select a layer above to see it on the map.';
+  const container = document.getElementById('legendNote');
+  const active = LAYERS.filter(l => activeLayers.has(l.key));
+  if (active.length === 0) {
+    container.innerHTML = 'Select a layer above to see it on the map.';
+    return;
+  }
+  container.innerHTML = active.map(l => {
+    const firstSentenceEnd = l.note.indexOf('. ');
+    const summary = firstSentenceEnd > -1 ? l.note.slice(0, firstSentenceEnd + 1) : l.note;
+    const rest = firstSentenceEnd > -1 ? l.note.slice(firstSentenceEnd + 1).trim() : '';
+    const expanded = legendExpanded.has(l.key);
+    return `<div style="margin-bottom:6px;">
+      <strong style="color:var(--text-primary);">${l.label}:</strong> ${summary}
+      ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
+      <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  container.querySelectorAll('.legend-toggle').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.key;
+      if (legendExpanded.has(key)) legendExpanded.delete(key); else legendExpanded.add(key);
+      updateLegend();
+    });
+  });
 }
 
 function renderMethodology() {
