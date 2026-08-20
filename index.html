@@ -265,7 +265,7 @@ const METHODOLOGY = [
   { label: 'Elevation Hazard', color: COLORS.elevationHazard,
     desc: 'Source: Open-Elevation grid (~1° spacing). Risk bands: <3m high risk, 3–5m watch zone, 5–10m transition, ≥10m relatively low risk. Updated infrequently since elevation is static.' },
   { label: 'Point Lookup', color: '#5C6675',
-    desc: 'On-demand query to Open-Elevation for the tapped point plus 8 surrounding points (~100m radius). Compares the center point to the average of its surroundings to flag local depressions.' },
+    desc: 'On-demand query to Open-Elevation for the tapped point plus 8 surrounding points (~100m radius). Compares the center point to the average of its surroundings to flag local depressions. Retries automatically once if the request fails.' },
 ];
 
 const TYPHOON_SAMPLE = [
@@ -479,13 +479,21 @@ async function buildTyphoonHazard() {
   if (geojson) {
     const winds = geojson.features.map(f => f.properties?.max_wind_kt).filter(w => typeof w === 'number');
     const maxWind = winds.length ? Math.max(...winds) : 100;
+    let minTime = Infinity, maxTime = -Infinity;
     geojson.features.forEach(f => {
       const w = f.properties?.max_wind_kt;
       const weight = typeof w === 'number' ? Math.min(1, w / maxWind) : 0.4;
       f.geometry.coordinates.forEach(([lon, lat]) => {
         if (inLandBbox(lat, lon)) points.push([lat, lon, weight]);
       });
+      const st = f.properties?.start_time, et = f.properties?.end_time;
+      if (st) minTime = Math.min(minTime, new Date(st).getTime());
+      if (et) maxTime = Math.max(maxTime, new Date(et).getTime());
     });
+    if (isFinite(minTime) && isFinite(maxTime)) {
+      dataRanges.typhoonHazard = `${new Date(minTime).getFullYear()}–${new Date(maxTime).getFullYear()}`;
+      updateLegend();
+    }
   } else {
     TYPHOON_SAMPLE.forEach(t => {
       t.points.forEach(([lat, lon]) => {
@@ -515,6 +523,16 @@ async function buildFloodHazard() {
         points.push([lat, lon, weight]);
       });
     }
+    let minTime = Infinity, maxTime = -Infinity;
+    geojson.features.forEach(f => {
+      const b = f.properties?.began, e = f.properties?.ended;
+      if (b) minTime = Math.min(minTime, new Date(b).getTime());
+      if (e) maxTime = Math.max(maxTime, new Date(e).getTime());
+    });
+    if (isFinite(minTime) && isFinite(maxTime)) {
+      dataRanges.floodHazard = `${new Date(minTime).getFullYear()}–${new Date(maxTime).getFullYear()}`;
+      updateLegend();
+    }
   }
 
   if (!anyFloodArea) {
@@ -538,9 +556,11 @@ async function buildElevationHazard() {
 }
 
 // ==== Point lookup: elevation + comparison with 8 surrounding points ====
-// Open-Topo-Data (SRTM 90m) is used instead of the public Open-Elevation demo,
-// which is prone to timeouts and occasionally returns 0 for valid land points.
-const ELEVATION_API_URL = 'https://api.opentopodata.org/v1/srtm90m';
+// Open-Elevation supports CORS for direct browser calls (unlike the free tier of
+// Open-Topo-Data, which requires a paid plan for CORS). It's occasionally flaky,
+// so failed lookups are retried automatically before surfacing an error.
+const OPEN_ELEVATION_URL = 'https://api.open-elevation.com/api/v1/lookup';
+const ELEVATION_MAX_RETRIES = 2;
 const DIRS = [
   { name: 'N', dLat: 1, dLon: 0 }, { name: 'NE', dLat: 1, dLon: 1 },
   { name: 'E', dLat: 0, dLon: 1 }, { name: 'SE', dLat: -1, dLon: 1 },
@@ -561,6 +581,25 @@ function elevationToRiskInfo(elevation) {
 function metersToDegLat(m) { return m / 111000; }
 function metersToDegLon(m, lat) { return m / (111000 * Math.cos(lat * Math.PI / 180)); }
 
+async function fetchElevations(locations) {
+  for (let attempt = 1; attempt <= ELEVATION_MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(OPEN_ELEVATION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locations }),
+      });
+      if (!res.ok) throw new Error('elevation api error');
+      const data = await res.json();
+      const results = data.results || [];
+      if (results.length < locations.length) throw new Error('insufficient results');
+      return results.map(r => r.elevation);
+    } catch (e) {
+      if (attempt === ELEVATION_MAX_RETRIES) throw e;
+    }
+  }
+}
+
 async function queryPoint(lat, lon) {
   const resultEl = document.getElementById('searchResult');
   resultEl.className = 'search-result visible';
@@ -568,19 +607,14 @@ async function queryPoint(lat, lon) {
 
   const dLat = metersToDegLat(SEARCH_RADIUS_M);
   const dLon = metersToDegLon(SEARCH_RADIUS_M, lat);
-  const points = [[lat, lon]];
-  DIRS.forEach(d => points.push([lat + d.dLat * dLat, lon + d.dLon * dLon]));
-  const locationsParam = points.map(p => p.join(',')).join('|');
+  const locations = [{ latitude: lat, longitude: lon }];
+  DIRS.forEach(d => locations.push({ latitude: lat + d.dLat * dLat, longitude: lon + d.dLon * dLon }));
 
   try {
-    const res = await fetch(`${ELEVATION_API_URL}?locations=${encodeURIComponent(locationsParam)}`);
-    if (!res.ok) throw new Error('elevation api error');
-    const data = await res.json();
-    const results = data.results || [];
-    if (results.length < 9) throw new Error('insufficient results');
+    const elevations = await fetchElevations(locations);
 
-    const centerElev = results[0].elevation;
-    const surrounding = results.slice(1).map((r, i) => ({ name: DIRS[i].name, elev: r.elevation }));
+    const centerElev = elevations[0];
+    const surrounding = elevations.slice(1).map((elev, i) => ({ name: DIRS[i].name, elev }));
     const avgSurrounding = surrounding.reduce((s, d) => s + d.elev, 0) / surrounding.length;
     const diff = avgSurrounding - centerElev;
 
