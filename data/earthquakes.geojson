@@ -1632,40 +1632,6 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t25s"
       }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          107.6944,
-          22.5516
-        ]
-      },
-      "properties": {
-        "mag": 4.2,
-        "place": "38 km ENE of Chongzuo, China",
-        "time": 1784558449910,
-        "depth_km": 10,
-        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t1y6"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          121.941,
-          19.8853
-        ]
-      },
-      "properties": {
-        "mag": 4.2,
-        "place": "62 km S of Basco, Philippines",
-        "time": 1784543027920,
-        "depth_km": 10,
-        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000t1ww"
-      }
     }
   ]
 }
