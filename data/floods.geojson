@@ -1,0 +1,7757 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.15291371308766,
+          47.50309681832828
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 300325.08194345,
+        "severity": 1.0,
+        "main_cause": "Ice jam/break-up"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.35101425760794,
+          26.0207584588594
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 458666.20703576,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.92105559024706,
+          27.755005155155047
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 290679.67547327,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          124.79772621079874,
+          43.717651931506936
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 994498.21144848,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.2664689630345,
+          31.49678187751526
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 58279.120798567,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          100.76669564732701,
+          23.609011743403858
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 146691.46235177,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.19973412633638,
+          25.422050954282998
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 38002.649375322,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.88283918938995,
+          21.910134219750592
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 49643.619573274,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.22336769452983,
+          21.103364692882593
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 11098.517314395,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.79874831382085,
+          23.033601776352334
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 116842.62612388,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.37509011566816,
+          45.741392519782195
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 599142.99458763,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.41550768124976,
+          23.58148398913092
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 274128.54768943,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.84650052012037,
+          31.012497742292094
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 139927.17415663,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.52463188019847,
+          31.41320080017679
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 268071.02825397,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85.17636956891423,
+          41.95251075089206
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 637522.3589477399,
+        "severity": 1.0,
+        "main_cause": "Snowmelt"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.7062803625474,
+          36.325041977191624
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 16384.778886384,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          124.59385755324296,
+          46.66052010866898
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 100391.12951017,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.60123475904716,
+          24.990832200906905
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 3705.4773200093996,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.74987547852966,
+          27.031156551352918
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 40595.03215087699,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.64379067294867,
+          25.089542741538803
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 6755.2892565514,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.93198632374458,
+          28.719640464951414
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 9275.308377989699,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.92425841533816,
+          28.32201031301981
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 26303.591192007,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.98568789513234,
+          29.389458105696292
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 33856.488571177,
+        "severity": 2.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.80238984374719,
+          34.71054415327649
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 30626.548857043,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          123.79634287357558,
+          47.6317469488621
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 9150.0788860861,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.52835063120256,
+          36.09990123297604
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 33131.163621348,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.93111655122972,
+          29.140817428927434
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 18767.016392157,
+        "severity": 2.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.37766651138686,
+          37.93142697093312
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 36877.754123176,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.80911951980035,
+          30.087426900669623
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 12334.343102473,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.03511499075586,
+          50.46516498224253
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 53818.06835284,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.48095785744063,
+          23.380275803532985
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 11240.574886111,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.22710600125798,
+          35.92861559286925
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 7256.1591189673,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.81329374525271,
+          34.35519777531221
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 153101.05272133998,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.99856168179299,
+          37.395588687435875
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 16810.03572909,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.7901491865489,
+          23.501301101591615
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 50318.080917823,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.4742704441171,
+          29.136209967913192
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 47834.64096766,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.12006770235307,
+          25.901124650560718
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 100699.45567184,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.51260428588084,
+          24.174645881947015
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 7300.073410299,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.39550696514145,
+          19.637458744346254
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 5371.986205623,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.76770022717733,
+          23.02097875450482
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 90099.33970044198,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.9566118749264,
+          34.6880788544014
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 122520.03015437,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.0171031180618,
+          24.837314852133908
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 8667.8589122872,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.41187120502768,
+          29.078845259657996
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 4578.6975927646,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.11258573445357,
+          22.386173977141578
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1005.6388132828,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.75078565462631,
+          27.689262084673246
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 178424.68224078,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.01059148269263,
+          30.682842219387712
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 321489.69962965004,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.44510645356489,
+          23.194873591410083
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 19169.498635412,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.39155672629805,
+          39.350448420345984
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 207057.17611919,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.91450981526502,
+          36.35887045661538
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 8440.7029974152,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.91539620624455,
+          32.411257121510644
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 7716.694516087,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.6427220899888,
+          31.106925730807774
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 85600.473704117,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          133.01230670461885,
+          45.98935423891712
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 12533.330179289,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.20337035644395,
+          43.67730926472508
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 192272.11728506,
+        "severity": 1.0,
+        "main_cause": "Monsoonal rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.16193628469878,
+          30.252495445803948
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 70236.674674108,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.84577287153182,
+          24.085603071145062
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 15551.631089619,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.88294898610417,
+          27.462212063027334
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 215082.71962326003,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.61309726164956,
+          23.289194488342385
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 17494.315124145,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.0356647772874,
+          19.056999203646054
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 18207.395655255,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5215350969031,
+          24.98217071209285
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1557.4619181788,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.76408077439133,
+          27.61164082789875
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 206490.33422695004,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.42596374269623,
+          24.66404887029213
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 340844.67397899,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.52311545794346,
+          25.676891751445382
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 377866.61022064,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.65680627631205,
+          31.73586201979285
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 438797.07250293,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.3073242085311,
+          24.501604524077834
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 292874.78406778,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.5418555600943,
+          30.117185048468347
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 457815.00379949,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.92684598913179,
+          29.47309506543996
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1682864.9253401,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.4178675749557,
+          40.16876790247659
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 19050.231710671,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.89873256613284,
+          30.06655950016256
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 589049.52223693,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.15288255751133,
+          30.097111913889485
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 32703.628068679,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.6332923927921,
+          28.202416285022075
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 134660.58274319,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.18681874005915,
+          36.539606680556965
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 94812.448096835,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          127.03654539629979,
+          45.31045336527292
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 508812.73844919,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.39676421334157,
+          31.07782678971158
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 4350.2781100927,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.52985582677223,
+          30.505401820576157
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 554217.85673492,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.45877789968714,
+          26.31845486244147
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 545359.27481545,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.52459209288028,
+          29.024662314147914
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 542309.51236523,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.15246757939704,
+          22.377001367956094
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1370.5890797591,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.12569087832756,
+          27.949329447267086
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 491147.38055451,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.16253987939412,
+          22.38498705797669
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1232.7557586639,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.51380729486789,
+          27.554305114382927
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 392988.45026211,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.34394669005562,
+          25.313477729894323
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 12868.254318565,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.55818010969888,
+          28.548907018630164
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 65829.367962411,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.79195901138273,
+          22.453138349308652
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 74669.119924269,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.07631754703692,
+          35.63471638628641
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 432937.00685076,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.92154245138701,
+          23.622853541224323
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 33606.678859971,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.69859294504238,
+          27.946385592209538
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 166182.77020704,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.44336528595714,
+          23.68495663420575
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 72612.484678489,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.7634575770966,
+          24.29155121255156
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 7755.7102794807,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.98348044472945,
+          25.12015590339352
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 444778.52664594,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.6161879761003,
+          28.85029406333223
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 432773.19648578,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.57712687413823,
+          29.063727096905144
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 118961.75195329,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.88814398372136,
+          43.747313697373905
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 56895.898375811,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.7009778908142,
+          29.787011372644287
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 9596.6186577305,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.72315820714861,
+          36.48871034821276
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 112505.66857391,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.01327821126982,
+          24.749007925139466
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 77049.909750019,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          100.17600939253785,
+          36.17053614517819
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 6844.6563467461,
+        "severity": 1.0,
+        "main_cause": "Dam/Levy break or release"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.15219634390216,
+          22.52119002531405
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 280.4434361861,
+        "severity": 2.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.14997357389443,
+          22.44191407928284
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1016.7135258853,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.05258800343462,
+          40.4182759825672
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 12109.08162676,
+        "severity": 1.0,
+        "main_cause": "Ice jam/break-up"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.726904100055,
+          27.621447507453638
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 165721.86238831,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.99220171788758,
+          26.0725358145937
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 121675.06192662,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.58203052898382,
+          25.98797965851479
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1015419.6477826,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.29297698762956,
+          30.995636411147167
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 183806.69922533,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.10398586995387,
+          22.46048712947813
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2987.022587352,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.0350178667782,
+          46.75067283329729
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1066165.0229212,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.91953803053862,
+          23.142371803100016
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 16588.354360583,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.82361166076474,
+          23.41606113316647
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 27168.547165905,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.1774503126349,
+          22.578164041674654
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 3849.8667321406,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.7895180786987,
+          31.096280196686106
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 206025.85329924,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.71187949230314,
+          36.21887271801502
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 13150.28763724,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.45337661386597,
+          23.34344956683741
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 169667.4729838,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.06081695697668,
+          27.993950917169727
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1668229.6451832,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.9266424186688,
+          30.526096564263977
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 231371.28620419,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          124.62796693105966,
+          42.61003547192271
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 325414.55451638,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.64619952311152,
+          27.569892417587464
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 150091.91506745,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.08888733612605,
+          25.357268686284698
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 233546.8420092,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.37841427119207,
+          30.71535849303737
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 236745.24050168,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.96356678039582,
+          23.364601168517844
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 17021.752549992,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.81704582998248,
+          25.769415153591517
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 138167.33079627,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.76456637632934,
+          19.275221122585737
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 36474.364629794,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.9215847679589,
+          25.71006010054233
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 832682.34583333,
+        "severity": 1.0,
+        "main_cause": "Monsoonal rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.34125705542422,
+          22.857606662117412
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 34586.094665313,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.14997237190897,
+          22.380461622315597
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1368.352161029,
+        "severity": 2.0,
+        "main_cause": "Monsoonal rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.55157968767689,
+          24.734943766563944
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 6415.0417739648,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.1717857249441,
+          30.054254573596218
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 67369.752375503,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.90405279955463,
+          22.05762118454123
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 55174.37743645,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          83.05052049906637,
+          43.375056425457736
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 62966.224050298,
+        "severity": 1.0,
+        "main_cause": "Rain and snowmelt"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.3887470726318,
+          23.362719461160193
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 174990.05621541,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.36142883924097,
+          23.802263584193923
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 183090.31653257,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.43728725165553,
+          25.55005390582119
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 74261.331994449,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.17747731669502,
+          28.27875315507915
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 25292.414572975,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.65769389428579,
+          26.782497790798768
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 28999.543775074,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.96330892046575,
+          31.208480983832317
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 10074.021921725998,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.18737693582874,
+          22.390124036961637
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1017.4953798557,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.53929559717878,
+          26.91996087153762
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 27345.451047652,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.37274701473122,
+          35.055377706050656
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 124210.67710638,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.13194633276332,
+          28.406352544514814
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 20184.726246669,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.17624877304664,
+          24.810597135554307
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2934.8010722177,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.51657438859726,
+          24.961330814393843
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 25074.997965398,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.58874468190751,
+          27.286292490900422
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 124671.44744732001,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.08808119730617,
+          30.302488012298685
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 199739.20369418,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.97606944710624,
+          22.482091172451366
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 5592.6771071054,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.90977674785205,
+          30.805853083335094
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 79574.204607588,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.32375455050465,
+          28.71122827288585
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 96993.275203231,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.83561921756123,
+          25.32009797508406
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 60529.47459944701,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          83.69789021080506,
+          41.02116415354154
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 178662.76835461,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.97579315393263,
+          35.704697827039894
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 51481.794088392,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.64814142531358,
+          31.016379526016237
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 149532.70123029,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.52258596282931,
+          30.111900000275863
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 216145.34869302003,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.41578791769903,
+          26.813342047508318
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 70343.628276019,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.42036165039038,
+          23.325848162159563
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 164944.03805243,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.80973306193341,
+          23.65589896623891
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 7743.4939869163,
+        "severity": 1.0,
+        "main_cause": "Monsoonal rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.26014897628868,
+          22.67992970174154
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 5843.608174703,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.06280258045679,
+          28.63285001901771
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 35148.43783743,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.41306880343124,
+          28.400818083293693
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 133217.34377485,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.23568833899482,
+          28.95724767991525
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 292972.71696066,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.6367639968527,
+          29.27710251308502
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 367328.25984979,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.79291867217867,
+          36.61289810369062
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 72123.724936819,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.62147542526579,
+          28.974736283303358
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 235631.2259506,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.55023302189178,
+          30.31497027649633
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 305479.67666827,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.97015623755512,
+          23.143993816358083
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 41223.711912504,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.82045168683968,
+          24.754345857668152
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 26915.6879719,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.51150322799933,
+          29.742506464607395
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 29725.675230802,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.82345883829349,
+          30.061536577497428
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 36417.403720225,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.66238339019164,
+          27.690257991358695
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 54190.528061747,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.54463464975292,
+          28.438005443461176
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 170585.73518114001,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          122.7517569489016,
+          46.98465469504241
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 620830.1777151499,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.84989934196877,
+          29.317041111694273
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 215634.53544541,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.05685493765083,
+          23.84199107749819
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 24807.76094583,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.83428008269657,
+          31.528855588119377
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 100713.38728709999,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.06093571544623,
+          28.082619371550145
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 73327.20033746,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          96.06999302221152,
+          34.95228028080609
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 97849.143715173,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.75518871165701,
+          27.910785429012517
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 123894.33183745,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.57323721947961,
+          28.191550076034147
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 362133.70482855,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.87676663369815,
+          36.4818909081541
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 35711.451459733,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          98.98008736970021,
+          30.574305443194003
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 147169.80495289,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.22855507744588,
+          26.808618780638586
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 104528.16453963,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.69927058157985,
+          23.617180809209966
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 111159.48629766,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.98524586555017,
+          27.31770076910606
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 112209.13557339,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.78644037684317,
+          24.978587597431513
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 177650.73010632,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.3053443647091,
+          22.589805749656367
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 21168.023495887,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.44095197894381,
+          32.6313462853418
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 114035.69231336,
+        "severity": 2.0,
+        "main_cause": "Monsoonal rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.61536495019887,
+          26.2257628730606
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 75852.563571092,
+        "severity": 1.0,
+        "main_cause": "Monsoonal rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.4964301662317,
+          28.036137184207128
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 107667.89159389,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          132.29315314215512,
+          43.90719293785091
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 81863.871829448,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          89.3429632574516,
+          28.995129910459795
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 9210.7785411969,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.46403383600358,
+          25.316541943254233
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 25899.578213259,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.24883319575768,
+          19.710322198182983
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 11165.900410555,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.60961195029576,
+          24.8446422683938
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 4476.7698057838,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.78691244365763,
+          22.200791850608525
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 18915.791296738,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.23268352658904,
+          26.499979698121848
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 3605.3994470354,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.1745152248727,
+          23.1817395548884
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 205221.43253303,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.65436838819396,
+          36.780175205795175
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 18012.880418092,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.45590556631984,
+          22.655618749525903
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1313.2917228047,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.68094701447176,
+          34.33365520133743
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 6806.2784588041,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.32856022841864,
+          23.51315775063719
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 3947.0846619114996,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.12591876477815,
+          23.68267092106858
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 5570.2860558602,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.44303819406443,
+          19.42459893644431
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 14470.911496026,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.31717447328843,
+          24.983544130305027
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2802.7780121216,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.63016765713459,
+          31.053894635592954
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 14700.462600683,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.5696517170427,
+          40.72748210544678
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 17366.540932947,
+        "severity": 1.0,
+        "main_cause": "Ice jam/break-up"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.36278603806387,
+          39.70172296365232
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1017.3571475462,
+        "severity": 1.0,
+        "main_cause": "Dam/Levy break or release"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.96082934072373,
+          27.428337186328296
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 156149.13735857,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          83.18676333423014,
+          44.40347154361762
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 124885.48845794,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.9830652156726,
+          32.67201153140389
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 252147.96750151,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.8210542465913,
+          26.494144171558467
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 50532.064861481,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.89939879685554,
+          28.028236712300135
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 130291.32667582,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.51144256987509,
+          27.850794997378173
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 13634.823406869,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.58765590274778,
+          25.31681857424462
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 20154.024486578,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.66849282508852,
+          33.03649172437062
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 22455.412083389,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.81448968110199,
+          29.36017897831033
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 598178.97727458,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.69983985189957,
+          24.961333966643213
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 179044.57694065,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.86699498605955,
+          37.070803423281724
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 4728.5032728574,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          89.04138894943512,
+          46.36835427017901
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 127556.40837741,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          122.63227434767168,
+          40.96931728553868
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 6075.257074702,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.54940636306968,
+          35.62333248958453
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 5174.6042448734,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.27671274979332,
+          24.440576774470642
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2120.1611944042,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.7349382521155,
+          27.80250100046477
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 94511.305205632,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.1065228473517,
+          30.691585110943336
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 522.9221283169,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.47033832331749,
+          28.870103096835226
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 28018.739166514,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.40703999045577,
+          25.50252474889753
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 17267.46836037,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.4436693379199,
+          39.70557058295293
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 17448.177913406,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.39295893842802,
+          24.27589437134965
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 7741.0367523788,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          133.41027672601456,
+          45.189580977926546
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 30394.375594013,
+        "severity": 1.0,
+        "main_cause": "Snowmelt"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.64970526577534,
+          26.593034656453078
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 317905.5981608,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          82.35225156453744,
+          43.75727367017563
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 44616.580408797,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.28751342473925,
+          30.662997191596382
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 9132.3358016099,
+        "severity": 1.0,
+        "main_cause": "Dam/Levy break or release"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.5464546250855,
+          29.227897089532995
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1540349.4405366,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.81425214399933,
+          32.66748504610328
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 126534.38699259,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.87428140855629,
+          43.17218203538294
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 103777.99292928,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.2715374041095,
+          21.720720074077814
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 50627.995205994,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          125.71651547497389,
+          47.63642212503307
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 215590.79448539997,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.06731273677653,
+          39.01924263078168
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 9891.461481976501,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.1623896444435,
+          32.988520291724555
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 323815.17334068,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.21077384242581,
+          21.414215591515596
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 27219.116888990997,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.56642201327764,
+          34.42298633626051
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 471060.82496503,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.04374095633933,
+          30.027579648572388
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 6155.3353003419,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.57779354763564,
+          25.720878687101496
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2292.8094868933,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.53181429723539,
+          29.095432425199903
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 10939.985239214,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.47587079730076,
+          30.288606760292712
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 114.07335492692,
+        "severity": 1.0,
+        "main_cause": "Dam/Levy break or release"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.26218306653087,
+          47.87268770736507
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2442.1913814498,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.99536407775038,
+          25.984307317924845
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 9845.034578744198,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.44502405047335,
+          27.26135884257715
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 47477.589721581,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.50986531030217,
+          28.07328592263443
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 92247.562969964,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.79319446520262,
+          28.843535229351815
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 14994.271688537,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.1164008709987,
+          25.28773618845091
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 44796.523983082,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.34321849005889,
+          23.06553469913028
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 156995.58120978,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.90175116910686,
+          33.06454919012194
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 52796.909005457,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.23853453302318,
+          27.97401659106523
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 86023.985973916,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          123.01547659543672,
+          43.137255447183705
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 106552.73375713,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.81985559085663,
+          41.16490227882644
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 19410.63564974,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.81951707704654,
+          28.47966879584997
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 16657.317619793,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.75344110083242,
+          31.018330055852072
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 72283.697590936,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.13465767252663,
+          24.531388576914026
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 10780.742773833,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.58892409041084,
+          25.00331750240455
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2490.361758262,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78.46321255296078,
+          44.718565061586055
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 220943.44042875996,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.12502716990991,
+          34.42126389236882
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2020.7609246691,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.32951255364917,
+          28.552471314686052
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 679663.59918858,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          129.26188532040044,
+          44.33272874799793
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2332.1187309162,
+        "severity": 2.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.38671780288767,
+          22.8478188140308
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 3446.4011070481,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.96976357339994,
+          26.46093665489396
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 93628.71439446,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.25492198413484,
+          23.880255995626936
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 226558.27223396,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.44889517264627,
+          30.201396017309218
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 69402.58210754,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.49295394135567,
+          46.110934132835474
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 275029.31005387,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.87416610657884,
+          32.68878973580158
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 101854.32176012998,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.8032623982894,
+          28.215231121771502
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 12148.256282709,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.2676611548759,
+          27.699105468814583
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 395.80728269234,
+        "severity": 1.0,
+        "main_cause": "Dam/Levy break or release"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          82.46508973321906,
+          40.127937015544205
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 855819.77468225,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          123.34368991913924,
+          41.9035177577941
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 85856.936144266,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.4079981817898,
+          32.05413057452529
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 43676.360139697,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.6722057818791,
+          29.262183727171095
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 188694.04639519003,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.27337835119637,
+          30.482674394431424
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 84372.276668569,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.52569390680785,
+          19.02712889629988
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 491950.15150543,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.09438994490492,
+          32.843218880762564
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 29516.962752621,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.1387688701387,
+          26.02427594497555
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 13902.971395051,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.10816063269044,
+          34.46956587069135
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 12375.932897198,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.14171858433536,
+          40.743718596644676
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 76506.596955713,
+        "severity": 1.0,
+        "main_cause": "Snowmelt"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.85951168599011,
+          26.807767921264105
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 175249.12257239,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.77319599722627,
+          25.679425705207024
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 141404.27186984,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.8988379677703,
+          30.87651876022699
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 107431.14742561,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.42581610764536,
+          26.607199948499943
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 76601.145309535,
+        "severity": 2.0,
+        "main_cause": "Monsoonal rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.3915055021659,
+          23.434727394830677
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 4210.0586353259,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.80565753111857,
+          24.007343542130467
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 14311.406173684,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.53456132471665,
+          25.49025817616681
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 11678.747217194,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.5897631948125,
+          26.172092841834562
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 58065.331526666,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.86706669317465,
+          24.739497925310978
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 7858.7583283283,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.870916088339,
+          27.316541157304073
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 34991.367660292,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.34074968102368,
+          26.006713133050706
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 11362.693334013,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.47623907825523,
+          28.49485263313977
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 109599.76247906,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.31363124745066,
+          33.82783435923892
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 43706.281369277,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.94837452076372,
+          40.70840987840833
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 32.9630893979,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.32210769220593,
+          43.53406951022589
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 138195.36255965,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          98.9055743329584,
+          39.28833895077115
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 16831.945687806,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.5158971783088,
+          22.312366624625323
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 20117.684027695,
+        "severity": 1.0,
+        "main_cause": "Monsoonal rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          128.91386674286392,
+          47.744561720904
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1391.7546805073998,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.54099190891488,
+          24.353007490715477
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 612225.67785672,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.61346567103715,
+          39.04087282808422
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1726.3269275999003,
+        "severity": 1.0,
+        "main_cause": "Monsoonal rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.11640541486483,
+          24.69902902683905
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1666.2400496385,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.0691318800933,
+          26.42876729485533
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 350925.22855089,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.8881657122726,
+          22.44982406483772
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 162839.52094741,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.17994165204723,
+          26.77991265174007
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 191443.7961758,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.68908254288921,
+          34.63927989842701
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 16922.136230864,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.46658232780293,
+          23.433649201571765
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 24766.328134649,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.79557607219513,
+          39.33252509758364
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 940.37842637611,
+        "severity": 1.0,
+        "main_cause": "Dam/Levy break or release"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.42020822586004,
+          26.873823871589106
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 3206.7096824022,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.84076771558613,
+          30.23075386858298
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 43534.363026096,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.81579351165061,
+          27.54602569200395
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 168579.76481671,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.16118725070056,
+          27.987722371383754
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1916283.7086732003,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          89.348407782243,
+          42.83656616608859
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 812726.2095538201,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.88269543983004,
+          36.754096391436924
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 96491.191404706,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          100.17357236011983,
+          24.044212707658122
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 165133.84944263,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.61645183729165,
+          36.00983250190691
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 100076.79491368,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.08369863415108,
+          27.76176064777626
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 32590.673570377,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.90612774366181,
+          32.76138082700244
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 4380.3515989815,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.95837357443257,
+          23.772756966178775
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 34614.653379671,
+        "severity": 1.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.48626155172796,
+          43.73234119317905
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 17161.601177019,
+        "severity": 1.0,
+        "main_cause": "Ice jam/break-up"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.77569442857438,
+          40.01655278516922
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 64010.290242654,
+        "severity": 1.5,
+        "main_cause": "Ice jam/break-up"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.55450474658885,
+          33.396100348885
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 20737.172314585,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.09452005533956,
+          30.879360422445
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 43958.61613379899,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.86134403165755,
+          26.57553635455523
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 144704.15074326,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.36311448286438,
+          22.34926672398994
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 79368.515978535,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.23877326171161,
+          23.69740392065427
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 373961.51507241005,
+        "severity": 1.5,
+        "main_cause": "Tropical  Storm Fenshen"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.71944737137723,
+          23.07122810268677
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 17090.285106872,
+        "severity": 2.0,
+        "main_cause": "Tropical Storm Kalmaegi"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.25684548145321,
+          32.660235220635585
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 533930.15067328,
+        "severity": 2.0,
+        "main_cause": "Tropical Storm Fung-Wong"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.66187687300643,
+          22.585573661556534
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 24614.952075697,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.2096870577311,
+          22.494928537359687
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 8409.8554265567,
+        "severity": 2.0,
+        "main_cause": "Tropical Storm Kammuri"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.59278960948237,
+          24.772520221328783
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 4834.0799235705,
+        "severity": 1.5,
+        "main_cause": "Tropical Storm Sinlaku"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.72695713279732,
+          21.973641131714565
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 6852.6410537989,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.76509100426358,
+          19.20344744681387
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 29937.671818609,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.42289691050284,
+          25.728691971178684
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 201149.88774411,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.28355974921561,
+          26.70125761143561
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 82900.061670784,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.34347045951638,
+          25.250218031542424
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 542051.73142614,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.13075549723528,
+          30.832187099065532
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 201114.11284864,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.78492717495864,
+          19.175024499756134
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 30538.001304212,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.14658635322236,
+          24.24825006187252
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 24905.810307827,
+        "severity": 2.0,
+        "main_cause": "Tropical cyclone"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.07929644188796,
+          26.590056049744884
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 81300.714319098,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.12128525027563,
+          25.19220728691145
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 19903.726273059,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.44980867844203,
+          26.457369693101487
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 234212.72127343,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.63245613235105,
+          24.961932075584805
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1399.4910599002003,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          96.86416299671795,
+          39.74912731859009
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 396656.67449553,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.59592337226016,
+          27.84611353847061
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 575176.15938321,
+        "severity": 1.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.20892356245369,
+          28.9821655714598
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 235548.21276366,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.54857093198191,
+          22.70693817644474
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 10513.158027408,
+        "severity": 1.5,
+        "main_cause": "Tropical Storm Chanthu"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.53271638871193,
+          31.070521653963702
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1049485.1169446,
+        "severity": 2.0,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.99600557726207,
+          37.90372496203074
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 442536.32845244993,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.74775644173639,
+          22.54553785371418
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 6726.2462661334,
+        "severity": 2.0,
+        "main_cause": "Tropical Storm Fanapi"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.95214385714284,
+          18.957856142857146
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 3978.2967776156,
+        "severity": 2.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.79898018307031,
+          19.200800534453325
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 24954.001963466,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.9066267054645,
+          27.68713401441682
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 431896.51896441,
+        "severity": 2.0,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.90088918151832,
+          37.03241187646777
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 115468.68000387,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          134.9514002342828,
+          48.810947075692475
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 189593.0510802,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.00781285668731,
+          27.483404705035117
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1341347.0916673,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.09510787766172,
+          37.36786181219131
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1215861.7752165,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.8375126442454,
+          22.224560198402173
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 24302.219347797,
+        "severity": 1.5,
+        "main_cause": "Tropical Storm Nesat"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.65096301262501,
+          32.336073541967245
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1056107.6940275,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.00499545383536,
+          23.963646213092634
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 18940.518481231,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.44753677632508,
+          32.7689334157345
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 2643786.5555728,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.58912870856105,
+          31.405274371159386
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 92141.105197489,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.64136153878879,
+          42.315307023932654
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 29832.304966874,
+        "severity": 2.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.68298254405778,
+          34.78285679173229
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 100600.98017951999,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          122.62478271387818,
+          40.46659243990318
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 9559.8869690229,
+        "severity": 2.0,
+        "main_cause": "Typhoons  Damrey and Saola"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.58074892896545,
+          31.148991955900907
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 107983.97017184,
+        "severity": 1.0,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.26335141124638,
+          37.57690182172626
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 45130.626913839,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.222779765176,
+          30.328900526661755
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 56959.945334962,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.16269378398879,
+          23.799286655306748
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 84761.741868061,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.03684197060123,
+          30.587182312399857
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 419827.14527332,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.12246956223848,
+          25.971081506594793
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 101850.91683273,
+        "severity": 1.5,
+        "main_cause": "Tropical Storm Sulik"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.56073684789423,
+          23.077946810751552
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 112220.53287545,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          128.50393717679427,
+          50.07778263965327
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 102479.26637457,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          128.34855799170018,
+          51.24973340645321
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 1430155.5565689,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          100.29492440879655,
+          35.956004863538865
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 93531.737479041,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.20811300151877,
+          23.042173773630587
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 98182.912326863,
+        "severity": 1.5,
+        "main_cause": "Tropical Storm Utor"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.62459656709497,
+          29.18093434410163
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 41577.159289496,
+        "severity": 1.5,
+        "main_cause": "Tropical Storm Fitow"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.64472606946134,
+          27.359961218064246
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 205001.26922884,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.9852360855122,
+          23.374392964286518
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 45994.297612765,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.11810575586563,
+          26.564330921362924
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 377101.62863968994,
+        "severity": 1.0,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.21700900360993,
+          21.69640124890312
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 82764.220340604,
+        "severity": 2.0,
+        "main_cause": "Typhoon Rammasun"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.98210314245148,
+          25.70049506764708
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 387775.13117058,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.30027289799575,
+          30.757568174359374
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 55272.313634058,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.50999541659881,
+          27.945427726918393
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 145834.76829622,
+        "severity": 1.5,
+        "main_cause": "Tropical Storm Maysak"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.9932020350757,
+          26.979578517246484
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 247569.93700667,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.4278449837364,
+          35.08477294733896
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 53741.005712926,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.37133180427166,
+          24.83558456317631
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 383223.81188604,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.69810655249347,
+          24.736576841962208
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 197079.53428688,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.39452605957013,
+          28.231803197248247
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 720844.29604148,
+        "severity": 2.0,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.85404877251793,
+          26.734865898477167
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 355308.58532646,
+        "severity": 1.5,
+        "main_cause": "Tropical Storm Meranti"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.11342740287692,
+          23.977004155795356
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 104160.81920501,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.31079168774019,
+          24.288155440265903
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 16445.898459197,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.9998204137884,
+          25.803109137552298
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 551384.87638005,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.51641260367208,
+          22.604543570159198
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 19073.58502571,
+        "severity": 2.0,
+        "main_cause": "Tropical Storm Hato"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.48658064340354,
+          29.604774819635722
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 283444.21425168,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.85664133659031,
+          23.715880924903143
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 109610.10204264,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.05629629705739,
+          24.240505543135363
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 138371.30308815,
+        "severity": 1.5,
+        "main_cause": "Tropical Storm Ewiniar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.30771666352916,
+          33.07338256254682
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 525500.07654175,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.94400547300215,
+          22.869821728406937
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 73166.816120042,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.58861114000351,
+          24.46932419585401
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 470032.43127921,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.13182891639511,
+          28.857857711727448
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 364955.86329287,
+        "severity": 1.0,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.95809812902047,
+          28.645714704978133
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 251526.70257804,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.44271919765859,
+          24.483849852048923
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 154387.05989689,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.01053380874056,
+          31.04558998586299
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 107563.03453592,
+        "severity": 2.0,
+        "main_cause": "Monsoonal Rain and Dam release"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.24697742196777,
+          26.92809060124967
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 82493.338453789,
+        "severity": 1.5,
+        "main_cause": "Monsoonal Rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.18403732356809,
+          34.15578456536529
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 129685.31123592,
+        "severity": 2.0,
+        "main_cause": "Torrential rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.09623151955927,
+          35.257712820630545
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 103744.0,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.65811247706166,
+          27.66752530995924
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 663000.0,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.24296717994295,
+          32.82825352493951
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 120000.0,
+        "severity": 2.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.81780415650763,
+          36.716062426339334
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 62000.0,
+        "severity": 1.5,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.30171574052778,
+          27.682868748814734
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 3350.0,
+        "severity": 1.0,
+        "main_cause": "Heavy rain"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.10796294902515,
+          24.55828369704084
+        ]
+      },
+      "properties": {
+        "began": null,
+        "ended": null,
+        "dead": null,
+        "displaced": null,
+        "affected_sq_km": 108684.0,
+        "severity": 1.5,
+        "main_cause": "Torrential rain"
+      }
+    }
+  ]
+}
