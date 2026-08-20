@@ -278,14 +278,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          131.424,
-          30.9744
+          131.4736,
+          31.027
         ]
       },
       "properties": {
         "mag": 4.3,
-        "place": "48 km ENE of Nishinoomote, Japan",
-        "time": 1786402794062,
+        "place": "55 km SSE of Kushima, Japan",
+        "time": 1786402794432,
         "depth_km": 35,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tjtz"
       }
@@ -295,15 +295,15 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          104.6343,
-          28.6111
+          104.6812,
+          28.6412
         ]
       },
       "properties": {
         "mag": 4.5,
-        "place": "12 km SE of Baixi, China",
-        "time": 1786397504273,
-        "depth_km": 55.31,
+        "place": "13 km SSE of Yibin, China",
+        "time": 1786397503296,
+        "depth_km": 45.44,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tjt8"
       }
     },
