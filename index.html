@@ -153,6 +153,11 @@
     color: var(--text-faint); text-transform: uppercase;
   }
   .legend-note { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); line-height: 1.55; padding: 0 16px 10px; background: var(--panel); }
+  .legend-note.collapsed .legend-full { display: none; }
+  .legend-note .legend-toggle {
+    display: block; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    font-weight: 600; letter-spacing: 0.4px; color: var(--navy); cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -451,7 +456,9 @@ async function buildElevationHazard() {
 }
 
 // ==== Point lookup: elevation + comparison with 8 surrounding points ====
-const OPEN_ELEVATION_URL = 'https://api.open-elevation.com/api/v1/lookup';
+// Open-Topo-Data (SRTM 90m) is used instead of the public Open-Elevation demo,
+// which is prone to timeouts and occasionally returns 0 for valid land points.
+const ELEVATION_API_URL = 'https://api.opentopodata.org/v1/srtm90m';
 const DIRS = [
   { name: 'N', dLat: 1, dLon: 0 }, { name: 'NE', dLat: 1, dLon: 1 },
   { name: 'E', dLat: 0, dLon: 1 }, { name: 'SE', dLat: -1, dLon: 1 },
@@ -479,15 +486,12 @@ async function queryPoint(lat, lon) {
 
   const dLat = metersToDegLat(SEARCH_RADIUS_M);
   const dLon = metersToDegLon(SEARCH_RADIUS_M, lat);
-  const locations = [{ latitude: lat, longitude: lon }];
-  DIRS.forEach(d => locations.push({ latitude: lat + d.dLat * dLat, longitude: lon + d.dLon * dLon }));
+  const points = [[lat, lon]];
+  DIRS.forEach(d => points.push([lat + d.dLat * dLat, lon + d.dLon * dLon]));
+  const locationsParam = points.map(p => p.join(',')).join('|');
 
   try {
-    const res = await fetch(OPEN_ELEVATION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locations }),
-    });
+    const res = await fetch(`${ELEVATION_API_URL}?locations=${encodeURIComponent(locationsParam)}`);
     if (!res.ok) throw new Error('elevation api error');
     const data = await res.json();
     const results = data.results || [];
