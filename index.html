@@ -242,7 +242,7 @@ function isOnLand(lat, lon) {
 
 const LAYERS = [
   { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
-    note: 'Earthquakes: last 30 days, M3.5+, pulled live from the USGS earthquake catalog for the China region. Marker size scales with magnitude.' },
+    note: 'Earthquakes: M5.0+ events for the China region, backed by a 50-year historical backfill from the USGS earthquake catalog, updated incrementally. Marker size scales with magnitude.' },
   { key: 'lightning', label: 'Lightning', color: COLORS.lightning,
     note: 'Lightning: illustrative density based on WWLLN lightning climatology, highlighting strike-prone areas across southern China and the eastern coast.' },
   { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
@@ -255,7 +255,7 @@ const LAYERS = [
 
 const METHODOLOGY = [
   { label: 'Earthquakes', color: COLORS.earthquake,
-    desc: 'Source: USGS Earthquake Catalog API. Window: rolling 30 days. Threshold: M3.5+. Live, not historical.' },
+    desc: 'Source: USGS Earthquake Catalog API. Backfilled once for a 50-year historical window (M5.0+), then updated incrementally on each run — only new events since the last run are appended, so the full history is not re-fetched every time. Until the backfill file exists, the map falls back to a live 30-day feed.' },
   { label: 'Lightning', color: COLORS.lightning,
     desc: 'Source: WWLLN lightning climatology. Illustrative strike-density weighting across known high-frequency coastal zones.' },
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
@@ -301,7 +301,7 @@ let map, layerGroups = {};
 let activeLayers = new Set(['earthquake']);
 
 function initMap() {
-  map = L.map('map', { zoomControl: true, attributionControl: true }).setView([31.0, 117.0], 5);
+  map = L.map('map', { zoomControl: true, attributionControl: true }).setView([31.57, 120.30], 11);
   // Light, professional cartographic base (CartoDB Positron)
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO',
@@ -395,6 +395,37 @@ function escapeHtml(s) {
 
 async function loadEarthquakes() {
   document.getElementById('statusLabel').textContent = 'Fetching earthquakes…';
+
+  // Prefer the pre-generated, backfilled dataset (scripts/fetch_earthquakes.py)
+  const geojson = await fetchGeojsonSafe('data/earthquakes.geojson');
+
+  if (geojson) {
+    let count = 0;
+    let minTime = Infinity, maxTime = -Infinity;
+    geojson.features.forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const p = f.properties || {};
+      const mag = p.mag || 0;
+      const marker = L.circleMarker([lat, lon], {
+        radius: Math.max(4, mag * 2.2),
+        color: COLORS.earthquake, weight: 1.5, fillColor: COLORS.earthquake, fillOpacity: 0.3,
+      });
+      const date = p.time ? new Date(p.time).toLocaleDateString('en-US') : '';
+      marker.bindPopup(`<div class="popup-title">M${mag.toFixed(1)} Earthquake</div>
+        <div class="popup-row">${escapeHtml(p.place)}</div>
+        <div class="popup-row">${date}</div>`);
+      marker.addTo(layerGroups.earthquake);
+      count++;
+      if (p.time) { minTime = Math.min(minTime, p.time); maxTime = Math.max(maxTime, p.time); }
+    });
+    const minYear = isFinite(minTime) ? new Date(minTime).getFullYear() : '—';
+    const maxYear = isFinite(maxTime) ? new Date(maxTime).getFullYear() : '—';
+    document.getElementById('statusLabel').textContent = `Data range: ${minYear}–${maxYear}`;
+    document.getElementById('countLabel').textContent = `${count} earthquakes (M5.0+)`;
+    return;
+  }
+
+  // Fallback: live last-30-days query, used only until the backfilled file exists
   try {
     const url = 'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=' +
       new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10) +
@@ -416,7 +447,7 @@ async function loadEarthquakes() {
       marker.addTo(layerGroups.earthquake);
       count++;
     });
-    document.getElementById('statusLabel').textContent = 'Updated ' + new Date().toLocaleString('en-US');
+    document.getElementById('statusLabel').textContent = 'Live feed (last 30 days) — backfill not yet generated';
     document.getElementById('countLabel').textContent = `${count} earthquakes (30d, M3.5+)`;
   } catch (e) {
     document.getElementById('statusLabel').textContent = 'Failed to load earthquake data';
