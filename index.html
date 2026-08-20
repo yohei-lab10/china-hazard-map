@@ -1,28 +1,30 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>China Historical Data</title>
+<title>China Natural Catastrophe Risk Map</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
   :root {
-    --ink: #14181F;
-    --ink-soft: #1D232D;
-    --ink-line: #2B3340;
-    --paper: #F7F4EC;
-    --paper-dim: #ECE7D9;
-    --cinnabar: #B23A2E;
-    --jade: #3F6659;
-    --gold: #B8935A;
-    --steel: #3B5B7A;
-    --text-muted: #8A93A3;
-    --text-faint: #5B6472;
+    --bg: #F3F4F6;
+    --panel: #FFFFFF;
+    --border: #E0E3E8;
+    --border-strong: #C7CCD4;
+    --text-primary: #1A2130;
+    --text-muted: #5C6675;
+    --text-faint: #94A0AF;
+    --navy: #1F3A5F;
+    --navy-soft: #2C4E7C;
+    --risk-low: #3F8F5F;
+    --risk-mid: #D9A22C;
+    --risk-high: #D9722C;
+    --risk-severe: #C13A2E;
   }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--ink); }
-  body { font-family: 'Noto Sans JP', sans-serif; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body { font-family: 'Inter', sans-serif; }
 
   #app {
     position: relative;
@@ -31,65 +33,126 @@
     height: 100vh;
     max-height: 860px;
     margin: 0 auto;
-    background: var(--ink);
+    background: var(--bg);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 0 0 1px var(--border);
   }
 
+  /* Header */
   .masthead-top {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 16px 10px;
+    padding: 16px 16px 12px; background: var(--panel);
   }
-  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand { display: flex; align-items: center; gap: 11px; }
   .seal-logo {
-    width: 28px; height: 28px; border-radius: 50%; background: var(--cinnabar);
+    width: 32px; height: 32px; border-radius: 6px; background: var(--navy);
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Noto Serif JP', serif; font-weight: 700; color: var(--paper); font-size: 12px;
-    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #fff; font-size: 12px;
+    letter-spacing: -0.5px; flex-shrink: 0;
   }
+  .brand-text { display: flex; flex-direction: column; gap: 1px; }
   .brand-title {
-    font-family: 'Noto Serif JP', serif; font-weight: 900; font-size: 16.5px;
-    color: var(--paper); letter-spacing: 0.5px;
+    font-family: 'Inter', sans-serif; font-weight: 800; font-size: 14.5px;
+    color: var(--text-primary); letter-spacing: -0.2px; line-height: 1.2;
   }
-  .mono-small {
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.6px;
+  .brand-sub {
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 1.1px;
     color: var(--text-faint); text-transform: uppercase;
   }
-  .rule-red { height: 2px; background: var(--cinnabar); }
-  .rule-thin { height: 1px; background: var(--ink-line); margin-top: 2px; }
+  .methodology-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.5px;
+    color: var(--text-muted); background: var(--bg); border: 1px solid var(--border-strong);
+    border-radius: 5px; padding: 7px 10px; flex-shrink: 0;
+  }
+  .methodology-btn.active { color: #fff; background: var(--navy); border-color: var(--navy); }
+  .rule-thin { height: 1px; background: var(--border); }
+
+  /* Methodology panel */
+  .methodology-panel {
+    display: none; padding: 12px 16px 14px; background: var(--panel);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .methodology-panel.visible { display: block; }
+  .method-item { margin-bottom: 10px; }
+  .method-item:last-child { margin-bottom: 0; }
+  .method-label {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-primary); margin-bottom: 3px;
+  }
+  .method-label .dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+  .method-desc { font-family: 'Inter', sans-serif; font-size: 11px; line-height: 1.55; color: var(--text-muted); }
 
   /* Layer toggle chips */
   .layer-bar {
     display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto;
-    border-bottom: 1px solid var(--ink-line); flex-shrink: 0; background: var(--ink-soft);
+    border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--panel);
   }
   .layer-chip {
     display: flex; align-items: center; gap: 6px;
-    font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 500;
-    padding: 6px 11px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
-    border: 1px solid var(--ink-line); background: transparent; color: var(--text-muted);
-    cursor: pointer;
+    font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 600;
+    padding: 6px 12px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;
+    border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-muted);
   }
-  .layer-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .layer-chip.active { color: var(--paper); border-color: currentColor; }
+  .layer-chip .dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+  .layer-chip.active { color: #fff; border-color: transparent; }
+
+  /* Search panel */
+  .search-bar {
+    display: flex; flex-direction: column; gap: 7px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0;
+  }
+  .search-row { display: flex; gap: 8px; align-items: center; }
+  .search-row input {
+    flex: 1; min-width: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: var(--bg); color: var(--text-primary); border: 1px solid var(--border-strong);
+    border-radius: 6px; padding: 8px 9px;
+  }
+  .search-row input::placeholder { color: var(--text-faint); }
+  .search-row button {
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700;
+    background: var(--navy); color: #fff; border: none; border-radius: 6px;
+    padding: 9px 16px; flex-shrink: 0;
+  }
+  .search-hint { font-size: 10px; color: var(--text-faint); }
+  .search-result {
+    display: none; padding: 11px 16px; background: var(--panel);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .search-result.visible { display: block; }
+  .result-badge {
+    display: inline-block; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 11.5px;
+    padding: 4px 10px; border-radius: 5px; margin-bottom: 7px; color: #fff;
+  }
+  .result-elev { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary); margin-bottom: 8px; line-height: 1.5; }
+  .result-dirs {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-muted);
+  }
+  .result-dirs div { text-align: center; background: var(--bg); border-radius: 4px; padding: 4px 2px; }
 
   /* Map */
-  #map { flex: 1; width: 100%; background: var(--ink-soft); }
+  #map { flex: 1; width: 100%; background: var(--bg); }
   .leaflet-popup-content-wrapper {
-    background: var(--ink-soft); color: var(--paper-dim); border: 1px solid var(--ink-line);
-    border-radius: 6px; font-family: 'Noto Sans JP', sans-serif;
+    background: var(--panel); color: var(--text-primary); border: 1px solid var(--border);
+    border-radius: 6px; font-family: 'Inter', sans-serif; box-shadow: 0 2px 10px rgba(26,33,48,0.12);
   }
-  .leaflet-popup-tip { background: var(--ink-soft); }
+  .leaflet-popup-tip { background: var(--panel); }
   .leaflet-popup-content { margin: 10px 12px; font-size: 12px; line-height: 1.6; }
-  .popup-title { font-family: 'Noto Serif JP', serif; font-weight: 700; font-size: 13px; color: var(--paper); margin-bottom: 4px; }
+  .popup-title { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 4px; }
   .popup-row { color: var(--text-muted); font-size: 11px; }
 
   .status-bar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 7px 16px; border-top: 1px solid var(--ink-line); background: var(--ink-soft); flex-shrink: 0;
+    padding: 7px 16px; border-top: 1px solid var(--border); background: var(--panel); flex-shrink: 0;
   }
-  .legend-note { font-family: 'Noto Sans JP', sans-serif; font-size: 10px; color: var(--text-faint); line-height: 1.5; padding: 0 16px 10px; background: var(--ink-soft); }
+  .mono-small {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.5px;
+    color: var(--text-faint); text-transform: uppercase;
+  }
+  .legend-note { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); line-height: 1.55; padding: 0 16px 10px; background: var(--panel); }
 </style>
 </head>
 <body>
@@ -97,20 +160,34 @@
   <div>
     <div class="masthead-top">
       <div class="brand">
-        <div class="seal-logo">災</div>
-        <div class="brand-title">China Historical Data</div>
+        <div class="brand-text">
+          <div class="brand-title">China Natural Catastrophe Risk Map</div>
+          <div class="brand-sub">Historical Peril & Hazard Layers</div>
+        </div>
       </div>
+      <button class="methodology-btn" id="methodologyBtn">METHODOLOGY</button>
     </div>
-    <div class="rule-red"></div>
     <div class="rule-thin"></div>
   </div>
 
+  <div class="methodology-panel" id="methodologyPanel"></div>
+
   <div class="layer-bar" id="layerBar"></div>
+
+  <div class="search-bar">
+    <div class="search-row">
+      <input type="text" id="searchLat" placeholder="Latitude, e.g. 31.23" inputmode="decimal">
+      <input type="text" id="searchLon" placeholder="Longitude, e.g. 121.47" inputmode="decimal">
+      <button id="searchBtn">Locate</button>
+    </div>
+    <div class="search-hint">Or tap the map to check a point's elevation and how it compares to its surroundings.</div>
+  </div>
+  <div class="search-result" id="searchResult"></div>
 
   <div id="map"></div>
 
   <div class="status-bar">
-    <span class="mono-small" id="statusLabel">読み込み中…</span>
+    <span class="mono-small" id="statusLabel">Loading…</span>
     <span class="mono-small" id="countLabel"></span>
   </div>
   <div class="legend-note" id="legendNote"></div>
@@ -119,81 +196,103 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 <script>
-const COLORS = { earthquake: '#B23A2E', typhoon: '#3B5B7A', flood: '#3F6659', lightning: '#B8935A', risk: '#D94A34' };
+// Peril identity colors (used for chip dots / markers — distinguishes hazard TYPE)
+const COLORS = {
+  earthquake: '#C13A2E',
+  lightning: '#D9A22C',
+  typhoonHazard: '#2C4E7C',
+  floodHazard: '#3F8F5F',
+  elevationHazard: '#D9722C',
+};
+
+// Risk-intensity gradient used inside every hazard heatmap (severity, independent of peril type)
+const HAZARD_GRADIENT = { 0.33: '#3F8F5F', 0.66: '#D9A22C', 1.0: '#C13A2E' };
+
+// Bounding box used to keep hazard layers on land/coast only (excludes open-ocean track points)
+const CHINA_LAND_BBOX = { minlat: 18, maxlat: 41, minlon: 97, maxlon: 123 };
 
 const LAYERS = [
-  { key: 'earthquake', label: '地震', color: COLORS.earthquake,
-    note: '地震: USGS地震カタログAPIより過去30日・M4.0以上を中国域でリアルタイム取得。円の大きさはマグニチュード。' },
-  { key: 'typhoon', label: '台風', color: COLORS.typhoon,
-    note: '台風: 2019〜2023年に中国へ上陸した実際の主要台風(Doksuri/Muifa/In-fa/Lekima)。経路は上陸地点を基にした概略線で、IBTrACSの6時間毎の実測点ではない。本番運用ではIBTrACS全件データへの置き換えが必要。' },
-  { key: 'flood', label: '洪水', color: COLORS.flood,
-    note: '洪水: 実際に発生した大規模洪水災害(鄭州2021・北京2023・安徽2024・長江1998)の中心地点。円は概略範囲で、実際の浸水域ではない。本番運用ではGlobal Flood Database(実測浸水ポリゴン)への置き換えが必要。' },
-  { key: 'lightning', label: '雷', color: COLORS.lightning,
-    note: '雷: WWLLN落雷密度統計に基づく、中国南部〜華東沿岸の落雷多発傾向を簡易可視化した参考データ(概算)。' },
-  { key: 'risk', label: '総合リスク', color: COLORS.risk,
-    note: '総合リスク: 過去の台風(経路×最大風速)と洪水(推定冠水面積)を正規化して合成した過去データベースのヒートマップ。冠水面積データが無い期間・地域は、低地で多雨傾向の既知の河川流域を簡易代替指標として使用。台風・洪水データが自動/手動更新されるたびに反映される。将来のリスクを予測するものではない。' },
+  { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
+    note: 'Earthquakes: last 30 days, M3.5+, pulled live from the USGS earthquake catalog for the China region. Marker size scales with magnitude.' },
+  { key: 'lightning', label: 'Lightning', color: COLORS.lightning,
+    note: 'Lightning: illustrative density based on WWLLN lightning climatology, highlighting strike-prone areas across southern China and the eastern coast.' },
+  { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
+    note: 'Typhoon Hazard: historical typhoon tracks (land/coastal points only — open-ocean segments excluded), weighted by each storm\'s own peak wind speed and normalized 0–1. Green = weaker storms, amber = moderate, red = the strongest storms on record. Reflects past activity, not a forecast.' },
+  { key: 'floodHazard', label: 'Flood Hazard', color: COLORS.floodHazard,
+    note: 'Flood Hazard: historical flood events weighted by estimated inundated area (km²), normalized 0–1. Where inundation-area data is missing, known low-lying, rain-prone river basins are used as a rough proxy. Reflects past activity, not a forecast.' },
+  { key: 'elevationHazard', label: 'Elevation Hazard', color: COLORS.elevationHazard,
+    note: 'Elevation Hazard: a coarse elevation grid classified by susceptibility to inundation — under 3m is treated as high risk, 3–5m as a watch zone, 10m+ as relatively low risk. Elevation rarely changes, so this layer is refreshed only occasionally. A general susceptibility indicator, not a flood simulation.' },
 ];
 
-// --- Real historical events (verified via web search; landfall/coords approximate to nearest city) ---
-// 本番運用では /data/typhoons.geojson 等、fetch_typhoons.py が生成する実データに置き換える
+const METHODOLOGY = [
+  { label: 'Earthquakes', color: COLORS.earthquake,
+    desc: 'Source: USGS Earthquake Catalog API. Window: rolling 30 days. Threshold: M3.5+. Live, not historical.' },
+  { label: 'Lightning', color: COLORS.lightning,
+    desc: 'Source: WWLLN lightning climatology. Illustrative strike-density weighting across known high-frequency coastal zones.' },
+  { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
+    desc: 'Source: IBTrACS (NOAA). Weight = peak wind speed (kt) / max recorded peak wind speed, per storm. Only track points over land or near coast are used. 3-tier scale: <0.33 low, 0.33–0.66 moderate, >0.66 severe.' },
+  { label: 'Flood Hazard', color: COLORS.floodHazard,
+    desc: 'Source: Dartmouth Flood Observatory. Weight = estimated inundated area (km²) / max recorded area. Fallback: known low-lying river basins when area data is unavailable. 3-tier scale: <0.33 low, 0.33–0.66 moderate, >0.66 severe.' },
+  { label: 'Elevation Hazard', color: COLORS.elevationHazard,
+    desc: 'Source: Open-Elevation grid (~1° spacing). Risk bands: <3m high risk, 3–5m watch zone, 5–10m transition, ≥10m relatively low risk. Updated infrequently since elevation is static.' },
+  { label: 'Point Lookup', color: '#5C6675',
+    desc: 'On-demand query to Open-Elevation for the tapped point plus 8 surrounding points (~100m radius). Compares the center point to the average of its surroundings to flag local depressions.' },
+];
+
 const TYPHOON_SAMPLE = [
-  { name: '台風 Doksuri(2023)', points: [[20.5,128.0],[22.5,122.0],[24.0,120.0],[24.82,118.57]], landfall: '福建省 晋江市', date: '2023-07-28', note: '1949年以降で福建省歴代2位の勢力。北京・河北まで記録的豪雨をもたらした' },
-  { name: '台風 Muifa(2022)', points: [[27.9,128.5],[28.6,124.9],[29.5,122.5],[29.99,122.30]], landfall: '浙江省 舟山市', date: '2022-09-14' },
-  { name: '台風 In-fa(2021)', points: [[24.8,127.0],[27.0,124.5],[29.0,122.3],[29.99,122.30]], landfall: '浙江省 舟山市', date: '2021-07-25' },
-  { name: '台風 Lekima(2019)', points: [[22.0,130.0],[26.0,125.5],[28.0,121.8],[28.37,121.36]], landfall: '浙江省 温嶺市', date: '2019-08-10' },
+  { points: [[20.5,128.0],[22.5,122.0],[24.0,120.0],[24.82,118.57]] },
+  { points: [[27.9,128.5],[28.6,124.9],[29.5,122.5],[29.99,122.30]] },
+  { points: [[24.8,127.0],[27.0,124.5],[29.0,122.3],[29.99,122.30]] },
+  { points: [[22.0,130.0],[26.0,125.5],[28.0,121.8],[28.37,121.36]] },
 ];
 
-// 本番運用では /data/floods.geojson 等、fetch_floods.py が生成する実データ(DFO/Global Flood Database)に置き換える
-const FLOOD_SAMPLE = [
-  { name: '河南省 鄭州 豪雨洪水', center: [34.75,113.65], date: '2021-07', desc: '記録的短時間豪雨。33名以上死亡、約300万人が影響を受けた(河南省政府発表ベース)' },
-  { name: '北京・河北 豪雨洪水(台風Doksuri余波)', center: [39.90,116.41], date: '2023-07〜08', desc: '1860年の観測開始以来最大級の72時間降水量を記録' },
-  { name: '安徽省 宿松県ほか 梅雨前線豪雨', center: [30.15,116.15], date: '2024-06〜07', desc: '安徽省で約99万人が影響、24万人超が避難' },
-  { name: '長江・淮河流域 大洪水(1998年)', center: [29.7,116.0], date: '1998夏', desc: '中国現代史上最大級の洪水災害の一つ' },
+const LOWLAND_FLOOD_PRONE_PROXY = [
+  { center: [31.0, 121.4], weight: 0.7 },
+  { center: [23.1, 113.3], weight: 0.65 },
+  { center: [34.75, 113.65], weight: 0.6 },
+  { center: [30.5, 114.3], weight: 0.55 },
+  { center: [39.9, 116.4], weight: 0.5 },
 ];
 
-// Approx lightning hotspot centers (illustrative density weighting), incl. East China coast
 const LIGHTNING_SAMPLE = [
-  [23.1,113.3,0.9],[22.5,114.0,0.8],[21.0,110.3,0.7], // 華南
-  [28.2,121.0,0.55],[30.9,121.6,0.5],[31.2,121.5,0.5], // 華東沿岸
+  [23.1,113.3,0.9],[22.5,114.0,0.8],[21.0,110.3,0.7],
+  [28.2,121.0,0.55],[30.9,121.6,0.5],[31.2,121.5,0.5],
   [22.2,113.5,0.85],[23.5,116.7,0.6],
   [29.9,118.0,0.4],[32.0,118.8,0.35],
 ];
 
-// 冠水面積データが無い場合の代替指標: 低地・多雨傾向で知られる主要河川流域/デルタ(簡易・概算)
-const LOWLAND_FLOOD_PRONE_PROXY = [
-  { center: [31.0, 121.4], weight: 0.7, name: '長江デルタ' },
-  { center: [23.1, 113.3], weight: 0.65, name: '珠江デルタ' },
-  { center: [34.75, 113.65], weight: 0.6, name: '黄河下流・鄭州周辺' },
-  { center: [30.5, 114.3], weight: 0.55, name: '長江中流・武漢周辺' },
-  { center: [39.9, 116.4], weight: 0.5, name: '海河流域・北京周辺' },
-];
+function inLandBbox(lat, lon) {
+  return lat >= CHINA_LAND_BBOX.minlat && lat <= CHINA_LAND_BBOX.maxlat &&
+         lon >= CHINA_LAND_BBOX.minlon && lon <= CHINA_LAND_BBOX.maxlon;
+}
 
 let map, layerGroups = {};
 let activeLayers = new Set(['earthquake']);
 
 function initMap() {
   map = L.map('map', { zoomControl: true, attributionControl: true }).setView([31.0, 117.0], 5);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+  // Light, professional cartographic base (CartoDB Positron)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO',
     subdomains: 'abcd', maxZoom: 12,
   }).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
     subdomains: 'abcd', maxZoom: 12,
   }).addTo(map);
 
   layerGroups.earthquake = L.layerGroup().addTo(map);
-  layerGroups.typhoon = L.layerGroup().addTo(map);
-  layerGroups.flood = L.layerGroup().addTo(map);
   layerGroups.lightning = L.layerGroup();
-  layerGroups.risk = L.layerGroup();
+  layerGroups.typhoonHazard = L.layerGroup();
+  layerGroups.floodHazard = L.layerGroup();
+  layerGroups.elevationHazard = L.layerGroup();
 }
 
 function renderLayerBar() {
   const bar = document.getElementById('layerBar');
   bar.innerHTML = LAYERS.map(l => {
     const active = activeLayers.has(l.key);
-    return `<button class="layer-chip${active ? ' active' : ''}" style="color:${active ? l.color : ''}" data-key="${l.key}">
-      <span class="dot" style="background:${l.color};"></span>${l.label}
+    return `<button class="layer-chip${active ? ' active' : ''}" style="${active ? `background:${l.color};border-color:${l.color};` : ''}" data-key="${l.key}">
+      <span class="dot" style="background:${active ? '#fff' : l.color};"></span>${l.label}
     </button>`;
   }).join('');
   bar.querySelectorAll('.layer-chip').forEach(btn => {
@@ -214,17 +313,33 @@ function renderLayerBar() {
 
 function updateLegend() {
   const notes = LAYERS.filter(l => activeLayers.has(l.key)).map(l => l.note);
-  document.getElementById('legendNote').innerHTML = notes.join('<br><br>') || '表示するレイヤーを上のタブから選択してください。';
+  document.getElementById('legendNote').innerHTML = notes.join('<br><br>') || 'Select a layer above to see it on the map.';
 }
+
+function renderMethodology() {
+  const panel = document.getElementById('methodologyPanel');
+  panel.innerHTML = METHODOLOGY.map(m => `
+    <div class="method-item">
+      <div class="method-label"><span class="dot" style="background:${m.color};"></span>${m.label}</div>
+      <div class="method-desc">${m.desc}</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('methodologyBtn').addEventListener('click', () => {
+  const panel = document.getElementById('methodologyPanel');
+  const btn = document.getElementById('methodologyBtn');
+  panel.classList.toggle('visible');
+  btn.classList.toggle('active');
+});
 
 function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 async function loadEarthquakes() {
-  document.getElementById('statusLabel').textContent = '地震データ取得中…';
+  document.getElementById('statusLabel').textContent = 'Fetching earthquakes…';
   try {
-    // China bounding box (approx): lon 73-135, lat 18-54
     const url = 'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=' +
       new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10) +
       '&minlatitude=18&maxlatitude=54&minlongitude=73&maxlongitude=135&minmagnitude=3.5';
@@ -236,41 +351,27 @@ async function loadEarthquakes() {
       const mag = f.properties.mag || 0;
       const marker = L.circleMarker([lat, lon], {
         radius: Math.max(4, mag * 2.2),
-        color: COLORS.earthquake, weight: 1.5, fillColor: COLORS.earthquake, fillOpacity: 0.35,
+        color: COLORS.earthquake, weight: 1.5, fillColor: COLORS.earthquake, fillOpacity: 0.3,
       });
-      const date = new Date(f.properties.time).toLocaleString('ja-JP');
-      marker.bindPopup(`<div class="popup-title">M${mag.toFixed(1)} 地震</div>
+      const date = new Date(f.properties.time).toLocaleString('en-US');
+      marker.bindPopup(`<div class="popup-title">M${mag.toFixed(1)} Earthquake</div>
         <div class="popup-row">${escapeHtml(f.properties.place)}</div>
         <div class="popup-row">${date}</div>`);
       marker.addTo(layerGroups.earthquake);
       count++;
     });
-    document.getElementById('statusLabel').textContent = '最終更新 ' + new Date().toLocaleString('ja-JP');
-    document.getElementById('countLabel').textContent = `地震 ${count}件(過去30日・M3.5+)`;
+    document.getElementById('statusLabel').textContent = 'Updated ' + new Date().toLocaleString('en-US');
+    document.getElementById('countLabel').textContent = `${count} earthquakes (30d, M3.5+)`;
   } catch (e) {
-    document.getElementById('statusLabel').textContent = '地震データの取得に失敗しました';
+    document.getElementById('statusLabel').textContent = 'Failed to load earthquake data';
   }
 }
 
-function drawTyphoonSample() {
-  TYPHOON_SAMPLE.forEach(t => {
-    const line = L.polyline(t.points, { color: COLORS.typhoon, weight: 2.5, opacity: 0.85, dashArray: '4,4' });
-    line.bindPopup(`<div class="popup-title">${escapeHtml(t.name)}</div>
-      <div class="popup-row">上陸地点: ${escapeHtml(t.landfall)}</div>
-      <div class="popup-row">${escapeHtml(t.date)}</div>
-      ${t.note ? `<div class="popup-row">${escapeHtml(t.note)}</div>` : ''}`);
-    line.addTo(layerGroups.typhoon);
-    const last = t.points[t.points.length - 1];
-    L.circleMarker(last, { radius: 6, color: COLORS.typhoon, weight: 1.5, fillColor: COLORS.typhoon, fillOpacity: 0.7 })
-      .bindPopup(`<div class="popup-title">${escapeHtml(t.name)} 上陸</div>
-        <div class="popup-row">${escapeHtml(t.landfall)} ・ ${escapeHtml(t.date)}</div>`)
-      .addTo(layerGroups.typhoon);
-  });
+function loadLightning() {
+  const heatPoints = LIGHTNING_SAMPLE.map(p => [p[0], p[1], p[2]]);
+  const heat = L.heatLayer(heatPoints, { radius: 40, blur: 30, maxZoom: 8, gradient: HAZARD_GRADIENT });
+  heat.addTo(layerGroups.lightning);
 }
-
-// 台風・洪水それぞれのGeoJSONをキャッシュし、リスクヒートマップ構築に再利用する
-let typhoonGeojsonCache = null;
-let floodGeojsonCache = null;
 
 async function fetchGeojsonSafe(path) {
   try {
@@ -284,84 +385,42 @@ async function fetchGeojsonSafe(path) {
   }
 }
 
-async function loadTyphoons() {
+async function buildTyphoonHazard() {
   const geojson = await fetchGeojsonSafe('data/typhoons.geojson');
-  typhoonGeojsonCache = geojson;
-  if (!geojson) { drawTyphoonSample(); return; }
-  geojson.features.forEach(f => {
-    const coords = f.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
-    const p = f.properties || {};
-    const line = L.polyline(coords, { color: COLORS.typhoon, weight: 2.5, opacity: 0.85, dashArray: '4,4' });
-    line.bindPopup(`<div class="popup-title">${escapeHtml(p.name || '台風')}</div>
-      <div class="popup-row">${escapeHtml(p.start_time || '')} 〜 ${escapeHtml(p.end_time || '')}</div>
-      ${p.max_wind_kt ? `<div class="popup-row">最大風速: ${p.max_wind_kt}kt</div>` : ''}`);
-    line.addTo(layerGroups.typhoon);
-  });
-}
-
-function drawFloodSample() {
-  FLOOD_SAMPLE.forEach(f => {
-    const circle = L.circle(f.center, { radius: 45000, color: COLORS.flood, weight: 1.5, fillColor: COLORS.flood, fillOpacity: 0.22 });
-    circle.bindPopup(`<div class="popup-title">${escapeHtml(f.name)}</div>
-      <div class="popup-row">${escapeHtml(f.desc)}</div>
-      <div class="popup-row">${escapeHtml(f.date)}</div>`);
-    circle.addTo(layerGroups.flood);
-  });
-}
-
-async function loadFloods() {
-  const geojson = await fetchGeojsonSafe('data/floods.geojson');
-  floodGeojsonCache = geojson;
-  if (!geojson) { drawFloodSample(); return; }
-  geojson.features.forEach(f => {
-    const [lon, lat] = f.geometry.coordinates;
-    const p = f.properties || {};
-    const circle = L.circle([lat, lon], { radius: 45000, color: COLORS.flood, weight: 1.5, fillColor: COLORS.flood, fillOpacity: 0.22 });
-    circle.bindPopup(`<div class="popup-title">洪水イベント</div>
-      <div class="popup-row">${escapeHtml(p.began || '')} 〜 ${escapeHtml(p.ended || '')}</div>
-      ${p.affected_sq_km ? `<div class="popup-row">推定冠水面積: ${p.affected_sq_km}km²</div>` : ''}
-      ${p.main_cause ? `<div class="popup-row">${escapeHtml(p.main_cause)}</div>` : ''}`);
-    circle.addTo(layerGroups.flood);
-  });
-}
-
-function loadLightning() {
-  const heatPoints = LIGHTNING_SAMPLE.map(p => [p[0], p[1], p[2]]);
-  const heat = L.heatLayer(heatPoints, { radius: 40, blur: 30, maxZoom: 8, gradient: { 0.3: '#3B5B7A', 0.6: '#B8935A', 1.0: '#B23A2E' } });
-  heat.addTo(layerGroups.lightning);
-}
-
-// 台風・洪水データが両方読み込み終わってから、冠水面積を主指標にリスクヒートマップを構築する
-function buildRiskHeatmap() {
   const points = [];
 
-  // 台風: 経路上の各点を最大風速(kt)で重み付け。風速がなければ中程度の重みを与える。
-  if (typhoonGeojsonCache) {
-    const winds = typhoonGeojsonCache.features.map(f => f.properties?.max_wind_kt).filter(w => typeof w === 'number');
+  if (geojson) {
+    const winds = geojson.features.map(f => f.properties?.max_wind_kt).filter(w => typeof w === 'number');
     const maxWind = winds.length ? Math.max(...winds) : 100;
-    typhoonGeojsonCache.features.forEach(f => {
+    geojson.features.forEach(f => {
       const w = f.properties?.max_wind_kt;
       const weight = typeof w === 'number' ? Math.min(1, w / maxWind) : 0.4;
       f.geometry.coordinates.forEach(([lon, lat]) => {
-        points.push([lat, lon, weight]);
+        if (inLandBbox(lat, lon)) points.push([lat, lon, weight]);
       });
     });
   } else {
     TYPHOON_SAMPLE.forEach(t => {
-      t.points.forEach(([lat, lon]) => points.push([lat, lon, 0.5]));
+      t.points.forEach(([lat, lon]) => {
+        if (inLandBbox(lat, lon)) points.push([lat, lon, 0.5]);
+      });
     });
   }
 
-  // 洪水: 冠水面積(affected_sq_km)を最優先の重みにする。
-  // データが無い場合のみ、既知の低地・多雨傾向の河川流域を代替指標として使う。
+  L.heatLayer(points, { radius: 32, blur: 26, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.typhoonHazard);
+}
+
+async function buildFloodHazard() {
+  const geojson = await fetchGeojsonSafe('data/floods.geojson');
+  const points = [];
   let anyFloodArea = false;
-  if (floodGeojsonCache) {
-    const feats = floodGeojsonCache.features;
-    const areaVals = feats.map(f => f.properties?.affected_sq_km).filter(v => typeof v === 'number');
+
+  if (geojson) {
+    const areaVals = geojson.features.map(f => f.properties?.affected_sq_km).filter(v => typeof v === 'number');
     if (areaVals.length > 0) {
       anyFloodArea = true;
       const maxArea = Math.max(...areaVals);
-      feats.forEach(f => {
+      geojson.features.forEach(f => {
         const area = f.properties?.affected_sq_km;
         if (typeof area !== 'number') return;
         const weight = Math.min(1, area / maxArea);
@@ -372,30 +431,119 @@ function buildRiskHeatmap() {
   }
 
   if (!anyFloodArea) {
-    // 冠水面積データが取得できていない → 代替指標(既知の低地・多雨河川流域)を使う
-    LOWLAND_FLOOD_PRONE_PROXY.forEach(p => {
-      points.push([p.center[0], p.center[1], p.weight]);
-    });
+    LOWLAND_FLOOD_PRONE_PROXY.forEach(p => points.push([p.center[0], p.center[1], p.weight]));
   }
 
-  const heat = L.heatLayer(points, {
-    radius: 35, blur: 28, maxZoom: 8, max: 1.0,
-    gradient: { 0.2: '#3B5B7A', 0.5: '#B8935A', 0.8: '#B23A2E', 1.0: '#D94A34' },
-  });
-  heat.addTo(layerGroups.risk);
+  L.heatLayer(points, { radius: 35, blur: 28, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.floodHazard);
 }
+
+async function buildElevationHazard() {
+  const geojson = await fetchGeojsonSafe('data/elevation_risk.geojson');
+  if (!geojson) return;
+
+  const points = geojson.features.map(f => {
+    const [lon, lat] = f.geometry.coordinates;
+    const risk = f.properties?.risk ?? 0.3;
+    return [lat, lon, risk];
+  });
+
+  L.heatLayer(points, { radius: 45, blur: 35, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.elevationHazard);
+}
+
+// ==== Point lookup: elevation + comparison with 8 surrounding points ====
+const OPEN_ELEVATION_URL = 'https://api.open-elevation.com/api/v1/lookup';
+const DIRS = [
+  { name: 'N', dLat: 1, dLon: 0 }, { name: 'NE', dLat: 1, dLon: 1 },
+  { name: 'E', dLat: 0, dLon: 1 }, { name: 'SE', dLat: -1, dLon: 1 },
+  { name: 'S', dLat: -1, dLon: 0 }, { name: 'SW', dLat: -1, dLon: -1 },
+  { name: 'W', dLat: 0, dLon: -1 }, { name: 'NW', dLat: 1, dLon: -1 },
+];
+const SEARCH_RADIUS_M = 100;
+
+let searchMarkerLayer;
+
+function elevationToRiskInfo(elevation) {
+  if (elevation < 3) return { label: 'High risk (< 3m)', color: 'var(--risk-severe)' };
+  if (elevation < 5) return { label: 'Watch zone (3–5m)', color: 'var(--risk-high)' };
+  if (elevation < 10) return { label: 'Transition zone (5–10m)', color: 'var(--risk-mid)' };
+  return { label: 'Relatively low risk (10m+)', color: 'var(--risk-low)' };
+}
+
+function metersToDegLat(m) { return m / 111000; }
+function metersToDegLon(m, lat) { return m / (111000 * Math.cos(lat * Math.PI / 180)); }
+
+async function queryPoint(lat, lon) {
+  const resultEl = document.getElementById('searchResult');
+  resultEl.className = 'search-result visible';
+  resultEl.innerHTML = '<div class="result-elev">Fetching…</div>';
+
+  const dLat = metersToDegLat(SEARCH_RADIUS_M);
+  const dLon = metersToDegLon(SEARCH_RADIUS_M, lat);
+  const locations = [{ latitude: lat, longitude: lon }];
+  DIRS.forEach(d => locations.push({ latitude: lat + d.dLat * dLat, longitude: lon + d.dLon * dLon }));
+
+  try {
+    const res = await fetch(OPEN_ELEVATION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locations }),
+    });
+    if (!res.ok) throw new Error('elevation api error');
+    const data = await res.json();
+    const results = data.results || [];
+    if (results.length < 9) throw new Error('insufficient results');
+
+    const centerElev = results[0].elevation;
+    const surrounding = results.slice(1).map((r, i) => ({ name: DIRS[i].name, elev: r.elevation }));
+    const avgSurrounding = surrounding.reduce((s, d) => s + d.elev, 0) / surrounding.length;
+    const diff = avgSurrounding - centerElev;
+
+    let compareLabel;
+    if (diff >= 1) compareLabel = 'Sits noticeably lower than its surroundings';
+    else if (diff >= 0.5) compareLabel = 'Slightly lower than its surroundings';
+    else if (diff > -0.5) compareLabel = 'About level with its surroundings';
+    else compareLabel = 'Higher than its surroundings — relatively favorable';
+
+    const riskInfo = elevationToRiskInfo(centerElev);
+
+    resultEl.innerHTML = `
+      <span class="result-badge" style="background:${riskInfo.color};">${riskInfo.label}</span>
+      <div class="result-elev">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
+      <div class="result-dirs">
+        ${surrounding.map(d => `<div>${d.name}<br>${(d.elev - centerElev >= 0 ? '+' : '')}${(d.elev - centerElev).toFixed(1)}m</div>`).join('')}
+      </div>
+    `;
+
+    if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
+    searchMarkerLayer = L.circleMarker([lat, lon], { radius: 8, color: '#1A2130', weight: 2, fillColor: '#1F3A5F', fillOpacity: 0.7 }).addTo(map);
+    map.setView([lat, lon], Math.max(map.getZoom(), 10));
+  } catch (e) {
+    resultEl.innerHTML = '<div class="result-elev">Could not fetch elevation data. Please try again shortly.</div>';
+  }
+}
+
+document.getElementById('searchBtn').addEventListener('click', () => {
+  const lat = parseFloat(document.getElementById('searchLat').value);
+  const lon = parseFloat(document.getElementById('searchLon').value);
+  if (isNaN(lat) || isNaN(lon)) return;
+  queryPoint(lat, lon);
+});
 
 initMap();
 renderLayerBar();
+renderMethodology();
 updateLegend();
 loadEarthquakes();
-
-// 台風・洪水を両方読み込んでからリスクヒートマップを構築する
-Promise.all([loadTyphoons(), loadFloods()]).then(() => {
-  buildRiskHeatmap();
-});
-
 loadLightning();
+buildTyphoonHazard();
+buildFloodHazard();
+buildElevationHazard();
+
+map.on('click', (e) => {
+  document.getElementById('searchLat').value = e.latlng.lat.toFixed(4);
+  document.getElementById('searchLon').value = e.latlng.lng.toFixed(4);
+  queryPoint(e.latlng.lat, e.latlng.lng);
+});
 </script>
 </body>
 </html>
