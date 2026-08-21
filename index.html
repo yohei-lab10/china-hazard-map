@@ -278,7 +278,7 @@ const METHODOLOGY = [
   { label: 'Elevation Hazard', color: COLORS.elevationHazard,
     desc: 'Source: Open-Elevation grid (~1° spacing). Risk bands: <3m high risk, 3–5m watch zone, 5–10m transition, ≥10m relatively low risk. Updated infrequently since elevation is static.' },
   { label: 'Point Lookup', color: '#5C6675',
-    desc: 'On-demand query to Open-Elevation for the tapped point plus 8 surrounding points (~100m radius). Compares the center point to the average of its surroundings to flag local depressions. Retries automatically once if the request fails.' },
+    desc: 'On-demand query to Open-Elevation for the tapped point plus 8 surrounding points (~100m radius) for elevation. Also shades a 1km-radius tile grid around the point: elevation risk uses the live API values; earthquake/typhoon/lightning/flood tiles use a 5-tier warning-style scale (yellow→orange→red→purple→black, or JMA seismic-intensity colors for earthquakes) computed from the already-loaded historical data near that point — no extra network calls. Tiles only appear for hazards whose chip is active.' },
 ];
 
 const TYPHOON_SAMPLE = [
@@ -311,7 +311,7 @@ function inLandBbox(lat, lon) {
 }
 
 let map, layerGroups = {};
-let activeLayers = new Set(['earthquake']);
+let activeLayers = new Set();
 
 function initMap() {
   map = L.map('map', { zoomControl: true, attributionControl: true }).setView([31.57, 120.30], 11);
@@ -324,7 +324,7 @@ function initMap() {
     subdomains: 'abcd', maxZoom: 12,
   }).addTo(map);
 
-  layerGroups.earthquake = L.layerGroup().addTo(map);
+  layerGroups.earthquake = L.layerGroup();
   layerGroups.lightning = L.layerGroup();
   layerGroups.typhoonHazard = L.layerGroup();
   layerGroups.floodHazard = L.layerGroup();
@@ -408,6 +408,11 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// 地震・台風・洪水の実データは、地点検索のタイル色付けにも再利用するためグローバルにキャッシュしておく
+let earthquakeGeojsonCache = null;
+let typhoonGeojsonCacheGlobal = null;
+let floodGeojsonCacheGlobal = null;
+
 async function loadEarthquakes() {
   document.getElementById('statusLabel').textContent = 'Fetching earthquakes…';
 
@@ -415,6 +420,7 @@ async function loadEarthquakes() {
   const geojson = await fetchGeojsonSafe('data/earthquakes.geojson');
 
   if (geojson) {
+    earthquakeGeojsonCache = geojson;
     let count = 0;
     let minTime = Infinity, maxTime = -Infinity;
     geojson.features.forEach(f => {
@@ -489,6 +495,7 @@ async function fetchGeojsonSafe(path) {
 
 async function buildTyphoonHazard() {
   const geojson = await fetchGeojsonSafe('data/typhoons.geojson');
+  typhoonGeojsonCacheGlobal = geojson;
   const points = [];
 
   if (geojson) {
@@ -522,6 +529,7 @@ async function buildTyphoonHazard() {
 
 async function buildFloodHazard() {
   const geojson = await fetchGeojsonSafe('data/floods.geojson');
+  floodGeojsonCacheGlobal = geojson;
   const points = [];
   let anyFloodArea = false;
 
@@ -570,6 +578,89 @@ async function buildElevationHazard() {
   L.heatLayer(points, { radius: 45, blur: 35, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.elevationHazard);
 }
 
+// ==== 地点検索: 各ハザードの5段階配色ロジック(標高以外はローカルデータのみで計算、追加通信なし) ====
+
+// 気象庁の震度階級配色を参考にした地震用5段階(黄→橙→赤→濃い赤→赤紫)
+const EARTHQUAKE_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F', '#7A2E6B'];
+// 気象庁の統一「警戒レベル」配色を参考にした台風・雷・洪水共通5段階(黄→橙→赤→紫→黒)
+const WARNING_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#7A3B8C', '#1A2130'];
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// 地震: 周辺100km以内で観測された最大マグニチュードを震度階級ふうの5段階に変換
+function earthquakeTileColor(lat, lon) {
+  if (!earthquakeGeojsonCache) return null;
+  let maxMag = null;
+  earthquakeGeojsonCache.features.forEach(f => {
+    const [flon, flat] = f.geometry.coordinates;
+    if (haversineKm(lat, lon, flat, flon) <= 100) {
+      const mag = f.properties?.mag;
+      if (typeof mag === 'number' && (maxMag === null || mag > maxMag)) maxMag = mag;
+    }
+  });
+  if (maxMag === null) return null;
+  let tier;
+  if (maxMag < 5.5) tier = 0;
+  else if (maxMag < 6.0) tier = 1;
+  else if (maxMag < 6.5) tier = 2;
+  else if (maxMag < 7.0) tier = 3;
+  else tier = 4;
+  return EARTHQUAKE_TIER_COLORS[tier];
+}
+
+// 台風: 周辺50km以内を通過した経路の中で最大の風速を5段階に変換
+function typhoonTileColor(lat, lon) {
+  if (!typhoonGeojsonCacheGlobal) return null;
+  let maxWind = null;
+  typhoonGeojsonCacheGlobal.features.forEach(f => {
+    const w = f.properties?.max_wind_kt;
+    if (typeof w !== 'number') return;
+    const near = f.geometry.coordinates.some(([flon, flat]) => haversineKm(lat, lon, flat, flon) <= 50);
+    if (near && (maxWind === null || w > maxWind)) maxWind = w;
+  });
+  if (maxWind === null) return null;
+  const ratio = Math.min(1, maxWind / 130);
+  return WARNING_TIER_COLORS[Math.min(4, Math.floor(ratio * 5))];
+}
+
+// 雷: 既知の落雷多発地点までの距離から密度を推定し5段階に変換
+function lightningTileColor(lat, lon) {
+  let nearest = null, nearestDist = Infinity;
+  LIGHTNING_SAMPLE.forEach(([slat, slon, density]) => {
+    const d = haversineKm(lat, lon, slat, slon);
+    if (d < nearestDist) { nearestDist = d; nearest = density; }
+  });
+  if (nearest === null || nearestDist > 80) return null;
+  const falloff = Math.max(0, 1 - nearestDist / 80);
+  const ratio = nearest * falloff;
+  if (ratio <= 0.05) return null;
+  return WARNING_TIER_COLORS[Math.min(4, Math.floor(ratio * 5))];
+}
+
+// 洪水: 周辺80km以内で最も近い洪水記録の冠水面積を5段階に変換
+function floodTileColor(lat, lon) {
+  if (!floodGeojsonCacheGlobal) return null;
+  let nearestArea = null, nearestDist = Infinity;
+  floodGeojsonCacheGlobal.features.forEach(f => {
+    const area = f.properties?.affected_sq_km;
+    if (typeof area !== 'number') return;
+    const [flon, flat] = f.geometry.coordinates;
+    const d = haversineKm(lat, lon, flat, flon);
+    if (d <= 80 && d < nearestDist) { nearestDist = d; nearestArea = area; }
+  });
+  if (nearestArea === null) return null;
+  const ratio = Math.min(1, nearestArea / 5000);
+  return WARNING_TIER_COLORS[Math.min(4, Math.floor(ratio * 5))];
+}
+
+
+// so failed lookups are retried automatically before surfacing an error.
 // ==== Point lookup: elevation + comparison with 8 surrounding points ====
 // Open-Elevation supports CORS for direct browser calls (unlike the free tier of
 // Open-Topo-Data, which requires a paid plan for CORS). It's occasionally flaky,
@@ -590,7 +681,7 @@ const GRID_STEPS = 4; // 中心から上下左右に4マスずつ = 9x9グリッ
 const GRID_CELL_M = GRID_RADIUS_M / GRID_STEPS;
 
 let searchMarkerLayer;
-let searchGridLayer;
+let searchGridLayers = {}; // ハザードキーごとのタイルレイヤー(それぞれ対応するチップと連動)
 
 function elevationToRiskInfo(elevation) {
   if (elevation < 3) return { label: 'High risk (< 3m)', color: '#C13A2E' };
@@ -671,10 +762,42 @@ async function queryPoint(lat, lon) {
     `;
 
     if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
-    if (searchGridLayer) map.removeLayer(searchGridLayer);
 
-    // 500m圏内を、各マスの標高リスクに応じた色のタイルで塗る
-    searchGridLayer = L.layerGroup();
+    // 500m〜1km圏内を、各ハザードのリスクに応じた色のタイルで塗る(標高はAPI取得値、他はローカルデータから計算)
+    const hazardTileFns = {
+      earthquake: earthquakeTileColor,
+      typhoonHazard: typhoonTileColor,
+      lightning: lightningTileColor,
+      floodHazard: floodTileColor,
+    };
+
+    Object.entries(searchGridLayers).forEach(([key, layer]) => {
+      if (layer) layerGroups[key].removeLayer(layer);
+    });
+    searchGridLayers = {};
+
+    Object.entries(hazardTileFns).forEach(([key, fn]) => {
+      const layer = L.layerGroup();
+      let any = false;
+      gridCells.forEach((cell, idx) => {
+        const color = fn(cell.lat, cell.lon);
+        if (!color) return;
+        any = true;
+        const halfLat = cellDLat / 2;
+        const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
+        L.rectangle(
+          [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
+          { color, weight: 0, fillColor: color, fillOpacity: 0.45 }
+        ).addTo(layer);
+      });
+      if (any) {
+        layer.addTo(layerGroups[key]);
+        searchGridLayers[key] = layer;
+      }
+    });
+
+    // 冠水(標高)ハザードのタイルは、実測APIの値でelevationHazardレイヤーにのみ追加
+    const elevGridLayer = L.layerGroup();
     gridCells.forEach((cell, idx) => {
       const cellElev = gridElevations[idx];
       const cellRisk = elevationToRiskInfo(cellElev);
@@ -683,11 +806,12 @@ async function queryPoint(lat, lon) {
       L.rectangle(
         [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
         { color: cellRisk.color, weight: 0, fillColor: cellRisk.color, fillOpacity: 0.45 }
-      ).addTo(searchGridLayer);
+      ).addTo(elevGridLayer);
     });
-    searchGridLayer.addTo(map);
+    elevGridLayer.addTo(layerGroups.elevationHazard);
+    searchGridLayers.elevationHazard = elevGridLayer;
 
-    // 指定地点そのものは📍ピンで表示
+    // 指定地点そのものは📍ピンで表示(どのチップの状態にも関わらず常に表示)
     searchMarkerLayer = L.marker([lat, lon], {
       icon: L.divIcon({
         html: '<div style="font-size:26px;line-height:1;transform:translateY(-4px);">📍</div>',
