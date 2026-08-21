@@ -185,7 +185,21 @@
       <input type="text" id="searchLon" placeholder="Longitude, e.g. 121.47" inputmode="decimal">
       <button id="searchBtn">Locate</button>
     </div>
-    <div class="search-hint">Or tap the map to check a point's elevation and how it compares to its surroundings.<br>Need coordinates? <a href="https://www.openstreetmap.org/" target="_blank" style="color:var(--navy);">OpenStreetMap</a> uses WGS84 directly (right-click a point → "Show address" to get exact coordinates) — matches this site exactly. <a href="https://api.map.baidu.com/lbsapi/getpoint/index.html" target="_blank" style="color:var(--navy);">Baidu Maps</a> also works but uses the BD-09 system, which can be offset by a few hundred meters.</div>
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
+        <input type="radio" name="coordSystem" id="coordWgs84" value="wgs84" checked style="width:14px;height:14px;">
+        WGS84 (OpenStreetMap, GPS) — no conversion needed
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
+        <input type="radio" name="coordSystem" id="coordGcj02" value="gcj02" style="width:14px;height:14px;">
+        GCJ-02 (Amap / 高德地图) — converts automatically
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
+        <input type="radio" name="coordSystem" id="coordBd09" value="bd09" style="width:14px;height:14px;">
+        BD-09 (Baidu Maps / 百度地图) — converts automatically
+      </label>
+    </div>
+    <div class="search-hint">Or tap the map to check a point's elevation and how it compares to its surroundings — a 1km radius grid around it is shaded by elevation risk.<br>Need coordinates? <a href="https://www.openstreetmap.org/" target="_blank" style="color:var(--navy);">OpenStreetMap</a> uses WGS84 directly (right-click a point → "Show address") — no conversion needed. <a href="https://api.map.baidu.com/lbsapi/getpoint/index.html" target="_blank" style="color:var(--navy);">Baidu Maps</a> also works — just tick the GCJ-02 box above so it converts correctly.</div>
   </div>
   <div class="search-result" id="searchResult"></div>
 
@@ -572,7 +586,7 @@ const DIRS = [
 const SEARCH_RADIUS_M = 100;
 
 // 500m圏内を細かい格子(グリッド)状にサンプリングして面で塗るための設定
-const GRID_RADIUS_M = 500;
+const GRID_RADIUS_M = 1000;
 const GRID_STEPS = 4; // 中心から上下左右に4マスずつ = 9x9グリッド
 const GRID_CELL_M = GRID_RADIUS_M / GRID_STEPS;
 
@@ -690,6 +704,56 @@ async function queryPoint(lat, lon) {
   }
 }
 
+// ==== GCJ-02(百度地図・高徳地図などが使う中国独自座標系)→ WGS84 変換 ====
+// 公開されているeviltransform等のアルゴリズムに準拠した標準的な変換式。
+// 中国国外の座標は変換対象外(規制自体が中国国内向けのため)。
+function outOfChina(lat, lon) {
+  return lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271;
+}
+
+function gcj02Delta(lat, lon) {
+  const a = 6378245.0;
+  const ee = 0.00669342162296594323;
+  let dLat = -100.0 + 2.0 * lon + 3.0 * lat + 0.2 * lat * lat + 0.1 * lon * lat + 0.2 * Math.sqrt(Math.abs(lon));
+  dLat += (20.0 * Math.sin(6.0 * lon * Math.PI) + 20.0 * Math.sin(2.0 * lon * Math.PI)) * 2.0 / 3.0;
+  dLat += (20.0 * Math.sin(lat * Math.PI) + 40.0 * Math.sin(lat / 3.0 * Math.PI)) * 2.0 / 3.0;
+  dLat += (160.0 * Math.sin(lat / 12.0 * Math.PI) + 320 * Math.sin(lat * Math.PI / 30.0)) * 2.0 / 3.0;
+
+  let dLon = 300.0 + lon + 2.0 * lat + 0.1 * lon * lon + 0.1 * lon * lat + 0.1 * Math.sqrt(Math.abs(lon));
+  dLon += (20.0 * Math.sin(6.0 * lon * Math.PI) + 20.0 * Math.sin(2.0 * lon * Math.PI)) * 2.0 / 3.0;
+  dLon += (20.0 * Math.sin(lon * Math.PI) + 40.0 * Math.sin(lon / 3.0 * Math.PI)) * 2.0 / 3.0;
+  dLon += (150.0 * Math.sin(lon / 12.0 * Math.PI) + 300.0 * Math.sin(lon / 30.0 * Math.PI)) * 2.0 / 3.0;
+
+  const radLat = lat / 180.0 * Math.PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - ee * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+  dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+  return { dLat, dLon };
+}
+
+function gcj02ToWgs84(lat, lon) {
+  if (outOfChina(lat, lon)) return { lat, lon };
+  const { dLat, dLon } = gcj02Delta(lat, lon);
+  return { lat: lat - dLat, lon: lon - dLon };
+}
+
+// BD-09(百度地図)→ GCJ-02 変換(百度独自の追加オフセットを取り除く)
+function bd09ToGcj02(lat, lon) {
+  const xPi = Math.PI * 3000.0 / 180.0;
+  const x = lon - 0.0065;
+  const y = lat - 0.006;
+  const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * xPi);
+  const theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * xPi);
+  return { lat: z * Math.sin(theta), lon: z * Math.cos(theta) };
+}
+
+function bd09ToWgs84(lat, lon) {
+  const gcj = bd09ToGcj02(lat, lon);
+  return gcj02ToWgs84(gcj.lat, gcj.lon);
+}
+
 document.getElementById('searchBtn').addEventListener('click', () => {
   let lat = parseFloat(document.getElementById('searchLat').value);
   let lon = parseFloat(document.getElementById('searchLon').value);
@@ -698,6 +762,14 @@ document.getElementById('searchBtn').addEventListener('click', () => {
   // (百度地図など「経度,緯度」の順でコピーされるサイトからの貼り付けを想定)
   if ((lat < -90 || lat > 90) && lon >= -90 && lon <= 90) {
     [lat, lon] = [lon, lat];
+  }
+  const system = document.querySelector('input[name="coordSystem"]:checked').value;
+  if (system === 'gcj02') {
+    const converted = gcj02ToWgs84(lat, lon);
+    lat = converted.lat; lon = converted.lon;
+  } else if (system === 'bd09') {
+    const converted = bd09ToWgs84(lat, lon);
+    lat = converted.lat; lon = converted.lon;
   }
   queryPoint(lat, lon);
 });
