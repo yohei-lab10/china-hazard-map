@@ -86580,6 +86580,24 @@
         "depth_km": 6,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tlrj"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000tm2y",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.4454,
+          37.8058
+        ]
+      },
+      "properties": {
+        "mag": 5.2,
+        "place": "270 km SSE of Dunhuang, China",
+        "time": 1787219387975,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tm2y"
+      }
     }
   ]
 }
