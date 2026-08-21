@@ -571,7 +571,13 @@ const DIRS = [
 ];
 const SEARCH_RADIUS_M = 100;
 
+// 500m圏内を細かい格子(グリッド)状にサンプリングして面で塗るための設定
+const GRID_RADIUS_M = 500;
+const GRID_STEPS = 4; // 中心から上下左右に4マスずつ = 9x9グリッド
+const GRID_CELL_M = GRID_RADIUS_M / GRID_STEPS;
+
 let searchMarkerLayer;
+let searchGridLayer;
 
 function elevationToRiskInfo(elevation) {
   if (elevation < 3) return { label: 'High risk (< 3m)', color: '#C13A2E' };
@@ -612,8 +618,23 @@ async function queryPoint(lat, lon) {
   const locations = [{ latitude: lat, longitude: lon }];
   DIRS.forEach(d => locations.push({ latitude: lat + d.dLat * dLat, longitude: lon + d.dLon * dLon }));
 
+  // 500m圏内の9x9グリッド(各マス約125m四方)の中心座標を用意
+  const cellDLat = metersToDegLat(GRID_CELL_M);
+  const gridCells = [];
+  for (let i = -GRID_STEPS; i <= GRID_STEPS; i++) {
+    for (let j = -GRID_STEPS; j <= GRID_STEPS; j++) {
+      const cellLat = lat + i * cellDLat;
+      const cellDLon = metersToDegLon(GRID_CELL_M, cellLat);
+      gridCells.push({ lat: cellLat, lon: lon + j * cellDLon });
+    }
+  }
+  const gridLocations = gridCells.map(c => ({ latitude: c.lat, longitude: c.lon }));
+
   try {
-    const elevations = await fetchElevations(locations);
+    const [elevations, gridElevations] = await Promise.all([
+      fetchElevations(locations),
+      fetchElevations(gridLocations),
+    ]);
 
     const centerElev = elevations[0];
     const surrounding = elevations.slice(1).map((elev, i) => ({ name: DIRS[i].name, elev }));
@@ -637,8 +658,33 @@ async function queryPoint(lat, lon) {
     `;
 
     if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
-    searchMarkerLayer = L.circleMarker([lat, lon], { radius: 9, color: '#1A2130', weight: 2, fillColor: riskInfo.color, fillOpacity: 0.85 }).addTo(map);
-    map.setView([lat, lon], Math.max(map.getZoom(), 10));
+    if (searchGridLayer) map.removeLayer(searchGridLayer);
+
+    // 500m圏内を、各マスの標高リスクに応じた色のタイルで塗る
+    searchGridLayer = L.layerGroup();
+    gridCells.forEach((cell, idx) => {
+      const cellElev = gridElevations[idx];
+      const cellRisk = elevationToRiskInfo(cellElev);
+      const halfLat = cellDLat / 2;
+      const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
+      L.rectangle(
+        [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
+        { color: cellRisk.color, weight: 0, fillColor: cellRisk.color, fillOpacity: 0.45 }
+      ).addTo(searchGridLayer);
+    });
+    searchGridLayer.addTo(map);
+
+    // 指定地点そのものは📍ピンで表示
+    searchMarkerLayer = L.marker([lat, lon], {
+      icon: L.divIcon({
+        html: '<div style="font-size:26px;line-height:1;transform:translateY(-4px);">📍</div>',
+        className: '',
+        iconSize: [26, 26],
+        iconAnchor: [13, 26],
+      }),
+    }).addTo(map);
+
+    map.setView([lat, lon], Math.max(map.getZoom(), 13));
   } catch (e) {
     resultEl.innerHTML = '<div class="result-elev">Could not fetch elevation data. Please try again shortly.</div>';
   }
