@@ -593,12 +593,20 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// 度単位のざっくりした絞り込み(重い三角関数を使うhaversineの前段フィルタとして使う)。
+// 緯度1度は約111km固定。経度は高緯度ほど短くなるが、ここでは安全側に倍のマージンを取って簡略化する。
+function degBboxFilter(lat, lon, flat, flon, radiusKm) {
+  const degMargin = (radiusKm / 111) * 1.5;
+  return Math.abs(lat - flat) <= degMargin && Math.abs(lon - flon) <= degMargin;
+}
+
 // 地震: 周辺100km以内で観測された最大マグニチュードを震度階級ふうの5段階に変換
 function earthquakeTileColor(lat, lon) {
   if (!earthquakeGeojsonCache) return null;
   let maxMag = null;
   earthquakeGeojsonCache.features.forEach(f => {
     const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 100)) return; // 先に安価な絞り込み
     if (haversineKm(lat, lon, flat, flon) <= 100) {
       const mag = f.properties?.mag;
       if (typeof mag === 'number' && (maxMag === null || mag > maxMag)) maxMag = mag;
@@ -621,7 +629,7 @@ function typhoonTileColor(lat, lon) {
   typhoonGeojsonCacheGlobal.features.forEach(f => {
     const w = f.properties?.max_wind_kt;
     if (typeof w !== 'number') return;
-    const near = f.geometry.coordinates.some(([flon, flat]) => haversineKm(lat, lon, flat, flon) <= 50);
+    const near = f.geometry.coordinates.some(([flon, flat]) => degBboxFilter(lat, lon, flat, flon, 50) && haversineKm(lat, lon, flat, flon) <= 50);
     if (near && (maxWind === null || w > maxWind)) maxWind = w;
   });
   if (maxWind === null) return null;
@@ -651,6 +659,7 @@ function floodTileColor(lat, lon) {
     const area = f.properties?.affected_sq_km;
     if (typeof area !== 'number') return;
     const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 80)) return;
     const d = haversineKm(lat, lon, flat, flon);
     if (d <= 80 && d < nearestDist) { nearestDist = d; nearestArea = area; }
   });
