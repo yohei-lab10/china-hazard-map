@@ -185,7 +185,7 @@
       <input type="text" id="searchLon" placeholder="Longitude, e.g. 121.47" inputmode="decimal">
       <button id="searchBtn">Locate</button>
     </div>
-    <div class="search-hint">Or tap the map to check a point's elevation and how it compares to its surroundings.</div>
+    <div class="search-hint">Or tap the map to check a point's elevation and how it compares to its surroundings.<br>Need coordinates? <a href="https://www.openstreetmap.org/" target="_blank" style="color:var(--navy);">OpenStreetMap</a> uses WGS84 directly (right-click a point → "Show address" to get exact coordinates) — matches this site exactly. <a href="https://api.map.baidu.com/lbsapi/getpoint/index.html" target="_blank" style="color:var(--navy);">Baidu Maps</a> also works but uses the BD-09 system, which can be offset by a few hundred meters.</div>
   </div>
   <div class="search-result" id="searchResult"></div>
 
@@ -343,6 +343,7 @@ function renderLayerBar() {
 }
 
 let legendExpanded = new Set();
+let dataRanges = { typhoonHazard: null, floodHazard: null };
 
 function updateLegend() {
   const container = document.getElementById('legendNote');
@@ -356,8 +357,9 @@ function updateLegend() {
     const summary = firstSentenceEnd > -1 ? l.note.slice(0, firstSentenceEnd + 1) : l.note;
     const rest = firstSentenceEnd > -1 ? l.note.slice(firstSentenceEnd + 1).trim() : '';
     const expanded = legendExpanded.has(l.key);
+    const range = dataRanges[l.key] ? ` <span style="color:var(--text-primary);font-weight:600;">[${dataRanges[l.key]}]</span>` : '';
     return `<div style="margin-bottom:6px;">
-      <strong style="color:var(--text-primary);">${l.label}:</strong> ${summary}
+      <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${summary}
       ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
       <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
     </div>`;
@@ -572,10 +574,10 @@ const SEARCH_RADIUS_M = 100;
 let searchMarkerLayer;
 
 function elevationToRiskInfo(elevation) {
-  if (elevation < 3) return { label: 'High risk (< 3m)', color: 'var(--risk-severe)' };
-  if (elevation < 5) return { label: 'Watch zone (3–5m)', color: 'var(--risk-high)' };
-  if (elevation < 10) return { label: 'Transition zone (5–10m)', color: 'var(--risk-mid)' };
-  return { label: 'Relatively low risk (10m+)', color: 'var(--risk-low)' };
+  if (elevation < 3) return { label: 'High risk (< 3m)', color: '#C13A2E' };
+  if (elevation < 5) return { label: 'Watch zone (3–5m)', color: '#D9722C' };
+  if (elevation < 10) return { label: 'Transition zone (5–10m)', color: '#D9A22C' };
+  return { label: 'Relatively low risk (10m+)', color: '#4E7BA8' };
 }
 
 function metersToDegLat(m) { return m / 111000; }
@@ -635,7 +637,7 @@ async function queryPoint(lat, lon) {
     `;
 
     if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
-    searchMarkerLayer = L.circleMarker([lat, lon], { radius: 8, color: '#1A2130', weight: 2, fillColor: '#1F3A5F', fillOpacity: 0.7 }).addTo(map);
+    searchMarkerLayer = L.circleMarker([lat, lon], { radius: 9, color: '#1A2130', weight: 2, fillColor: riskInfo.color, fillOpacity: 0.85 }).addTo(map);
     map.setView([lat, lon], Math.max(map.getZoom(), 10));
   } catch (e) {
     resultEl.innerHTML = '<div class="result-elev">Could not fetch elevation data. Please try again shortly.</div>';
@@ -643,9 +645,14 @@ async function queryPoint(lat, lon) {
 }
 
 document.getElementById('searchBtn').addEventListener('click', () => {
-  const lat = parseFloat(document.getElementById('searchLat').value);
-  const lon = parseFloat(document.getElementById('searchLon').value);
+  let lat = parseFloat(document.getElementById('searchLat').value);
+  let lon = parseFloat(document.getElementById('searchLon').value);
   if (isNaN(lat) || isNaN(lon)) return;
+  // 緯度は-90〜90の範囲しかありえない。範囲外なら経度と入れ替わっている可能性が高いので自動補正する
+  // (百度地図など「経度,緯度」の順でコピーされるサイトからの貼り付けを想定)
+  if ((lat < -90 || lat > 90) && lon >= -90 && lon <= 90) {
+    [lat, lon] = [lon, lat];
+  }
   queryPoint(lat, lon);
 });
 
