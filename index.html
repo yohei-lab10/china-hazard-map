@@ -583,6 +583,44 @@ function floodWeightAt(lat, lon) {
 
 // ==== 水域近接倍率(河川・湖・海への近さで標高リスクを底上げする) ====
 let riversGeojsonCacheGlobal = null;
+let riverSpatialIndex = null; // Map<"latCell_lonCell", number[]>(河川データのインデックス、featuresの添字)
+const RIVER_INDEX_CELL_DEG = 0.02; // 約2.2km四方の格子(2km圏内の検索に十分な粒度)
+
+// 河川データを読み込んだ直後に1回だけ呼ぶ: 各河川の頂点をもとに、格子ごとの索引を作る。
+// これにより検索のたびに全件(14万本規模)をスキャンする必要がなくなる。
+function buildRiverSpatialIndex(riversGeojson) {
+  const index = new Map();
+  if (!riversGeojson) return index;
+  riversGeojson.features.forEach((f, idx) => {
+    const coords = f.geometry?.coordinates;
+    if (!coords) return;
+    const seenCells = new Set(); // 同じ河川が同じ格子に何度も登録されるのを防ぐ
+    coords.forEach(([lon, lat]) => {
+      const cellKey = `${Math.floor(lat / RIVER_INDEX_CELL_DEG)}_${Math.floor(lon / RIVER_INDEX_CELL_DEG)}`;
+      if (seenCells.has(cellKey)) return;
+      seenCells.add(cellKey);
+      if (!index.has(cellKey)) index.set(cellKey, []);
+      index.get(cellKey).push(idx);
+    });
+  });
+  return index;
+}
+
+// 指定地点の周囲(3x3の格子=約6.6km四方)に該当する河川の候補だけを取り出す
+function nearbyRiverFeatures(lat, lon) {
+  if (!riverSpatialIndex || !riversGeojsonCacheGlobal) return [];
+  const baseLat = Math.floor(lat / RIVER_INDEX_CELL_DEG);
+  const baseLon = Math.floor(lon / RIVER_INDEX_CELL_DEG);
+  const candidateIdx = new Set();
+  for (let dLat = -1; dLat <= 1; dLat++) {
+    for (let dLon = -1; dLon <= 1; dLon++) {
+      const key = `${baseLat + dLat}_${baseLon + dLon}`;
+      const bucket = riverSpatialIndex.get(key);
+      if (bucket) bucket.forEach(i => candidateIdx.add(i));
+    }
+  }
+  return Array.from(candidateIdx).map(i => riversGeojsonCacheGlobal.features[i]);
+}
 
 // Overpass API(OpenStreetMap)で、指定地点周辺の湖・貯水池をその場に問い合わせる。
 // HydroLAKES(全世界820MBの事前ダウンロードが必要)を避けるための代替手段。
@@ -640,17 +678,14 @@ function distanceToProximityMultiplier(distanceM) {
 function waterProximityMultiplier(lat, lon, lakePoints) {
   let minDistKm = Infinity;
 
-  if (riversGeojsonCacheGlobal) {
-    riversGeojsonCacheGlobal.features.forEach(f => {
-      const coords = f.geometry?.coordinates;
-      if (!coords) return;
-      // ざっくりした事前フィルタ(重い距離計算を減らす)
-      const [flon, flat] = coords[Math.floor(coords.length / 2)] || coords[0];
-      if (!degBboxFilter(lat, lon, flat, flon, 10)) return;
-      const d = pointToLineDistanceKm(lat, lon, coords);
-      if (d < minDistKm) minDistKm = d;
-    });
-  }
+  // 空間インデックスから、周辺の格子(約6.6km四方)に該当する河川候補だけを取り出して判定する
+  // (全件スキャンではなく、近隣候補のみに絞ることで検索のたびの計算量を大幅に削減)
+  nearbyRiverFeatures(lat, lon).forEach(f => {
+    const coords = f.geometry?.coordinates;
+    if (!coords) return;
+    const d = pointToLineDistanceKm(lat, lon, coords);
+    if (d < minDistKm) minDistKm = d;
+  });
 
   if (lakePoints && lakePoints.length > 0) {
     lakePoints.forEach(([plat, plon]) => {
@@ -678,6 +713,7 @@ async function buildWaterHazard() {
   rainfallGeojsonCacheGlobal = rainfallGeojson;
   elevationGeojsonCacheGlobal = elevationGeojson;
   riversGeojsonCacheGlobal = riversGeojson;
+  riverSpatialIndex = buildRiverSpatialIndex(riversGeojson);
 
   if (!floodGeojsonCacheGlobal) {
     floodGeojsonCacheGlobal = await fetchGeojsonSafe('data/floods.geojson');
