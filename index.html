@@ -274,30 +274,30 @@ function isOnLand(lat, lon) {
 
 const LAYERS = [
   { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
-    note: 'Earthquakes: M5.0+ events for the China region, backed by a 50-year historical backfill from the USGS earthquake catalog, updated incrementally. Marker size scales with magnitude.' },
+    note: 'Earthquakes: historical M5.0+ events across China, based on USGS earthquake catalog data. Marker size scales with magnitude.' },
   { key: 'lightning', label: 'Lightning', color: COLORS.lightning,
-    note: 'Lightning: illustrative density based on WWLLN lightning climatology, highlighting strike-prone areas across southern China and the eastern coast.' },
+    note: 'Lightning: an illustrative reference layer based on global lightning climatology data.' },
   { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
-    note: 'Typhoon Hazard: historical typhoon tracks (land/coastal points only — open-ocean segments excluded), weighted by each storm\'s own peak wind speed and normalized 0–1. Green = weaker storms, amber = moderate, red = the strongest storms on record. Reflects past activity, not a forecast.' },
+    note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
-    note: 'Water Hazard: combines rainfall intensity (CHIRPS, classified using China Meteorological Administration rainstorm bands) and elevation (susceptibility to inundation) by taking the higher of the two, then boosts that score by up to 1.5x where historical flood records (DFO) confirm past flooding. Gray tiles mark areas outside CHIRPS coverage (north of 50°N) — this means missing data, not low risk.' },
+    note: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/lakes/coastline, and past flood record data. Gray tiles mean data is unavailable there, not that risk is low.' },
   { key: 'aqueductFloods', label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
-    note: 'Aqueduct Floods: river flood inundation depth from WRI\'s Aqueduct Floods hydrodynamic simulation (historical baseline, 100-year return period), shown as a separate layer — it is not combined into the Water Hazard formula above. Gray tiles mean no simulated inundation data at that point, not zero risk.' },
+    note: 'Aqueduct Floods: river flood simulation data from WRI, shown as a separate reference layer from Water Hazard. Gray tiles mean data is unavailable there, not that risk is low.' },
 ];
 
 const METHODOLOGY = [
   { label: 'Earthquakes', color: COLORS.earthquake,
-    desc: 'Source: USGS Earthquake Catalog API. Backfilled once for a 50-year historical window (M5.0+), then updated incrementally on each run — only new events since the last run are appended, so the full history is not re-fetched every time. Until the backfill file exists, the map falls back to a live 30-day feed.' },
+    desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
   { label: 'Lightning', color: COLORS.lightning,
-    desc: 'Source: WWLLN lightning climatology. Illustrative strike-density weighting across known high-frequency coastal zones. Unlike other hazards here, lightning is treated as a real-time phenomenon in official Japanese practice (JMA\'s nowcast), not a long-term hazard map — this layer is kept as a rough climatological indicator only.' },
+    desc: 'Source: global lightning climatology data. An illustrative reference layer only, not a real-time warning.' },
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
-    desc: 'Source: IBTrACS (NOAA). Weight = peak wind speed (kt) / max recorded peak wind speed, per storm. Track points are filtered to mainland China using a bounding box plus an approximate coastline polygon, so open-water segments (East/Yellow/Bohai Sea) are excluded. 3-tier scale: <0.33 low, 0.33–0.66 moderate, >0.66 severe. Wind-speed based only; storm-surge/coastal-flooding is not separately modeled.' },
+    desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
   { label: 'Water Hazard', color: COLORS.waterHazard,
-    desc: 'base_risk = max(rainfall_risk, elevation_risk). rainfall_risk uses CHIRPS-observed maximum 24h rainfall, classified by China Meteorological Administration rainstorm bands (50/100/250mm = 0.33/0.66/1.0). elevation_risk uses fixed bands (<3m/3-5m/5-10m/10m+). flood_weight = 1 + 0.5 × (DFO flood-area, normalized to the dataset max), ranging 1.0–1.5 and never below 1.0. water_hazard = min(1.0, base_risk × flood_weight). Areas outside CHIRPS coverage (>50°N) are shown gray — missing data, not zero risk. This is a lightweight proxy combining absolute meteorological/elevation thresholds with a relative historical-flood boost; it is not a hydrodynamic simulation like WRI Aqueduct Floods or Japan\'s official inundation maps.' },
+    desc: 'Created based on historical rainfall, elevation, proximity to rivers/lakes/coastline, and past flood record data. A simplified reference indicator, not a hydrodynamic flood simulation. Gray tiles mean data is unavailable there, not that risk is low.' },
   { label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
-    desc: 'Source: WRI Aqueduct Floods (inunriver, historical baseline, 100-year return period), ~10km resolution. Inundation depth (m) converted to risk: 0m=0, 0-0.5m=0.3, 0.5-1m=0.6, 1m+=1.0. A genuine hydrodynamic simulation, unlike the proxy-based Water Hazard layer — kept separate rather than merged into it. Gray = no simulated inundation value at that point (missing data, not confirmed-safe).' },
+    desc: 'Source: WRI Aqueduct Floods hydrodynamic river-flood simulation data. Shown as a separate reference layer, not combined with Water Hazard above.' },
   { label: 'Point Lookup', color: '#5C6675',
-    desc: 'On-demand query to Open-Elevation for the tapped point plus 8 surrounding points (~100m radius) for elevation, and a 1.5km-radius tile grid (13×13, ~250m cells). Water Hazard tiles combine live elevation + pre-generated rainfall/flood data (same formula as the Water Hazard layer); earthquake/typhoon/lightning tiles use a 5-tier warning-style scale computed from already-loaded historical data — no extra network calls for those. The "surrounding diff" (whether a point sits in a local depression) uses an in-house 0.5m/1m threshold — this is our own working assumption, not drawn from a specific published standard we could verify. Tiles, the risk badge, and the comparison grid only appear while the Water Hazard chip is active.' },
+    desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
 ];
 
 const TYPHOON_SAMPLE = [
@@ -401,6 +401,8 @@ function updateLegend() {
       ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
       <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
       ${l.key === 'waterHazard' || l.key === 'aqueductFloods' ? riskLegendHtml() : ''}
+      ${l.key === 'earthquake' ? riskLegendHtml(EARTHQUAKE_TIER_COLORS, false) : ''}
+      ${l.key === 'typhoonHazard' || l.key === 'lightning' ? riskLegendHtml(WARNING_TIER_COLORS, false) : ''}
     </div>`;
   }).join('');
 
@@ -579,13 +581,103 @@ function floodWeightAt(lat, lon) {
   return 1 + 0.5 * relative; // 1.0〜1.5、1を下回らない
 }
 
+// ==== 水域近接倍率(河川・湖・海への近さで標高リスクを底上げする) ====
+let riversGeojsonCacheGlobal = null;
+
+// Overpass API(OpenStreetMap)で、指定地点周辺の湖・貯水池をその場に問い合わせる。
+// HydroLAKES(全世界820MBの事前ダウンロードが必要)を避けるための代替手段。
+// 地点検索1回につき1回だけ呼び出し、169マス全体で結果を使い回す(通信回数を抑えるため)。
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+
+async function fetchNearbyLakePoints(lat, lon, radiusM) {
+  const query = `[out:json][timeout:25];(way["natural"="water"]["water"~"lake|reservoir|oxbow"](around:${radiusM},${lat},${lon});relation["natural"="water"]["water"~"lake|reservoir|oxbow"](around:${radiusM},${lat},${lon}););out geom;`;
+  try {
+    const res = await fetch(OVERPASS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: query,
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const points = [];
+    (data.elements || []).forEach(el => {
+      if (el.geometry) {
+        el.geometry.forEach(g => points.push([g.lat, g.lon]));
+      } else if (el.members) {
+        el.members.forEach(m => {
+          if (m.geometry) m.geometry.forEach(g => points.push([g.lat, g.lon]));
+        });
+      }
+    });
+    return points;
+  } catch (e) {
+    // Overpass APIが混雑・失敗している場合は、湖の要素なしとして扱う(検索自体は継続する)
+    return [];
+  }
+}
+
+// 距離(km) → 最寄りの頂点との最短距離(度)を概算距離(km)に変換する簡易ヘルパー
+function pointToLineDistanceKm(lat, lon, coords) {
+  // 簡易実装: 線を構成する各頂点との距離のうち最小値を採用する(頂点間の補間はしない近似)
+  let minDist = Infinity;
+  coords.forEach(([clon, clat]) => {
+    const d = haversineKm(lat, lon, clat, clon);
+    if (d < minDist) minDist = d;
+  });
+  return minDist;
+}
+
+// 距離(m)を5段階の倍率(1.0〜1.5)に変換する
+function distanceToProximityMultiplier(distanceM) {
+  if (distanceM <= 500) return 1.5;
+  if (distanceM <= 1000) return 1.35;
+  if (distanceM <= 1500) return 1.2;
+  if (distanceM <= 2000) return 1.1;
+  return 1.0;
+}
+
+// 河川・湖(Overpassでその場取得したポイント)・海のうち最も近いものまでの距離を求め、倍率に変換する
+function waterProximityMultiplier(lat, lon, lakePoints) {
+  let minDistKm = Infinity;
+
+  if (riversGeojsonCacheGlobal) {
+    riversGeojsonCacheGlobal.features.forEach(f => {
+      const coords = f.geometry?.coordinates;
+      if (!coords) return;
+      // ざっくりした事前フィルタ(重い距離計算を減らす)
+      const [flon, flat] = coords[Math.floor(coords.length / 2)] || coords[0];
+      if (!degBboxFilter(lat, lon, flat, flon, 10)) return;
+      const d = pointToLineDistanceKm(lat, lon, coords);
+      if (d < minDistKm) minDistKm = d;
+    });
+  }
+
+  if (lakePoints && lakePoints.length > 0) {
+    lakePoints.forEach(([plat, plon]) => {
+      const d = haversineKm(lat, lon, plat, plon);
+      if (d < minDistKm) minDistKm = d;
+    });
+  }
+
+  // 海(既存の海岸線ポリゴンの頂点との距離で近似)
+  CHINA_COASTLINE_POLYGON.forEach(([clon, clat]) => {
+    const d = haversineKm(lat, lon, clat, clon);
+    if (d < minDistKm) minDistKm = d;
+  });
+
+  if (!isFinite(minDistKm)) return 1.0;
+  return distanceToProximityMultiplier(minDistKm * 1000);
+}
+
 async function buildWaterHazard() {
-  const [rainfallGeojson, elevationGeojson] = await Promise.all([
+  const [rainfallGeojson, elevationGeojson, riversGeojson] = await Promise.all([
     fetchGeojsonSafe('data/rainfall_risk.geojson'),
     fetchGeojsonSafe('data/elevation_risk.geojson'),
+    fetchGeojsonSafe('data/rivers.geojson'),
   ]);
   rainfallGeojsonCacheGlobal = rainfallGeojson;
   elevationGeojsonCacheGlobal = elevationGeojson;
+  riversGeojsonCacheGlobal = riversGeojson;
 
   if (!floodGeojsonCacheGlobal) {
     floodGeojsonCacheGlobal = await fetchGeojsonSafe('data/floods.geojson');
@@ -615,7 +707,9 @@ async function buildWaterHazard() {
         });
         if (typeof nearestRisk === 'number') elevRisk = nearestRisk;
       }
-      const baseRisk = Math.max(rainfallRisk, elevRisk);
+      // 全国俯瞰では、湖はOverpassの都度問い合わせが使えないため、河川・海のみで近接倍率を計算する
+      const proximity = waterProximityMultiplier(lat, lon, []);
+      const baseRisk = Math.max(rainfallRisk, elevRisk * proximity);
       const weight = floodWeightAt(lat, lon);
       const finalRisk = Math.min(1.0, baseRisk * weight);
       if (finalRisk > 0) riskPoints.push([lat, lon, finalRisk]);
@@ -670,14 +764,17 @@ const EARTHQUAKE_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F', '#7A
 const WARNING_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#7A3B8C', '#1A2130'];
 
 // 5段階配色のグラデーション凡例(温度計ふう)+データ欠損(灰色)の説明をHTMLで生成する共通関数
-function riskLegendHtml() {
-  const bar = WARNING_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('');
+function riskLegendHtml(colors, showNoData) {
+  const useColors = colors || WARNING_TIER_COLORS;
+  const bar = useColors.map(c => `<span style="background:${c};"></span>`).join('');
+  const noData = showNoData === false ? '' :
+    `<div class="risk-legend-nodata"><span class="swatch" style="background:${NO_DATA_COLOR};"></span>No data (outside coverage) — not the same as low risk</div>`;
   return `
     <div class="risk-legend">
       <div class="risk-legend-bar">${bar}</div>
     </div>
     <div class="risk-legend-labels"><span>Low</span><span>Moderate</span><span>High</span><span>Severe</span><span>Extreme</span></div>
-    <div class="risk-legend-nodata"><span class="swatch" style="background:${NO_DATA_COLOR};"></span>No data (outside coverage) — not the same as low risk</div>
+    ${noData}
   `;
 }
 
@@ -890,6 +987,12 @@ async function queryPoint(lat, lon) {
 
     // バッジは「水害ハザード」の統合値(降雨×標高の高い方 × 洪水実績の重み)で判定する。
     // 方角グリッド・標高差テキストは、引き続き標高そのものを参考情報として表示する。
+    // 湖の近接判定は、Overpass API(OpenStreetMap)にこの検索1回につき1回だけ問い合わせる
+    // (169マス個別には問い合わせず、結果を使い回すことで通信回数を抑える)。
+    const lakePoints = activeLayers.has('waterHazard')
+      ? await fetchNearbyLakePoints(lat, lon, GRID_RADIUS_M + 2000)
+      : [];
+
     const elevRiskInfo = elevationToRiskInfo(centerElev);
     const rainfallRiskHere = rainfallRiskAt(lat, lon);
     const noRainDataHere = rainfallRiskHere === null;
@@ -897,7 +1000,8 @@ async function queryPoint(lat, lon) {
     if (noRainDataHere) {
       waterBadge = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR };
     } else {
-      const baseRisk = Math.max(rainfallRiskHere, elevRiskValueFromLabel(elevRiskInfo));
+      const proximity = waterProximityMultiplier(lat, lon, lakePoints);
+      const baseRisk = Math.max(rainfallRiskHere, elevRiskValueFromLabel(elevRiskInfo) * proximity);
       const weight = floodWeightAt(lat, lon);
       const finalRisk = Math.min(1.0, baseRisk * weight);
       const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
@@ -939,6 +1043,7 @@ async function queryPoint(lat, lon) {
     searchGridLayers = {};
 
     Object.entries(hazardTileFns).forEach(([key, fn]) => {
+      if (!activeLayers.has(key)) return; // チップがOFFなら、そもそもタイルを生成しない(表示崩れの防止)
       const layer = L.layerGroup();
       let any = false;
       gridCells.forEach((cell, idx) => {
@@ -959,7 +1064,8 @@ async function queryPoint(lat, lon) {
     });
 
     // 水害ハザードのタイル: 標高は実測API値(このマス)、降雨強度は最寄りの事前生成データ、
-    // 洪水実績は重みとしてのみ使用。海上のマスは除外。
+    // 洪水実績は重みとしてのみ使用。海上のマスは除外。チップがOFFなら生成自体をスキップする。
+    if (activeLayers.has('waterHazard')) {
     const waterGridLayer = L.layerGroup();
     gridCells.forEach((cell, idx) => {
       if (!isOnLand(cell.lat, cell.lon)) return;
@@ -980,7 +1086,7 @@ async function queryPoint(lat, lon) {
         return;
       }
 
-      const baseRisk = Math.max(rainfallRiskValue, elevRiskValue);
+      const baseRisk = Math.max(rainfallRiskValue, elevRiskValue * waterProximityMultiplier(cell.lat, cell.lon, lakePoints));
       const weight = floodWeightAt(cell.lat, cell.lon);
       const finalRisk = Math.min(1.0, baseRisk * weight);
       const tileColor = WARNING_TIER_COLORS[Math.min(4, Math.max(0, Math.floor(finalRisk * 5) - (finalRisk === 0 ? 1 : 0)))] ;
@@ -992,6 +1098,7 @@ async function queryPoint(lat, lon) {
     });
     waterGridLayer.addTo(layerGroups.waterHazard);
     searchGridLayers.waterHazard = waterGridLayer;
+    }
 
     // 指定地点そのものは📍ピンで表示(どのチップの状態にも関わらず常に表示)
     searchMarkerLayer = L.marker([lat, lon], {
