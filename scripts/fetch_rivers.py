@@ -49,7 +49,15 @@ def main():
     args = ap.parse_args()
 
     print(f"[fetch_rivers] ダウンロード中: {args.url}", flush=True)
-    res = requests.get(args.url, timeout=600)
+    # hydrosheds.orgはプログラムからの直接アクセス(User-Agent無し)を拒否することがあるため、
+    # 一般的なブラウザからのアクセスに見せかけるヘッダーを付与する
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        )
+    }
+    res = requests.get(args.url, headers=headers, timeout=600)
     res.raise_for_status()
     print(f"[fetch_rivers] ダウンロード完了: {len(res.content)} bytes", flush=True)
 
