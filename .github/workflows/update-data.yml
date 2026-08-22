@@ -24,6 +24,10 @@ name: Update Hazard Data
         description: "Run WRI Aqueduct Floods risk grid update"
         type: boolean
         default: false
+      rivers_url:
+        description: "HydroRIVERS Asia region download URL (.zip, from hydrosheds.org). Leave empty to skip."
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -152,5 +156,27 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/aqueduct_floods.geojson
           git diff --staged --quiet || git commit -m "chore: update aqueduct_floods.geojson [auto]"
+          git pull --rebase origin main
+          git push
+
+  update-rivers:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.rivers_url != ''
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install geopandas requests
+      - name: Fetch rivers
+        run: python scripts/fetch_rivers.py --url "${{ github.event.inputs.rivers_url }}" --min-order 4 --out data/rivers.geojson
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/rivers.geojson
+          git diff --staged --quiet || git commit -m "chore: update rivers.geojson [auto]"
           git pull --rebase origin main
           git push
