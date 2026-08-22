@@ -169,9 +169,19 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dependencies
-        run: pip install geopandas requests
+        run: pip install geopandas
+      - name: Download rivers zip via curl
+        # hydrosheds.orgはPythonのrequestsライブラリからの通信をボット対策でブロックすることがある。
+        # curlはTLS通信の指紋(fingerprint)が異なり、ブロックを回避できる場合があるため、
+        # ダウンロードだけcurlで行い、処理はPython側(--file)に渡す。
+        run: |
+          curl -L --fail \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+            -e "https://www.hydrosheds.org/products/hydrorivers" \
+            -o rivers.zip \
+            "${{ github.event.inputs.rivers_url }}"
       - name: Fetch rivers
-        run: python scripts/fetch_rivers.py --url "${{ github.event.inputs.rivers_url }}" --min-order 4 --out data/rivers.geojson
+        run: python scripts/fetch_rivers.py --file rivers.zip --min-order 4 --out data/rivers.geojson
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
