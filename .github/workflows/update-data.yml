@@ -216,6 +216,8 @@ jobs:
         run: |
           mkdir -p kaggle_rivers
           kaggle datasets download -d "${{ github.event.inputs.kaggle_rivers_dataset }}" -p kaggle_rivers --unzip
+      - name: List downloaded files (debug)
+        run: find kaggle_rivers -type f | head -100
       - name: Fetch rivers
         run: python scripts/fetch_rivers.py --shp-dir kaggle_rivers --min-order 4 --out data/rivers.geojson
       - name: Commit and push if changed
