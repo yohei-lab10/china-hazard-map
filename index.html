@@ -279,7 +279,7 @@ const METHODOLOGY = [
   { label: 'Elevation Hazard', color: COLORS.elevationHazard,
     desc: 'Source: Open-Elevation grid (~1° spacing). Risk bands: <3m high risk, 3–5m watch zone, 5–10m transition, ≥10m relatively low risk. Updated infrequently since elevation is static.' },
   { label: 'Point Lookup', color: '#5C6675',
-    desc: 'On-demand query to Open-Elevation for the tapped point plus 8 surrounding points (~100m radius) for elevation. Also shades a 1km-radius tile grid around the point: elevation risk uses the live API values; earthquake/typhoon/lightning/flood tiles use a 5-tier warning-style scale (yellow→orange→red→purple→black, or JMA seismic-intensity colors for earthquakes) computed from the already-loaded historical data near that point — no extra network calls. Tiles only appear for hazards whose chip is active.' },
+    desc: 'On-demand query to Open-Elevation for the tapped point plus 8 surrounding points (~100m radius) for elevation. Also shades a 1km-radius tile grid around the point: elevation risk uses the live API values; earthquake/typhoon/lightning/flood tiles use a 5-tier warning-style scale (yellow→orange→red→purple→black, or JMA seismic-intensity colors for earthquakes) computed from the already-loaded historical data near that point — no extra network calls. Tiles, the risk badge, and the 8-direction comparison grid only appear while the Elevation Hazard chip is active.' },
 ];
 
 const TYPHOON_SAMPLE = [
@@ -319,10 +319,10 @@ function initMap() {
   // Light, professional cartographic base (CartoDB Positron)
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd', maxZoom: 12,
+    subdomains: 'abcd', maxZoom: 19,
   }).addTo(map);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
-    subdomains: 'abcd', maxZoom: 12,
+    subdomains: 'abcd', maxZoom: 19,
   }).addTo(map);
 
   layerGroups.earthquake = L.layerGroup();
@@ -349,6 +349,12 @@ function renderLayerBar() {
       } else {
         activeLayers.add(key);
         map.addLayer(layerGroups[key]);
+      }
+      // 冠水ハザードチップをOFFにしたら、地点検索の判定結果(バッジ・標高差・方角グリッド)も非表示にする
+      if (key === 'elevationHazard' && !activeLayers.has('elevationHazard')) {
+        const resultEl = document.getElementById('searchResult');
+        resultEl.className = 'search-result';
+        resultEl.innerHTML = '';
       }
       renderLayerBar();
       updateLegend();
@@ -686,9 +692,9 @@ const DIRS = [
 const SEARCH_RADIUS_M = 100;
 
 // 500m圏内を細かい格子(グリッド)状にサンプリングして面で塗るための設定
-const GRID_RADIUS_M = 1000;
-const GRID_STEPS = 4; // 中心から上下左右に4マスずつ = 9x9グリッド
-const GRID_CELL_M = GRID_RADIUS_M / GRID_STEPS;
+const GRID_RADIUS_M = 1500;
+const GRID_CELL_M = 250; // 1マスのサイズは今までと同じ(精細さを保つ)
+const GRID_STEPS = GRID_RADIUS_M / GRID_CELL_M; // 半径1500m ÷ 250m = 6マスずつ = 13x13グリッド
 
 let searchMarkerLayer;
 let searchGridLayers = {}; // ハザードキーごとのタイルレイヤー(それぞれ対応するチップと連動)
@@ -724,8 +730,10 @@ async function fetchElevations(locations) {
 
 async function queryPoint(lat, lon) {
   const resultEl = document.getElementById('searchResult');
-  resultEl.className = 'search-result visible';
-  resultEl.innerHTML = '<div class="result-elev">Fetching…</div>';
+  if (activeLayers.has('elevationHazard')) {
+    resultEl.className = 'search-result visible';
+    resultEl.innerHTML = '<div class="result-elev">Fetching…</div>';
+  }
 
   const dLat = metersToDegLat(SEARCH_RADIUS_M);
   const dLon = metersToDegLon(SEARCH_RADIUS_M, lat);
@@ -763,13 +771,23 @@ async function queryPoint(lat, lon) {
 
     const riskInfo = elevationToRiskInfo(centerElev);
 
-    resultEl.innerHTML = `
-      <span class="result-badge" style="background:${riskInfo.color};">${riskInfo.label}</span>
-      <div class="result-elev">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
-      <div class="result-dirs">
-        ${surrounding.map(d => `<div>${d.name}<br>${(d.elev - centerElev >= 0 ? '+' : '')}${(d.elev - centerElev).toFixed(1)}m</div>`).join('')}
-      </div>
-    `;
+    // 冠水ハザードチップがOFFの場合は判定結果(バッジ・標高差・方角グリッド)を表示しない
+    if (activeLayers.has('elevationHazard')) {
+      resultEl.className = 'search-result visible';
+      resultEl.innerHTML = `
+        <span class="result-badge" style="background:${riskInfo.color};">${riskInfo.label}</span>
+        <div class="result-elev">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
+        <div class="result-dirs">
+          ${surrounding.map(d => {
+            const dRisk = elevationToRiskInfo(d.elev);
+            return `<div style="background:${dRisk.color};color:#fff;">${d.name}<br>${(d.elev - centerElev >= 0 ? '+' : '')}${(d.elev - centerElev).toFixed(1)}m</div>`;
+          }).join('')}
+        </div>
+      `;
+    } else {
+      resultEl.className = 'search-result';
+      resultEl.innerHTML = '';
+    }
 
     if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
 
