@@ -1,61 +1,126 @@
-# 中国自然災害ハザードマップ データ取り込みスクリプト
+# 洪水・標高・降雨・Aqueduct Floods・雷データの手動更新手順
 
-## 前提
+地震・台風はGitHub Actionsで完全自動更新されますが、それ以外のハザードは
+配布元の都合上、完全自動化が難しいため手動でトリガーする必要があります。
 
-このスクリプト群は**ネットワーク接続がある環境**(ご自身のPC/サーバー/GitHub Actions等)で実行してください。
-Claude.aiのアーティファクト実行環境やコード実行サンドボックスはネットワークアクセスが制限されているため、
-ここでは動作しません。
+いずれも**GitHub Actionsの手動実行(workflow_dispatch)から実行するのが基本**です
+(雷のみ、自動化の仕組みに未組み込みのためローカル実行限定)。
 
-## セットアップ
+## 洪水実績(推奨頻度: 更新があったときのみ。現状のデータは2023年12月まで)
 
-```bash
-pip install pandas requests xarray netCDF4
+出典: Dartmouth Flood Observatory (DFO) — Global Flood Records (Zenodo, 2026年3月公開)
+https://zenodo.org/records/19288171
+
+**用途の注意**: この洪水実績データは、単独のチップとしては表示されません。
+「水害ハザード」の中で、リスク値を最大1.5倍まで底上げする**重み計算専用**のデータです。
+
+### 方法A: GitHub Actionsから実行(推奨)
+
+1. Zenodoのページで最新版のGeoPackage URLを確認する:
+   https://zenodo.org/records/19288171 → 「Files」欄の `Global_Flood_Records.gpkg` を右クリックしてURLをコピー
+2. GitHubの「Actions」タブ →「Update Hazard Data」→「Run workflow」
+3. `flood_gpkg_url` 欄に確認したURLを貼り付けて実行
+
+### 方法B: ローカルで実行
+
+```
+pip install geopandas requests
+python scripts/fetch_floods.py --gpkg-url "https://zenodo.org/records/19288171/files/Global_Flood_Records.gpkg?download=1" --out data/floods.geojson
 ```
 
-## 実行順序
+## 標高(推奨頻度: まれに再実行。標高データはほぼ不変)
 
-```bash
-cd scripts
+出典: Open-Elevation API(無料・APIキー不要)
 
-# 1. 地震(毎日実行推奨・軽量)
-python fetch_earthquakes.py --days 30 --minmag 3.5 --out ../data/earthquakes.geojson
+**用途**: 「水害ハザード」の構成要素の1つ(降雨強度リスクとの高い方を採用)。
+以前あった「冠水ハザード」単独チップは廃止され、水害ハザードに統合済み。
 
-# 2. 台風(月1回で十分・処理に数分かかる場合あり)
-python fetch_typhoons.py --years 10 --out ../data/typhoons.geojson
+### 方法A: GitHub Actionsから実行(推奨)
 
-# 3. 洪水(DFOの最新ダウンロードURLを事前に確認してから実行)
-python fetch_floods.py --csv-url "https://floodobservatory.colorado.edu/.../archive.csv" --out ../data/floods.geojson
+1. GitHubの「Actions」タブ →「Update Hazard Data」→「Run workflow」
+2. `run_elevation` にチェックを入れて実行
 
-# 4. 雷(NetCDFを事前にZenodoから手動取得してから実行)
-python fetch_lightning.py --nc-file wglc_data/WGLC_monthly_climatology.nc --out ../data/lightning.geojson
+### 方法B: ローカルで実行
+
+```
+pip install requests
+python scripts/fetch_elevation.py --grid-deg 1.0 --out data/elevation_risk.geojson
 ```
 
-## 定期実行(cron例)
+## 降雨強度(推奨頻度: 数ヶ月に1回程度)
 
-```cron
-# 地震: 毎日6時
-0 6 * * * cd /path/to/hazardmap/scripts && python fetch_earthquakes.py --out ../data/earthquakes.geojson
+出典: CHIRPS(UCサンタバーバラ大学 Climate Hazards Center)。無料・APIキー不要。
+中国気象局の暴雨分類基準(24時間降水量)でリスクに変換して使用。
 
-# 台風: 毎月1日3時
-0 3 1 * * cd /path/to/hazardmap/scripts && python fetch_typhoons.py --out ../data/typhoons.geojson
+**用途**: 「水害ハザード」の構成要素の1つ(標高リスクとの高い方を採用)。
 
-# 洪水・雷: 更新頻度が低いデータのため、四半期に1回程度の手動実行で十分
+**注意**: CHIRPSは北緯50度〜南緯50度のみカバー。それより北(黒竜江省北端の一部)は
+データ欠損として扱われ、水害ハザードのタイルは灰色で表示される
+(「リスクなし」ではなく「データなし」を意味する)。
+
+また本スクリプトは直近の指定日数分のみを集計する近似値であり、
+長期の真の統計的極値ではない点に留意すること(詳細はスクリプト内コメント参照)。
+
+### 方法A: GitHub Actionsから実行(推奨・必須に近い)
+
+CHIRPSの日次データを大量にダウンロードするため処理時間が長い(実測で約2分〜、
+日数を増やすとさらに伸びる)。timeout 120分を設定済み。
+
+1. GitHubの「Actions」タブ →「Update Hazard Data」→「Run workflow」
+2. `run_rainfall` にチェックを入れて実行
+
+### 方法B: ローカルで実行
+
+```
+pip install rasterio requests numpy
+python scripts/fetch_rainfall.py --days 180 --grid-deg 1.0 --out data/rainfall_risk.geojson
 ```
 
-## フロント側の変更点
+`--days` で集計対象の日数を調整可能(長くするほど精度は上がるが処理時間も伸びる)。
 
-`index.html` 内の `TYPHOON_SAMPLE` / `FLOOD_SAMPLE` / `LIGHTNING_SAMPLE` の埋め込み配列を、
-`../data/*.geojson` を `fetch()` で読み込む形に差し替えてください。地震は既にUSGS APIを
-直接呼び出しているため変更不要です。
+## Aqueduct Floods(推奨頻度: 年1回程度。WRI側の更新頻度に準じる)
 
-```js
-const res = await fetch('data/typhoons.geojson');
-const geojson = await res.json();
+出典: World Resources Institute (WRI) — Aqueduct Floods Hazard Maps
+https://www.wri.org/data/aqueduct-floods
+
+**用途**: 「水害ハザード」とは統合せず、**独立したチップ**として表示。
+本格的な水文シミュレーション(河川洪水)に基づくデータであり、
+簡易的な代理指標である水害ハザードとは性質が異なるため、意図的に分離している。
+
+デフォルトでは「historical(現在の気候)・100年に1度の再現期間」のシナリオを使用。
+将来気候シナリオ(2030/2050/2080年)や別の再現期間を使いたい場合は、
+`fetch_aqueduct.py` の `--scenario` `--year` `--rp` 引数で切り替え可能
+(利用可能な組み合わせはWRI公式サイトのデータセットページで確認すること)。
+
+### 方法A: GitHub Actionsから実行(推奨)
+
+1. GitHubの「Actions」タブ →「Update Hazard Data」→「Run workflow」
+2. `run_aqueduct` にチェックを入れて実行
+
+### 方法B: ローカルで実行
+
+```
+pip install rasterio requests numpy
+python scripts/fetch_aqueduct.py --scenario historical --model 000000000WATCH --year 1980 --rp 100 --grid-deg 1.0 --out data/aqueduct_floods.geojson
 ```
 
-## 注意事項
+## 雷(推奨頻度: 年1回程度。現状は簡易サンプルデータのみで未導入)
 
-- DFOのウェブサイトは2026年時点でリニューアル中のため、ダウンロードURLは実行前に必ず
-  https://floodobservatory.colorado.edu/dfo-wiki/index.php?title=Main_Page で確認してください。
-- WGLC(落雷)データはZenodoの利用条件(CC BY-SA 4.0)に従い、出典表記を残してください。
-- IBTrACS・USGSはパブリックドメイン/自由利用ですが、公開サイトには出典クレジットの表示を推奨します。
+出典: WWLLN Global Lightning Climatology (WGLC) - University of Calgary
+
+**現時点では `fetch_lightning.py` はワークフローに組み込まれておらず、
+サイト側も組み込み済みの簡易サンプルデータ(`LIGHTNING_SAMPLE`)を表示しているのみ。**
+実データを導入する場合は以下の手順でファイルを生成した上で、`index.html` 側の
+読み込みロジックも合わせて変更する必要がある。
+
+1. https://zenodo.org/records/10725446 から最新のNetCDFファイル
+   (月次 or 気候値)を手動ダウンロードし、`scripts/wglc_data/` に配置
+   - ライセンス確認のため都度サイトで取得することを推奨
+2. ローカルで実行:
+   ```
+   pip install xarray netCDF4 requests
+   python scripts/fetch_lightning.py --nc-file scripts/wglc_data/<ファイル名> --out data/lightning.geojson
+   ```
+3. 生成された `data/lightning.geojson` をコミット・プッシュ
+
+気候値データのため、年1回程度の更新で十分。
