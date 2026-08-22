@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -133,6 +132,20 @@
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-muted);
   }
   .result-dirs div { text-align: center; background: var(--bg); border-radius: 4px; padding: 4px 2px; }
+  .risk-legend { display: flex; align-items: center; gap: 6px; margin-top: 9px; }
+  .risk-legend-bar {
+    display: flex; flex: 1; height: 12px; border-radius: 6px; overflow: hidden;
+  }
+  .risk-legend-bar span { flex: 1; }
+  .risk-legend-labels {
+    display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; color: var(--text-faint); margin-top: 2px;
+  }
+  .risk-legend-nodata {
+    display: flex; align-items: center; gap: 4px; font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px; color: var(--text-faint); margin-top: 4px;
+  }
+  .risk-legend-nodata .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
   /* Map */
   #map { flex: 1; width: 100%; background: var(--bg); }
@@ -221,6 +234,7 @@ const COLORS = {
   lightning: '#D9A22C',
   typhoonHazard: '#2C4E7C',
   waterHazard: '#3F8F5F',
+  aqueductFloods: '#6B4E9A',
 };
 
 // Gray used to mark grid cells with no data (outside CHIRPS coverage etc.) — must never be
@@ -267,6 +281,8 @@ const LAYERS = [
     note: 'Typhoon Hazard: historical typhoon tracks (land/coastal points only — open-ocean segments excluded), weighted by each storm\'s own peak wind speed and normalized 0–1. Green = weaker storms, amber = moderate, red = the strongest storms on record. Reflects past activity, not a forecast.' },
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
     note: 'Water Hazard: combines rainfall intensity (CHIRPS, classified using China Meteorological Administration rainstorm bands) and elevation (susceptibility to inundation) by taking the higher of the two, then boosts that score by up to 1.5x where historical flood records (DFO) confirm past flooding. Gray tiles mark areas outside CHIRPS coverage (north of 50°N) — this means missing data, not low risk.' },
+  { key: 'aqueductFloods', label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
+    note: 'Aqueduct Floods: river flood inundation depth from WRI\'s Aqueduct Floods hydrodynamic simulation (historical baseline, 100-year return period), shown as a separate layer — it is not combined into the Water Hazard formula above. Gray tiles mean no simulated inundation data at that point, not zero risk.' },
 ];
 
 const METHODOLOGY = [
@@ -278,6 +294,8 @@ const METHODOLOGY = [
     desc: 'Source: IBTrACS (NOAA). Weight = peak wind speed (kt) / max recorded peak wind speed, per storm. Track points are filtered to mainland China using a bounding box plus an approximate coastline polygon, so open-water segments (East/Yellow/Bohai Sea) are excluded. 3-tier scale: <0.33 low, 0.33–0.66 moderate, >0.66 severe. Wind-speed based only; storm-surge/coastal-flooding is not separately modeled.' },
   { label: 'Water Hazard', color: COLORS.waterHazard,
     desc: 'base_risk = max(rainfall_risk, elevation_risk). rainfall_risk uses CHIRPS-observed maximum 24h rainfall, classified by China Meteorological Administration rainstorm bands (50/100/250mm = 0.33/0.66/1.0). elevation_risk uses fixed bands (<3m/3-5m/5-10m/10m+). flood_weight = 1 + 0.5 × (DFO flood-area, normalized to the dataset max), ranging 1.0–1.5 and never below 1.0. water_hazard = min(1.0, base_risk × flood_weight). Areas outside CHIRPS coverage (>50°N) are shown gray — missing data, not zero risk. This is a lightweight proxy combining absolute meteorological/elevation thresholds with a relative historical-flood boost; it is not a hydrodynamic simulation like WRI Aqueduct Floods or Japan\'s official inundation maps.' },
+  { label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
+    desc: 'Source: WRI Aqueduct Floods (inunriver, historical baseline, 100-year return period), ~10km resolution. Inundation depth (m) converted to risk: 0m=0, 0-0.5m=0.3, 0.5-1m=0.6, 1m+=1.0. A genuine hydrodynamic simulation, unlike the proxy-based Water Hazard layer — kept separate rather than merged into it. Gray = no simulated inundation value at that point (missing data, not confirmed-safe).' },
   { label: 'Point Lookup', color: '#5C6675',
     desc: 'On-demand query to Open-Elevation for the tapped point plus 8 surrounding points (~100m radius) for elevation, and a 1.5km-radius tile grid (13×13, ~250m cells). Water Hazard tiles combine live elevation + pre-generated rainfall/flood data (same formula as the Water Hazard layer); earthquake/typhoon/lightning tiles use a 5-tier warning-style scale computed from already-loaded historical data — no extra network calls for those. The "surrounding diff" (whether a point sits in a local depression) uses an in-house 0.5m/1m threshold — this is our own working assumption, not drawn from a specific published standard we could verify. Tiles, the risk badge, and the comparison grid only appear while the Water Hazard chip is active.' },
 ];
@@ -329,6 +347,7 @@ function initMap() {
   layerGroups.lightning = L.layerGroup();
   layerGroups.typhoonHazard = L.layerGroup();
   layerGroups.waterHazard = L.layerGroup();
+  layerGroups.aqueductFloods = L.layerGroup();
 }
 
 function renderLayerBar() {
@@ -381,6 +400,7 @@ function updateLegend() {
       <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${summary}
       ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
       <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
+      ${l.key === 'waterHazard' || l.key === 'aqueductFloods' ? riskLegendHtml() : ''}
     </div>`;
   }).join('');
 
@@ -614,12 +634,52 @@ async function buildWaterHazard() {
   });
 }
 
+// Aqueduct Floods(WRI): 水害ハザードとは統合せず、独立したレイヤーとして表示する
+async function buildAqueductFloods() {
+  const geojson = await fetchGeojsonSafe('data/aqueduct_floods.geojson');
+  if (!geojson) return;
+
+  const riskPoints = [];
+  const grayPoints = [];
+  geojson.features.forEach(f => {
+    const [lon, lat] = f.geometry.coordinates;
+    const p = f.properties || {};
+    if (p.no_data || typeof p.risk !== 'number') {
+      grayPoints.push([lat, lon]);
+      return;
+    }
+    if (p.risk > 0) riskPoints.push([lat, lon, p.risk]);
+  });
+
+  if (riskPoints.length > 0) {
+    L.heatLayer(riskPoints, { radius: 40, blur: 32, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.aqueductFloods);
+  }
+  grayPoints.forEach(([lat, lon]) => {
+    L.rectangle(
+      [[lat - 0.4, lon - 0.4], [lat + 0.4, lon + 0.4]],
+      { color: NO_DATA_COLOR, weight: 0, fillColor: NO_DATA_COLOR, fillOpacity: 0.35 }
+    ).addTo(layerGroups.aqueductFloods);
+  });
+}
+
 // ==== 地点検索: 各ハザードの5段階配色ロジック(標高以外はローカルデータのみで計算、追加通信なし) ====
 
 // 気象庁の震度階級配色を参考にした地震用5段階(黄→橙→赤→濃い赤→赤紫)
 const EARTHQUAKE_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F', '#7A2E6B'];
 // 気象庁の統一「警戒レベル」配色を参考にした台風・雷・洪水共通5段階(黄→橙→赤→紫→黒)
 const WARNING_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#7A3B8C', '#1A2130'];
+
+// 5段階配色のグラデーション凡例(温度計ふう)+データ欠損(灰色)の説明をHTMLで生成する共通関数
+function riskLegendHtml() {
+  const bar = WARNING_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('');
+  return `
+    <div class="risk-legend">
+      <div class="risk-legend-bar">${bar}</div>
+    </div>
+    <div class="risk-legend-labels"><span>Low</span><span>Moderate</span><span>High</span><span>Severe</span><span>Extreme</span></div>
+    <div class="risk-legend-nodata"><span class="swatch" style="background:${NO_DATA_COLOR};"></span>No data (outside coverage) — not the same as low risk</div>
+  `;
+}
 
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -850,7 +910,8 @@ async function queryPoint(lat, lon) {
       resultEl.className = 'search-result visible';
       resultEl.innerHTML = `
         <span class="result-badge" style="background:${waterBadge.color};">${waterBadge.label}</span>
-        <div class="result-elev">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
+        ${riskLegendHtml()}
+        <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
         <div class="result-dirs">
           ${surrounding.map(d => {
             const dRisk = elevationToRiskInfo(d.elev);
@@ -1026,6 +1087,7 @@ loadEarthquakes();
 loadLightning();
 buildTyphoonHazard();
 buildWaterHazard();
+buildAqueductFloods();
 
 map.on('click', (e) => {
   document.getElementById('searchLat').value = e.latlng.lat.toFixed(4);
