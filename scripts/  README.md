@@ -1,4 +1,4 @@
-# 洪水・標高・降雨・Aqueduct Floods・雷データの手動更新手順
+# 洪水・標高・降雨・河川・Aqueduct Floods・雷データの手動更新手順
 
 地震・台風はGitHub Actionsで完全自動更新されますが、それ以外のハザードは
 配布元の都合上、完全自動化が難しいため手動でトリガーする必要があります。
@@ -77,6 +77,39 @@ python scripts/fetch_rainfall.py --days 180 --grid-deg 1.0 --out data/rainfall_r
 ```
 
 `--days` で集計対象の日数を調整可能(長くするほど精度は上がるが処理時間も伸びる)。
+
+## 河川データ(推奨頻度: まれに再実行。河川網はほぼ不変)
+
+出典: HydroRIVERS(HydroSHEDSプロジェクト、WWF他)
+https://www.hydrosheds.org/products/hydrorivers
+
+**用途**: 「水害ハザード」の構成要素の1つ。標高リスクを算出する際、河川・湖・海への
+近接度によってリスクを底上げする「水域近接倍率」の判定に使用する
+(降雨強度データとは独立した経路で、標高リスク側にのみ乗算される)。
+
+**データ規模の注意**: 中国域だけでも河川フィーチャーが約14万本規模になるため、
+サイト側(`index.html`)は読み込み直後に約2.2km四方の格子に基づく空間インデックスを
+1回だけ構築し、地点検索のたびに周辺3×3格子(約6.6km四方)の候補だけを距離計算する
+仕組みになっている(全件スキャンは行わない)。この仕組みはデータ本体の更新頻度とは
+無関係に既に組み込み済みなので、`data/rivers.geojson` を配置するだけで有効になる。
+
+現時点では取得・変換を自動化するスクリプト(`fetch_rivers.py`相当)は未整備。
+更新する場合は以下の手順で手動生成する。
+
+### 手順(手動)
+
+1. HydroSHEDS公式サイトで中国を含む対象リージョンのHydroRIVERSシェープファイルを
+   ダウンロードする(利用にはHydroSHEDSサイトでの登録が必要な場合がある):
+   https://www.hydrosheds.org/products/hydrorivers
+2. 中国の範囲でクリップし、GeoJSONに変換してから `data/rivers.geojson` として配置する
+   (例: QGISでクリップ→エクスポート、またはGDAL/`ogr2ogr`でのコマンド変換)。
+   ```
+   ogr2ogr -f GeoJSON -clipsrc <china_bbox_or_boundary> data/rivers.geojson HydroRIVERS_v10_as.shp
+   ```
+3. 生成された `data/rivers.geojson` をコミット・プッシュする
+
+河川網は地形由来のデータであり短期間ではほぼ変化しないため、年1回未満の頻度でも
+問題ない。
 
 ## Aqueduct Floods(推奨頻度: 年1回程度。WRI側の更新頻度に準じる)
 
