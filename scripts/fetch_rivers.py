@@ -64,20 +64,30 @@ def main():
     if not args.url and not args.file and not args.shp_dir:
         raise SystemExit("--url / --file / --shp-dir のいずれかを指定してください")
 
-    def find_shp(base_dir):
+    # geopandasが直接読める、地理空間ベクタ形式の拡張子を優先順位付きで探す
+    VECTOR_EXTS = [".shp", ".gpkg", ".geojson", ".json"]
+
+    def find_vector_file(base_dir):
+        found = {}
         for root, _, files in os.walk(base_dir):
             for f in files:
-                if f.endswith(".shp"):
-                    return os.path.join(root, f)
+                for ext in VECTOR_EXTS:
+                    if f.lower().endswith(ext) and ext not in found:
+                        found[ext] = os.path.join(root, f)
+        for ext in VECTOR_EXTS:
+            if ext in found:
+                return found[ext]
         return None
 
     if args.shp_dir:
         print(f"[fetch_rivers] 展開済みディレクトリを使用: {args.shp_dir}", flush=True)
-        shp_path = find_shp(args.shp_dir)
-        if shp_path is None:
-            raise FileNotFoundError(f"{args.shp_dir} 内に.shpファイルが見つかりませんでした")
-        print(f"[fetch_rivers] Shapefile読み込み中: {shp_path}", flush=True)
-        gdf = gpd.read_file(shp_path)
+        vec_path = find_vector_file(args.shp_dir)
+        if vec_path is None:
+            raise FileNotFoundError(
+                f"{args.shp_dir} 内に対応する地理空間ファイル(.shp/.gpkg/.geojson)が見つかりませんでした"
+            )
+        print(f"[fetch_rivers] ベクタファイル読み込み中: {vec_path}", flush=True)
+        gdf = gpd.read_file(vec_path)
         print(f"[fetch_rivers] 読み込み完了: {len(gdf)}件, カラム: {list(gdf.columns)}", flush=True)
     else:
         if args.file:
