@@ -480,9 +480,17 @@ async function loadEarthquakes() {
       const [lon, lat] = f.geometry.coordinates;
       const p = f.properties || {};
       const mag = p.mag || 0;
+      // 地点検索(earthquakeTileColor)と同じ閾値で、地図上のマーカーもマグニチュードに応じた5段階配色にする
+      let tier;
+      if (mag < 5.5) tier = 0;
+      else if (mag < 6.0) tier = 1;
+      else if (mag < 6.5) tier = 2;
+      else if (mag < 7.0) tier = 3;
+      else tier = 4;
+      const tierColor = EARTHQUAKE_TIER_COLORS[tier];
       const marker = L.circleMarker([lat, lon], {
         radius: Math.max(4, mag * 2.2),
-        color: COLORS.earthquake, weight: 1.5, fillColor: COLORS.earthquake, fillOpacity: 0.3,
+        color: tierColor, weight: 1.5, fillColor: tierColor, fillOpacity: 0.35,
       });
       const date = p.time ? new Date(p.time).toLocaleDateString('en-US') : '';
       marker.bindPopup(`<div class="popup-title">M${mag.toFixed(1)} Earthquake</div>
@@ -510,9 +518,16 @@ async function loadEarthquakes() {
     (data.features || []).forEach(f => {
       const [lon, lat] = f.geometry.coordinates;
       const mag = f.properties.mag || 0;
+      let tier;
+      if (mag < 5.5) tier = 0;
+      else if (mag < 6.0) tier = 1;
+      else if (mag < 6.5) tier = 2;
+      else if (mag < 7.0) tier = 3;
+      else tier = 4;
+      const tierColor = EARTHQUAKE_TIER_COLORS[tier];
       const marker = L.circleMarker([lat, lon], {
         radius: Math.max(4, mag * 2.2),
-        color: COLORS.earthquake, weight: 1.5, fillColor: COLORS.earthquake, fillOpacity: 0.3,
+        color: tierColor, weight: 1.5, fillColor: tierColor, fillOpacity: 0.35,
       });
       const date = new Date(f.properties.time).toLocaleString('en-US');
       marker.bindPopup(`<div class="popup-title">M${mag.toFixed(1)} Earthquake</div>
