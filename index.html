@@ -296,7 +296,7 @@ const LAYERS = [
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
     note: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/lakes/coastline, and past flood record data. Gray tiles mean data is unavailable there, not that risk is low.' },
   { key: 'aqueductFloods', label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
-    note: 'Aqueduct Floods: river flood simulation data from WRI, shown as a separate reference layer from Water Hazard. Gray tiles mean data is unavailable there, not that risk is low.' },
+    note: 'Aqueduct Floods: simulated flood depth (WRI) shown both as a map heatmap and at the searched point, for the selected return period (10-year / 100-year, switchable via radio buttons).' },
 ];
 
 const METHODOLOGY = [
@@ -309,7 +309,7 @@ const METHODOLOGY = [
   { label: 'Water Hazard', color: COLORS.waterHazard,
     desc: 'Created based on historical rainfall, elevation, proximity to rivers/lakes/coastline, and past flood record data. A simplified reference indicator, not a hydrodynamic flood simulation. Gray tiles mean data is unavailable there, not that risk is low.' },
   { label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
-    desc: 'Source: WRI Aqueduct Floods hydrodynamic river-flood simulation data. Shown as a separate reference layer, not combined with Water Hazard above.' },
+    desc: 'Source: WRI Aqueduct Floods hydrodynamic river-flood simulation data (not an observed historical event — a statistical return-period estimate). Shown as both a map heatmap and a point-search value, for the 10-year or 100-year return period.' },
   { label: 'Point Lookup', color: '#5C6675',
     desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
 ];
@@ -800,33 +800,8 @@ async function buildWaterHazard() {
   });
 }
 
-// Aqueduct Floods(WRI): 水害ハザードとは統合せず、独立したレイヤーとして表示する
-async function buildAqueductFloods() {
-  const geojson = await fetchGeojsonSafe('data/aqueduct_floods.geojson');
-  if (!geojson) return;
-
-  const riskPoints = [];
-  const grayPoints = [];
-  geojson.features.forEach(f => {
-    const [lon, lat] = f.geometry.coordinates;
-    const p = f.properties || {};
-    if (p.no_data || typeof p.risk !== 'number') {
-      grayPoints.push([lat, lon]);
-      return;
-    }
-    if (p.risk > 0) riskPoints.push([lat, lon, p.risk]);
-  });
-
-  if (riskPoints.length > 0) {
-    L.heatLayer(riskPoints, { radius: 40, blur: 32, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.aqueductFloods);
-  }
-  grayPoints.forEach(([lat, lon]) => {
-    L.rectangle(
-      [[lat - 0.4, lon - 0.4], [lat + 0.4, lon + 0.4]],
-      { color: NO_DATA_COLOR, weight: 0, fillColor: NO_DATA_COLOR, fillOpacity: 0.35 }
-    ).addTo(layerGroups.aqueductFloods);
-  });
-}
+// Aqueduct Floods(WRI): 地点検索のみの方針に統一(地図上のヒートマップ表示は行わない)。
+// 浸水深(m)は下部の「Aqueduct Floods 地点検索」セクションで取得・表示する。
 
 // ==== 地点検索: 各ハザードの5段階配色ロジック(標高以外はローカルデータのみで計算、追加通信なし) ====
 
@@ -907,12 +882,47 @@ function aqueductResultHtml(depth, rp) {
 async function onAqueductRPChange(rpStr) {
   const rp = parseInt(rpStr, 10);
   aqueductSelectedRP = rp;
-  if (!lastQueriedLatLon) return;
-  const resultEl = document.getElementById('aqueductResult');
-  if (!resultEl) return;
-  resultEl.innerHTML = aqueductResultHtml(null, rp); // 取得中は一旦「データなし」表示で待たせる
-  const depth = await aqueductDepthAt(lastQueriedLatLon.lat, lastQueriedLatLon.lon, rp);
-  resultEl.innerHTML = aqueductResultHtml(depth, rp);
+  if (lastQueriedLatLon) {
+    const resultEl = document.getElementById('aqueductResult');
+    if (resultEl) {
+      resultEl.innerHTML = aqueductResultHtml(null, rp); // 取得中は一旦「データなし」表示で待たせる
+      const depth = await aqueductDepthAt(lastQueriedLatLon.lat, lastQueriedLatLon.lon, rp);
+      resultEl.innerHTML = aqueductResultHtml(depth, rp);
+    }
+  }
+  // 地図のヒートマップも、地点検索と同じ再現期間(RP)のデータに合わせて更新する
+  buildAqueductFloodsHeatmap(rp);
+}
+
+// Aqueduct Floods 地図ヒートマップ: 地点検索と同じ浸水深(m)データを流用する。
+// data/aqueduct_floods_rp{RP}.geojson は、地点検索用COGを事前に間引いたグリッド
+// (properties.depth_m)で、fetch_aqueduct.pyが同じダウンロード元から一緒に生成する。
+const AQUEDUCT_HEATMAP_MAX_DEPTH_M = 5; // これ以上の深さは全て最大強度(1.0)として表示する目安値
+let aqueductHeatLayerRef = null;
+const aqueductHeatmapCache = {}; // rp -> geojson(切替のたびに再取得しないためのキャッシュ)
+
+async function buildAqueductFloodsHeatmap(rp) {
+  if (aqueductHeatLayerRef) {
+    layerGroups.aqueductFloods.removeLayer(aqueductHeatLayerRef);
+    aqueductHeatLayerRef = null;
+  }
+  let geojson = aqueductHeatmapCache[rp];
+  if (geojson === undefined) {
+    geojson = await fetchGeojsonSafe(`data/aqueduct_floods_rp${rp}.geojson`);
+    aqueductHeatmapCache[rp] = geojson;
+  }
+  if (!geojson) return;
+
+  const heatPoints = geojson.features
+    .map(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const depth = f.properties?.depth_m;
+      if (typeof depth !== 'number') return null;
+      return [lat, lon, Math.min(1, depth / AQUEDUCT_HEATMAP_MAX_DEPTH_M)];
+    })
+    .filter(Boolean);
+  aqueductHeatLayerRef = L.heatLayer(heatPoints, { radius: 40, blur: 32, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT });
+  aqueductHeatLayerRef.addTo(layerGroups.aqueductFloods);
 }
 
 function riskLegendHtml(colors, showNoData) {
@@ -1368,7 +1378,7 @@ loadEarthquakes();
 loadLightning();
 buildTyphoonHazard();
 buildWaterHazard();
-buildAqueductFloods();
+buildAqueductFloodsHeatmap(aqueductSelectedRP);
 
 map.on('click', (e) => {
   document.getElementById('searchLat').value = e.latlng.lat.toFixed(4);
