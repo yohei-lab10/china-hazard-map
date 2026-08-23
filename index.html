@@ -256,7 +256,10 @@ const COLORS = {
 const NO_DATA_COLOR = '#9AA3AF';
 
 // Risk-intensity gradient used inside every hazard heatmap (severity, independent of peril type)
-const HAZARD_GRADIENT = { 0.33: '#3F8F5F', 0.66: '#D9A22C', 1.0: '#C13A2E' };
+// ヒートマップ用グラデーション。下部の5段階凡例(WARNING_TIER_COLORS: Low→Extreme)と
+// 色を完全に一致させるため、同じ5色を均等配置している(以前は独自の緑→黄→赤の3色で、
+// 低強度側が凡例の黄色と合わず緑色に見えるズレがあった)。
+const HAZARD_GRADIENT = { 0.0: '#D9A22C', 0.25: '#D9722C', 0.5: '#C13A2E', 0.75: '#7A3B8C', 1.0: '#1A2130' };
 
 // Bounding box used as a cheap first-pass filter before the coastline polygon test
 const CHINA_LAND_BBOX = { minlat: 18, maxlat: 41, minlon: 97, maxlon: 123 };
@@ -572,6 +575,26 @@ async function fetchGeojsonSafe(path) {
   }
 }
 
+// 台風の軌跡(LineString)は、元データの頂点間隔が広いと点在する丸に見えてしまうため、
+// 頂点間をmaxGapKm間隔で線形補間し、連続した線状のヒートマップになるようにする。
+function densifyTrack(coords, maxGapKm) {
+  const out = [];
+  for (let i = 0; i < coords.length; i++) {
+    const [lon1, lat1] = coords[i];
+    out.push([lon1, lat1]);
+    if (i < coords.length - 1) {
+      const [lon2, lat2] = coords[i + 1];
+      const distKm = haversineKm(lat1, lon1, lat2, lon2);
+      const steps = Math.ceil(distKm / maxGapKm);
+      for (let s = 1; s < steps; s++) {
+        const t = s / steps;
+        out.push([lon1 + (lon2 - lon1) * t, lat1 + (lat2 - lat1) * t]);
+      }
+    }
+  }
+  return out;
+}
+
 async function buildTyphoonHazard() {
   const geojson = await fetchGeojsonSafe('data/typhoons.geojson');
   typhoonGeojsonCacheGlobal = geojson;
@@ -584,7 +607,8 @@ async function buildTyphoonHazard() {
     geojson.features.forEach(f => {
       const w = f.properties?.max_wind_kt;
       const weight = typeof w === 'number' ? Math.min(1, w / maxWind) : 0.4;
-      f.geometry.coordinates.forEach(([lon, lat]) => {
+      const densified = densifyTrack(f.geometry.coordinates, 15); // 15km間隔で補間
+      densified.forEach(([lon, lat]) => {
         if (inLandBbox(lat, lon)) points.push([lat, lon, weight]);
       });
       const st = f.properties?.start_time, et = f.properties?.end_time;
@@ -597,13 +621,16 @@ async function buildTyphoonHazard() {
     }
   } else {
     TYPHOON_SAMPLE.forEach(t => {
-      t.points.forEach(([lat, lon]) => {
+      // densifyTrackは[lon,lat]形式を期待するため、[lat,lon]→[lon,lat]に変換してから補間
+      const lonLatCoords = t.points.map(([lat, lon]) => [lon, lat]);
+      const densified = densifyTrack(lonLatCoords, 15);
+      densified.forEach(([lon, lat]) => {
         if (inLandBbox(lat, lon)) points.push([lat, lon, 0.5]);
       });
     });
   }
 
-  L.heatLayer(points, { radius: 32, blur: 26, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.typhoonHazard);
+  L.heatLayer(points, { radius: 18, blur: 14, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.typhoonHazard);
 }
 
 // 水害ハザード: 降雨強度(CHIRPS)と標高(Open-Elevation)の高い方を基礎リスクとし、
