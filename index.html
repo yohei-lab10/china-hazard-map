@@ -147,6 +147,25 @@
   }
   .risk-legend-nodata .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
+  .aqueduct-depth-panel { margin-top: 9px; }
+  .aqueduct-rp-group {
+    display: flex; gap: 6px; margin-bottom: 8px;
+  }
+  .aqueduct-rp-option {
+    flex: 1; text-align: center; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 4px; cursor: pointer; user-select: none;
+  }
+  .aqueduct-rp-option input { display: none; }
+  .aqueduct-rp-option.active {
+    background: var(--navy); border-color: var(--navy); color: #fff;
+  }
+  .aqueduct-depth-readout {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary); line-height: 1.5;
+  }
+  .aqueduct-depth-readout .depth-value { font-size: 15px; font-weight: 700; }
+  .aqueduct-depth-note { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-faint); margin-top: 4px; }
+
   /* Map */
   #map { flex: 1; width: 100%; background: var(--bg); }
   .leaflet-popup-content-wrapper {
@@ -227,6 +246,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/geotiff@2"></script>
 <script>
 // Peril identity colors (used for chip dots / markers — distinguishes hazard TYPE)
 const COLORS = {
@@ -980,9 +1000,103 @@ async function fetchElevations(locations) {
   }
 }
 
+// ==== Aqueduct Floods 浸水深(地点検索専用): 事前グリッド化はせず、中国域だけに切り出した
+// COG(Cloud Optimized GeoTIFF)をブラウザ側でその場に読み、該当ピクセル1点だけを取得する。
+// マップのヒートマップ(リスクスコア)とは別経路で、地点検索チップのみで使う。====
+const AQUEDUCT_RETURN_PERIODS = [
+  { key: 'rp10', label: '10-year', file: 'data/aqueduct_depth_rp10.tif' },
+  { key: 'rp100', label: '100-year', file: 'data/aqueduct_depth_rp100.tif' },
+];
+let selectedAqueductRP = 'rp100';
+const aqueductTiffCache = {}; // rpKey -> Promise<GeoTIFFImage>
+let lastQueryLat = null, lastQueryLon = null; // ラジオボタン切替時に地点を再問い合わせせず再利用するため
+
+function getAqueductDepthImage(rpKey) {
+  if (!aqueductTiffCache[rpKey]) {
+    const rp = AQUEDUCT_RETURN_PERIODS.find(r => r.key === rpKey);
+    aqueductTiffCache[rpKey] = GeoTIFF.fromUrl(rp.file)
+      .then(tiff => tiff.getImage())
+      .catch(e => { aqueductTiffCache[rpKey] = null; throw e; });
+  }
+  return aqueductTiffCache[rpKey];
+}
+
+// 指定地点の浸水深(m)を、中国域COGから該当1ピクセルだけを読んで取得する。
+// 範囲外・ノーデータの場合はnullを返す(「浸水なし」ではなく「データなし」として区別する)。
+async function readAqueductDepthAt(lat, lon, rpKey) {
+  try {
+    const image = await getAqueductDepthImage(rpKey);
+    if (!image) return null;
+    const [west, south, east, north] = image.getBoundingBox();
+    if (lon < west || lon > east || lat < south || lat > north) return null;
+    const width = image.getWidth();
+    const height = image.getHeight();
+    const x = Math.floor((lon - west) / (east - west) * width);
+    const y = Math.floor((north - lat) / (north - south) * height);
+    if (x < 0 || x >= width || y < 0 || y >= height) return null;
+    const raster = await image.readRasters({ window: [x, y, x + 1, y + 1] });
+    const value = raster[0][0];
+    const noDataStr = image.fileDirectory && image.fileDirectory.GDAL_NODATA;
+    const noData = noDataStr !== undefined ? parseFloat(noDataStr) : null;
+    if (value === null || value === undefined) return null;
+    if (noData !== null && !Number.isNaN(noData) && value === noData) return null;
+    if (value < 0) return null; // 負値はノーデータ扱いの慣例に合わせる
+    return value;
+  } catch (e) {
+    return null; // COG未配置・通信失敗時は「データなし」として扱い、検索自体は継続する
+  }
+}
+
+// 再現期間ラジオボタン + 浸水深の読み取り結果パネルのHTMLを組み立てる(骨組みのみ、値は後で非同期に差し込む)
+function aqueductDepthPanelSkeleton() {
+  const options = AQUEDUCT_RETURN_PERIODS.map(rp => `
+    <label class="aqueduct-rp-option${rp.key === selectedAqueductRP ? ' active' : ''}">
+      <input type="radio" name="aqueductRP" value="${rp.key}" ${rp.key === selectedAqueductRP ? 'checked' : ''}>
+      ${rp.label}
+    </label>
+  `).join('');
+  return `
+    <div class="aqueduct-depth-panel">
+      <div class="aqueduct-rp-group">${options}</div>
+      <div class="aqueduct-depth-readout" id="aqueductDepthReadout">Fetching…</div>
+      <div class="aqueduct-depth-note">Source: WRI Aqueduct Floods (riverine, historical). Point value from a ~1km resolution raster — a local reference figure, not a precise on-site estimate.</div>
+    </div>
+  `;
+}
+
+// 選択中の再現期間で深度を取得し、読み取り結果部分だけを差し替える(ラジオ切替のたびに全体を再検索しない)
+async function refreshAqueductDepthReadout() {
+  const readoutEl = document.getElementById('aqueductDepthReadout');
+  if (!readoutEl || lastQueryLat === null) return;
+  readoutEl.textContent = 'Fetching…';
+  const depth = await readAqueductDepthAt(lastQueryLat, lastQueryLon, selectedAqueductRP);
+  const el = document.getElementById('aqueductDepthReadout'); // 非同期待ちの間にDOMが差し替わっている可能性への保険
+  if (!el) return;
+  if (depth === null) {
+    el.innerHTML = 'No data (outside coverage)';
+  } else if (depth === 0) {
+    el.innerHTML = '<span class="depth-value">0m</span> — not inundated in this scenario';
+  } else {
+    el.innerHTML = `<span class="depth-value">${depth.toFixed(2)}m</span> expected flood depth`;
+  }
+}
+
+// ラジオボタンのクリックをイベント委譲で拾う(パネルはqueryPointのたびにinnerHTMLごと再生成されるため)
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.name === 'aqueductRP') {
+    selectedAqueductRP = e.target.value;
+    document.querySelectorAll('.aqueduct-rp-option').forEach(el => {
+      el.classList.toggle('active', el.querySelector('input').value === selectedAqueductRP);
+    });
+    refreshAqueductDepthReadout();
+  }
+});
+
 async function queryPoint(lat, lon) {
   const resultEl = document.getElementById('searchResult');
-  if (activeLayers.has('waterHazard')) {
+  lastQueryLat = lat;
+  lastQueryLon = lon;
+  if (activeLayers.has('waterHazard') || activeLayers.has('aqueductFloods')) {
     resultEl.className = 'search-result visible';
     resultEl.innerHTML = '<div class="result-elev">Fetching…</div>';
   }
@@ -1046,9 +1160,7 @@ async function queryPoint(lat, lon) {
     }
 
     // 冠水ハザードチップがOFFの場合は判定結果(バッジ・標高差・方角グリッド)を表示しない
-    if (activeLayers.has('waterHazard')) {
-      resultEl.className = 'search-result visible';
-      resultEl.innerHTML = `
+    const waterHtml = activeLayers.has('waterHazard') ? `
         <span class="result-badge" style="background:${waterBadge.color};">${waterBadge.label}</span>
         ${riskLegendHtml()}
         <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
@@ -1058,7 +1170,15 @@ async function queryPoint(lat, lon) {
             return `<div style="background:${dRisk.color};color:#fff;">${d.name}<br>${(d.elev - centerElev >= 0 ? '+' : '')}${(d.elev - centerElev).toFixed(1)}m</div>`;
           }).join('')}
         </div>
-      `;
+    ` : '';
+    // Aqueduct Floodsチップは水害ハザードとは独立(統合しない)。地点検索のみで対応し、
+    // マップ上のヒートマップとは別に、中国域COGから該当ピクセルの浸水深を都度読む。
+    const aqueductHtml = activeLayers.has('aqueductFloods') ? aqueductDepthPanelSkeleton() : '';
+
+    if (waterHtml || aqueductHtml) {
+      resultEl.className = 'search-result visible';
+      resultEl.innerHTML = waterHtml + aqueductHtml;
+      if (aqueductHtml) refreshAqueductDepthReadout();
     } else {
       resultEl.className = 'search-result';
       resultEl.innerHTML = '';
