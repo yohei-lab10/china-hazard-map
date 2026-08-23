@@ -117,13 +117,32 @@ https://www.hydrosheds.org/products/hydrorivers
 ## Aqueduct Floods(推奨頻度: 年1回程度。WRI側の更新頻度に準じる)
 
 出典: World Resources Institute (WRI) — Aqueduct Floods Hazard Maps
-https://www.wri.org/data/aqueduct-floods
+https://www.wri.org/data/aqueduct-floods (配信元: aqueduct.wridata.org)
+
+**データの性質について**: これは実際に起きた洪水イベントの実測記録ではなく、
+地形・河川流量モデルによる「統計的にこの深さの浸水がこの頻度で起きうる」という
+想定浸水深(シミュレーション)。実測の洪水実績が必要な場合は洪水実績(DFO、
+`data/floods.geojson`)を参照すること。ただしそちらは浸水「面積」のみで、
+深度(m)は持っていない。
 
 **用途**: 「水害ハザード」とは統合せず、**独立したチップ**として表示。
 本格的な水文シミュレーション(河川洪水)に基づくデータであり、
 簡易的な代理指標である水害ハザードとは性質が異なるため、意図的に分離している。
+地図上の**ヒートマップ表示**と、地点検索での**浸水深(m)の数値表示**の両方に使う。
+どちらも**10年/100年の再現期間をラジオボタンで切り替え可能**で、切り替えると
+ヒートマップ・地点検索の数値の両方が連動して更新される。
 
-デフォルトでは「historical(現在の気候)・100年に1度の再現期間」のシナリオを使用。
+**データパイプラインの仕組み**: `fetch_aqueduct.py` は再現期間ごとに以下の2つを
+同じダウンロード元から生成する(WRIへの問い合わせは1回のみ)。
+- `data/aqueduct_depth_rp{RP}.tif` … 中国域クリップ済みのCOG(Cloud Optimized GeoTIFF)。
+  ブラウザ側(`index.html`、geotiff.js使用)が地点検索のたびにHTTPレンジリクエストで
+  該当ピクセルを直接読み取り、浸水深(m)をそのまま表示する。事前グリッド化はしていないため、
+  元データの解像度(30秒角≒約1km)をそのまま使える。
+- `data/aqueduct_floods_rp{RP}.geojson` … 上記COGを間引いた粗いグリッド(既定1度四方)。
+  地図全体をヒートマップで塗るには元解像度(約1km)のままでは重すぎるため、
+  `properties.depth_m` を持つ点群に変換したもの。
+
+デフォルトでは「historical(現在の気候)」シナリオ・10年/100年の再現期間を使用。
 将来気候シナリオ(2030/2050/2080年)や別の再現期間を使いたい場合は、
 `fetch_aqueduct.py` の `--scenario` `--year` `--rp` 引数で切り替え可能
 (利用可能な組み合わせはWRI公式サイトのデータセットページで確認すること)。
@@ -137,8 +156,17 @@ https://www.wri.org/data/aqueduct-floods
 
 ```
 pip install rasterio requests numpy
-python scripts/fetch_aqueduct.py --scenario historical --model 000000000WATCH --year 1980 --rp 100 --grid-deg 1.0 --out data/aqueduct_floods.geojson
+python scripts/fetch_aqueduct.py --scenario historical --model 000000000WATCH --year 1980 --rp 10 100 --out-dir data
 ```
+
+`--rp` は複数指定可(既定は `10 100`)。`--heatmap-grid-deg` でヒートマップ用グリッドの
+間引き間隔(度)を、`--skip-heatmap-grid` を付けるとCOGのみ生成しヒートマップ用GeoJSONの
+生成をスキップできる。
+
+**中国国内からの接続について**: WRIの配信サーバー(aqueduct.wridata.org)はGoogleの
+サービスではないため接続できる可能性が高いが、確約はできない。実行前に
+`curl -I https://aqueduct.wridata.org/AqueductFloods20/inunriver_historical_000000000WATCH_1980_rp00010.tif`
+などで疎通確認することを推奨(Google Earth Engineは中国国内から利用できないため不採用)。
 
 ## 雷(推奨頻度: 年1回程度。データ自体が多年平均の気候値のため)
 
