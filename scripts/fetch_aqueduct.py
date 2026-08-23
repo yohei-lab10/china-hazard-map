@@ -1,127 +1,92 @@
 """
-Aqueduct Floods(WRI)データ取得スクリプト
-出典: World Resources Institute (WRI) — Aqueduct Floods Hazard Maps
-https://www.wri.org/data/aqueduct-floods
+fetch_aqueduct_depth.py (WRI直接配信サーバー版)
 
-考え方:
-- WRIが公開する河川洪水(inunriver)のGeoTIFF(浸水深、単位m)を1ファイルダウンロードし、
-  中国域の各グリッド点の浸水深をサンプリングして0〜1のリスク値に変換する
-- デフォルトでは「historical(現在の気候)・100年に1度の再現期間」のシナリオを使用する。
-  他のシナリオ(将来気候・別の再現期間)を使いたい場合は引数で切り替え可能
-- ライセンス: WRIのオープンデータ方針により利用制限なし(出典明記を推奨)
+Aqueduct Floods(WRI)の地点検索専用データを取得するスクリプト。
+Google Earth Engineは中国国内から利用できないため使用しない。
+WRI自身が運用する配信サーバー(aqueduct.wridata.org)から直接GeoTIFFを取得し、
+中国域にクリップしてCOG(Cloud Optimized GeoTIFF)として保存する。
 
-浸水深→リスク変換のしきい値(暫定・実務用の簡易区分):
-    0m(浸水なし)      → risk = 0.0
-    0〜0.5m           → risk = 0.3
-    0.5〜1.0m         → risk = 0.6
-    1.0m以上          → risk = 1.0
+【出典・URLパターンの根拠】
+学術機関(CLIMAAX CRA Handbook)がこの配信元を実例コードで使用していることを確認済み:
+https://handbook.climaax.eu/notebooks/workflows/FLOODS/02_River_flooding/Hazard_assessment_FLOOD_RIVER.html
+ダウンロードURL: https://aqueduct.wridata.org/AqueductFloods20/{filename}
+filename = inunriver_{scenario}_{model}_{year}_rp{returnperiod:05d}.tif
 
-事前準備:
-    pip install rasterio requests numpy
+【注意】
+このサーバー自体が中国国内から接続可能かどうかは未検証(Google系サービスではないため
+可能性は高いが、確約はできない)。念のため実行環境から一度、下記のようなコマンドで
+疎通確認してから本番実行することを推奨する:
+  curl -I https://aqueduct.wridata.org/AqueductFloods20/inunriver_historical_000000000WATCH_1980_rp00010.tif
+もし接続できない場合は、社内ネットワーク経由や海外拠点のマシンでの実行、
+またはVPS(海外リージョン)を踏み台にした取得を検討すること。
 
-実行例:
-    python fetch_aqueduct.py --scenario historical --model 000000000WATCH --year 1980 --rp 100 --grid-deg 1.0 --out ../data/aqueduct_floods.geojson
-
-注意:
-- 解像度は約10km四方(WRI公表値)と粗い。ローカルな詳細地形は反映されない
-- 1ファイルのみを使用しており、複数の再現期間・将来シナリオを比較する機能は本スクリプトには無い
-  (将来的に必要であれば、複数ファイルを取得して重ね合わせる改修を検討する)
+【出力】
+data/aqueduct_depth_rp{RP}.tif (RP = 10, 100 など、再現期間ごとに1ファイル、値=浸水深m)
 """
-import argparse
-import io
-import json
 
-import numpy as np
+import argparse
+import os
+import sys
+
 import rasterio
+from rasterio.mask import mask
+from rasterio.io import MemoryFile
 import requests
 
-CHINA_BBOX = {"minlat": 18, "maxlat": 54, "minlon": 73, "maxlon": 135}
+# 中国全土をやや余裕を持って覆うバウンディングボックス(経度, 緯度)
+# 地点検索で国境際を検索した場合の取りこぼしを避けるため、公式国境より少し広めに取っている
+CHINA_BBOX_GEOMETRY = {
+    "type": "Polygon",
+    "coordinates": [[
+        [72.0, 17.0], [137.0, 17.0], [137.0, 54.5], [72.0, 54.5], [72.0, 17.0],
+    ]],
+}
 
-AQUEDUCT_BASE_URL = "https://aqueduct.wridata.org/AqueductFloods20/"
-
-
-def build_grid(grid_deg: float):
-    points = []
-    lat = CHINA_BBOX["minlat"]
-    while lat <= CHINA_BBOX["maxlat"]:
-        lon = CHINA_BBOX["minlon"]
-        while lon <= CHINA_BBOX["maxlon"]:
-            points.append((round(lat, 4), round(lon, 4)))
-            lon += grid_deg
-        lat += grid_deg
-    return points
+BASE_URL = "https://aqueduct.wridata.org/AqueductFloods20"
 
 
-def depth_to_risk(depth) -> float:
-    if depth is None or depth <= 0:
-        return 0.0
-    if depth < 0.5:
-        return 0.3
-    if depth < 1.0:
-        return 0.6
-    return 1.0
+def download_and_clip(scenario: str, model: str, year: int, rp: int, out_path: str):
+    model_padded = model.rjust(14, "0")  # WRIの命名規則: モデル名を14桁にゼロ埋め
+    filename = f"inunriver_{scenario}_{model_padded}_{year}_rp{rp:05d}.tif"
+    url = f"{BASE_URL}/{filename}"
+    print(f"[rp={rp}] downloading: {url}")
+
+    resp = requests.get(url, timeout=600)
+    resp.raise_for_status()
+
+    with MemoryFile(resp.content) as memfile:
+        with memfile.open() as src:
+            out_image, out_transform = mask(src, [CHINA_BBOX_GEOMETRY], crop=True)
+            out_meta = src.meta.copy()
+            out_meta.update({
+                "driver": "COG",  # ブラウザ側(geotiff.js)からの部分読み込み(レンジリクエスト)に対応
+                "height": out_image.shape[1],
+                "width": out_image.shape[2],
+                "transform": out_transform,
+                "compress": "DEFLATE",
+            })
+            with rasterio.open(out_path, "w", **out_meta) as dst:
+                dst.write(out_image)
+    print(f"[rp={rp}] saved: {out_path} ({os.path.getsize(out_path) / 1e6:.1f} MB)")
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--scenario", type=str, default="historical", help="気候シナリオ(historical, rcp4p5, rcp8p5 等)")
-    ap.add_argument("--model", type=str, default="000000000WATCH", help="モデル名(historicalの場合は000000000WATCH固定)")
-    ap.add_argument("--year", type=int, default=1980, help="対象年(historicalは1980固定。将来シナリオは2030/2050/2080)")
-    ap.add_argument("--rp", type=int, default=100, help="再現期間(年)。5,10,25,50,100,250,500,1000から選択")
-    ap.add_argument("--grid-deg", type=float, default=1.0, help="グリッド間隔(度)")
-    ap.add_argument("--out", type=str, default="../data/aqueduct_floods.geojson")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--scenario", default="historical")
+    parser.add_argument("--model", default="000000000WATCH")
+    parser.add_argument("--year", type=int, default=1980)
+    parser.add_argument("--rp", type=int, nargs="+", default=[10, 100],
+                         help="再現期間(年)。複数指定可。例: --rp 10 100")
+    parser.add_argument("--out-dir", default="data")
+    args = parser.parse_args()
 
-    filename = f"inunriver_{args.scenario}_{args.model}_{args.year}_rp{args.rp:05d}.tif"
-    url = AQUEDUCT_BASE_URL + filename
-    print(f"[fetch_aqueduct] ダウンロード中: {url}", flush=True)
-
-    res = requests.get(url, timeout=300)
-    res.raise_for_status()
-    print(f"[fetch_aqueduct] ダウンロード完了: {len(res.content)} bytes", flush=True)
-
-    grid_points = build_grid(args.grid_deg)
-    print(f"[fetch_aqueduct] グリッド点数: {len(grid_points)}", flush=True)
-
-    features = []
-    with rasterio.open(io.BytesIO(res.content)) as src:
-        band = src.read(1)
-        nodata = src.nodata
-        for lat, lon in grid_points:
-            try:
-                row, col = src.index(lon, lat)
-                if row < 0 or row >= band.shape[0] or col < 0 or col >= band.shape[1]:
-                    raise IndexError
-                val = band[row, col]
-                if nodata is not None and val == nodata:
-                    no_data = True
-                    depth = None
-                else:
-                    no_data = False
-                    depth = float(val)
-            except IndexError:
-                no_data = True
-                depth = None
-
-            risk = None if no_data else depth_to_risk(depth)
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [lon, lat]},
-                "properties": {
-                    "inundation_depth_m": depth,
-                    "risk": risk,
-                    "no_data": no_data,
-                    "scenario": args.scenario,
-                    "return_period_years": args.rp,
-                },
-            })
-
-    geojson = {"type": "FeatureCollection", "features": features}
-    with open(args.out, "w", encoding="utf-8") as f:
-        json.dump(geojson, f, ensure_ascii=False, indent=2)
-
-    covered = sum(1 for f in features if not f["properties"]["no_data"])
-    print(f"[fetch_aqueduct] {covered}/{len(grid_points)}件でデータ取得成功。{args.out} に保存しました", flush=True)
+    os.makedirs(args.out_dir, exist_ok=True)
+    for rp in args.rp:
+        out_path = os.path.join(args.out_dir, f"aqueduct_depth_rp{rp}.tif")
+        try:
+            download_and_clip(args.scenario, args.model, args.year, rp, out_path)
+        except Exception as e:
+            print(f"[rp={rp}] failed: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
