@@ -290,7 +290,7 @@ const LAYERS = [
   { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
     note: 'Earthquakes: historical M5.0+ events across China, based on USGS earthquake catalog data. Marker size scales with magnitude.' },
   { key: 'lightning', label: 'Lightning', color: COLORS.lightning,
-    note: 'Lightning: an illustrative reference layer based on global lightning climatology data.' },
+    note: 'Lightning: historical stroke density (2010–2023 multi-year mean) from the WWLLN Global Lightning Climatology. A climatological average, not real-time data.' },
   { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
@@ -303,7 +303,7 @@ const METHODOLOGY = [
   { label: 'Earthquakes', color: COLORS.earthquake,
     desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
   { label: 'Lightning', color: COLORS.lightning,
-    desc: 'Source: global lightning climatology data. An illustrative reference layer only, not a real-time warning.' },
+    desc: 'Source: WWLLN Global Lightning Climatology (WGLC), 2010–2023 multi-year mean stroke density. Colored by relative density within China (not an official risk classification). A historical average, not a real-time warning.' },
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
   { label: 'Water Hazard', color: COLORS.waterHazard,
@@ -329,12 +329,8 @@ const LOWLAND_FLOOD_PRONE_PROXY = [
   { center: [39.9, 116.4], weight: 0.5 },
 ];
 
-const LIGHTNING_SAMPLE = [
-  [23.1,113.3,0.9],[22.5,114.0,0.8],[21.0,110.3,0.7],
-  [28.2,121.0,0.55],[30.9,121.6,0.5],[31.2,121.5,0.5],
-  [22.2,113.5,0.85],[23.5,116.7,0.6],
-  [29.9,118.0,0.4],[32.0,118.8,0.35],
-];
+// 雷: WGLC(WWLLN Global Lightning Climatology)由来のgeojsonをキャッシュする(読込直後に1回だけ設定)
+let lightningGeojsonCacheGlobal = null;
 
 function inLandBbox(lat, lon) {
   // Cheap first-pass filter, then a finer coastline polygon check to exclude open water
@@ -532,9 +528,20 @@ async function loadEarthquakes() {
   }
 }
 
-function loadLightning() {
-  const heatPoints = LIGHTNING_SAMPLE.map(p => [p[0], p[1], p[2]]);
-  const heat = L.heatLayer(heatPoints, { radius: 40, blur: 30, maxZoom: 8, gradient: HAZARD_GRADIENT });
+async function loadLightning() {
+  const geojson = await fetchGeojsonSafe('data/lightning.geojson');
+  if (!geojson) return;
+  lightningGeojsonCacheGlobal = geojson;
+  // risk(0〜1)を重みとして使い、密度に応じたグラデーションで表示する(HAZARD_GRADIENTは既存の
+  // 緑→黄→赤のリスク強度グラデーションを他レイヤーと共通で使い回している)
+  const heatPoints = geojson.features
+    .map(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const risk = f.properties?.risk;
+      return typeof risk === 'number' ? [lat, lon, risk] : null;
+    })
+    .filter(Boolean);
+  const heat = L.heatLayer(heatPoints, { radius: 26, blur: 22, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT });
   heat.addTo(layerGroups.lightning);
 }
 
@@ -976,12 +983,16 @@ function typhoonTileColor(lat, lon) {
 
 // 雷: 既知の落雷多発地点までの距離から密度を推定し5段階に変換
 function lightningTileColor(lat, lon) {
+  if (!lightningGeojsonCacheGlobal) return null;
   let nearest = null, nearestDist = Infinity;
-  LIGHTNING_SAMPLE.forEach(([slat, slon, density]) => {
+  lightningGeojsonCacheGlobal.features.forEach(f => {
+    const [slon, slat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, slat, slon, 80)) return;
     const d = haversineKm(lat, lon, slat, slon);
-    if (d < nearestDist) { nearestDist = d; nearest = density; }
+    if (d < nearestDist) { nearestDist = d; nearest = f.properties?.risk; }
   });
-  if (nearest === null || nearestDist > 80) return null;
+  if (nearest === null || nearest === undefined || nearestDist > 80) return null;
+  // 格子点(約55km間隔)からの距離で緩やかに減衰させ、格子の境目が不自然に見えないようにする
   const falloff = Math.max(0, 1 - nearestDist / 80);
   const ratio = nearest * falloff;
   if (ratio <= 0.05) return null;
