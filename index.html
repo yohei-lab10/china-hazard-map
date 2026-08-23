@@ -132,6 +132,17 @@
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-muted);
   }
   .result-dirs div { text-align: center; background: var(--bg); border-radius: 4px; padding: 4px 2px; }
+  .aqueduct-result { margin-top: 4px; }
+  .aqueduct-rp-group {
+    display: flex; gap: 10px; margin-bottom: 8px;
+    font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text-muted);
+  }
+  .aqueduct-rp-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .aqueduct-depth-value {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 2px;
+  }
+  .aqueduct-depth-note { font-size: 10px; color: var(--text-faint); }
   .risk-legend { display: flex; align-items: center; gap: 6px; margin-top: 9px; }
   .risk-legend-bar {
     display: flex; flex: 1; height: 12px; border-radius: 6px; overflow: hidden;
@@ -146,25 +157,6 @@
     font-size: 8.5px; color: var(--text-faint); margin-top: 4px;
   }
   .risk-legend-nodata .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-
-  .aqueduct-depth-panel { margin-top: 9px; }
-  .aqueduct-rp-group {
-    display: flex; gap: 6px; margin-bottom: 8px;
-  }
-  .aqueduct-rp-option {
-    flex: 1; text-align: center; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
-    color: var(--text-muted); background: var(--bg); border: 1px solid var(--border);
-    border-radius: 6px; padding: 6px 4px; cursor: pointer; user-select: none;
-  }
-  .aqueduct-rp-option input { display: none; }
-  .aqueduct-rp-option.active {
-    background: var(--navy); border-color: var(--navy); color: #fff;
-  }
-  .aqueduct-depth-readout {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary); line-height: 1.5;
-  }
-  .aqueduct-depth-readout .depth-value { font-size: 15px; font-weight: 700; }
-  .aqueduct-depth-note { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-faint); margin-top: 4px; }
 
   /* Map */
   #map { flex: 1; width: 100%; background: var(--bg); }
@@ -234,6 +226,7 @@
     </div>
   </div>
   <div class="search-result" id="searchResult"></div>
+  <div class="search-result" id="aqueductResultWrap"><div id="aqueductResult"></div></div>
 
   <div id="map"></div>
 
@@ -246,7 +239,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/geotiff@2"></script>
+<!-- Aqueduct Floods地点検索用: 中国域に切り出したGeoTIFF(COG)から、その場でピクセル値(浸水深)を読み取る -->
+<script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
 <script>
 // Peril identity colors (used for chip dots / markers — distinguishes hazard TYPE)
 const COLORS = {
@@ -393,6 +387,21 @@ function renderLayerBar() {
         const resultEl = document.getElementById('searchResult');
         resultEl.className = 'search-result';
         resultEl.innerHTML = '';
+      }
+      // Aqueduct Floodsチップの場合も同様。OFFなら非表示、ONに戻したら直前の検索地点で再取得する
+      if (key === 'aqueductFloods') {
+        const aqueductWrapEl = document.getElementById('aqueductResultWrap');
+        const aqueductResultEl = document.getElementById('aqueductResult');
+        if (!activeLayers.has('aqueductFloods')) {
+          aqueductWrapEl.className = 'search-result';
+          aqueductResultEl.innerHTML = '';
+        } else if (lastQueriedLatLon) {
+          aqueductWrapEl.className = 'search-result visible';
+          aqueductResultEl.innerHTML = aqueductResultHtml(null, aqueductSelectedRP);
+          aqueductDepthAt(lastQueriedLatLon.lat, lastQueriedLatLon.lon, aqueductSelectedRP).then(depth => {
+            aqueductResultEl.innerHTML = aqueductResultHtml(depth, aqueductSelectedRP);
+          });
+        }
       }
       renderLayerBar();
       updateLegend();
@@ -820,6 +829,85 @@ const EARTHQUAKE_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F', '#7A
 const WARNING_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#7A3B8C', '#1A2130'];
 
 // 5段階配色のグラデーション凡例(温度計ふう)+データ欠損(灰色)の説明をHTMLで生成する共通関数
+// ==== Aqueduct Floods 地点検索: 中国域クリップ済みGeoTIFF(COG)からその場でピクセル値(浸水深m)を読む ====
+// 事前グリッド化(GeoJSON)はせず、地点検索のたびにHTTPレンジリクエストで該当ピクセルだけを取得する。
+// これによりファイルの事前間引き(粗い格子)が不要になり、元データの解像度(30秒角≒約1km)をそのまま使える。
+const AQUEDUCT_RETURN_PERIODS = [10, 100]; // 年
+let aqueductSelectedRP = 10;
+const aqueductImageCache = {}; // rp -> GeoTIFFのimageオブジェクト(1度読み込んだら使い回す)
+let lastQueriedLatLon = null; // ラジオボタン切替時に検索し直さず、この座標を再利用する
+
+async function loadAqueductImage(rp) {
+  if (aqueductImageCache[rp]) return aqueductImageCache[rp];
+  try {
+    const tiff = await GeoTIFF.fromUrl(`data/aqueduct_depth_rp${rp}.tif`);
+    const image = await tiff.getImage();
+    aqueductImageCache[rp] = image;
+    return image;
+  } catch (e) {
+    // ファイルが無い/取得失敗の場合はnullを返し、呼び出し側で「データなし」として扱う
+    aqueductImageCache[rp] = null;
+    return null;
+  }
+}
+
+// 指定地点の浸水深(m)を返す。範囲外・NoData・ファイル未取得の場合はnull。
+async function aqueductDepthAt(lat, lon, rp) {
+  const image = await loadAqueductImage(rp);
+  if (!image) return null;
+
+  const [minX, minY, maxX, maxY] = image.getBoundingBox(); // EPSG:4326前提(経度,緯度)
+  if (lon < minX || lon > maxX || lat < minY || lat > maxY) return null;
+
+  const width = image.getWidth();
+  const height = image.getHeight();
+  const px = Math.min(width - 1, Math.max(0, Math.floor((lon - minX) / (maxX - minX) * width)));
+  const py = Math.min(height - 1, Math.max(0, Math.floor((maxY - lat) / (maxY - minY) * height))); // 北が上なのでY反転
+
+  try {
+    // 1ピクセルだけをHTTPレンジリクエストで取得(全体ダウンロードを避ける)
+    const data = await image.readRasters({ window: [px, py, px + 1, py + 1] });
+    const value = data[0][0];
+    // WRIのGeoTIFFは陸地以外・データ欠損を負値やごく大きな値で表すため、妥当な範囲外は「データなし」とする
+    if (value === null || value === undefined || value < 0 || value > 50) return null;
+    return value;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Aqueduct Floods結果セクション(ラジオボタン+浸水深表示)のHTMLを生成する
+function aqueductResultHtml(depth, rp) {
+  const rpOptions = AQUEDUCT_RETURN_PERIODS.map(p => `
+    <label>
+      <input type="radio" name="aqueductRP" value="${p}" ${p === rp ? 'checked' : ''} onchange="onAqueductRPChange(this.value)">
+      ${p}-year
+    </label>
+  `).join('');
+  const valueHtml = depth === null
+    ? `<div class="aqueduct-depth-value" style="color:var(--text-faint);">No data (outside coverage)</div>`
+    : `<div class="aqueduct-depth-value">Simulated flood depth: ${depth.toFixed(2)}m</div>`;
+  return `
+    <div class="aqueduct-result">
+      <div class="aqueduct-rp-group">${rpOptions}</div>
+      ${valueHtml}
+      <div class="aqueduct-depth-note">WRI Aqueduct Floods (riverine, historical baseline, ${rp}-year return period)</div>
+    </div>
+  `;
+}
+
+// ラジオボタンで再現期間が切り替わった時: 通信済みの最後の検索地点に対してのみ再計算する(全体を再検索しない)
+async function onAqueductRPChange(rpStr) {
+  const rp = parseInt(rpStr, 10);
+  aqueductSelectedRP = rp;
+  if (!lastQueriedLatLon) return;
+  const resultEl = document.getElementById('aqueductResult');
+  if (!resultEl) return;
+  resultEl.innerHTML = aqueductResultHtml(null, rp); // 取得中は一旦「データなし」表示で待たせる
+  const depth = await aqueductDepthAt(lastQueriedLatLon.lat, lastQueriedLatLon.lon, rp);
+  resultEl.innerHTML = aqueductResultHtml(depth, rp);
+}
+
 function riskLegendHtml(colors, showNoData) {
   const useColors = colors || WARNING_TIER_COLORS;
   const bar = useColors.map(c => `<span style="background:${c};"></span>`).join('');
@@ -1000,105 +1088,30 @@ async function fetchElevations(locations) {
   }
 }
 
-// ==== Aqueduct Floods 浸水深(地点検索専用): 事前グリッド化はせず、中国域だけに切り出した
-// COG(Cloud Optimized GeoTIFF)をブラウザ側でその場に読み、該当ピクセル1点だけを取得する。
-// マップのヒートマップ(リスクスコア)とは別経路で、地点検索チップのみで使う。====
-const AQUEDUCT_RETURN_PERIODS = [
-  { key: 'rp10', label: '10-year', file: 'data/aqueduct_depth_rp10.tif' },
-  { key: 'rp100', label: '100-year', file: 'data/aqueduct_depth_rp100.tif' },
-];
-let selectedAqueductRP = 'rp100';
-const aqueductTiffCache = {}; // rpKey -> Promise<GeoTIFFImage>
-let lastQueryLat = null, lastQueryLon = null; // ラジオボタン切替時に地点を再問い合わせせず再利用するため
-
-function getAqueductDepthImage(rpKey) {
-  if (!aqueductTiffCache[rpKey]) {
-    const rp = AQUEDUCT_RETURN_PERIODS.find(r => r.key === rpKey);
-    aqueductTiffCache[rpKey] = GeoTIFF.fromUrl(rp.file)
-      .then(tiff => tiff.getImage())
-      .catch(e => { aqueductTiffCache[rpKey] = null; throw e; });
-  }
-  return aqueductTiffCache[rpKey];
-}
-
-// 指定地点の浸水深(m)を、中国域COGから該当1ピクセルだけを読んで取得する。
-// 範囲外・ノーデータの場合はnullを返す(「浸水なし」ではなく「データなし」として区別する)。
-async function readAqueductDepthAt(lat, lon, rpKey) {
-  try {
-    const image = await getAqueductDepthImage(rpKey);
-    if (!image) return null;
-    const [west, south, east, north] = image.getBoundingBox();
-    if (lon < west || lon > east || lat < south || lat > north) return null;
-    const width = image.getWidth();
-    const height = image.getHeight();
-    const x = Math.floor((lon - west) / (east - west) * width);
-    const y = Math.floor((north - lat) / (north - south) * height);
-    if (x < 0 || x >= width || y < 0 || y >= height) return null;
-    const raster = await image.readRasters({ window: [x, y, x + 1, y + 1] });
-    const value = raster[0][0];
-    const noDataStr = image.fileDirectory && image.fileDirectory.GDAL_NODATA;
-    const noData = noDataStr !== undefined ? parseFloat(noDataStr) : null;
-    if (value === null || value === undefined) return null;
-    if (noData !== null && !Number.isNaN(noData) && value === noData) return null;
-    if (value < 0) return null; // 負値はノーデータ扱いの慣例に合わせる
-    return value;
-  } catch (e) {
-    return null; // COG未配置・通信失敗時は「データなし」として扱い、検索自体は継続する
-  }
-}
-
-// 再現期間ラジオボタン + 浸水深の読み取り結果パネルのHTMLを組み立てる(骨組みのみ、値は後で非同期に差し込む)
-function aqueductDepthPanelSkeleton() {
-  const options = AQUEDUCT_RETURN_PERIODS.map(rp => `
-    <label class="aqueduct-rp-option${rp.key === selectedAqueductRP ? ' active' : ''}">
-      <input type="radio" name="aqueductRP" value="${rp.key}" ${rp.key === selectedAqueductRP ? 'checked' : ''}>
-      ${rp.label}
-    </label>
-  `).join('');
-  return `
-    <div class="aqueduct-depth-panel">
-      <div class="aqueduct-rp-group">${options}</div>
-      <div class="aqueduct-depth-readout" id="aqueductDepthReadout">Fetching…</div>
-      <div class="aqueduct-depth-note">Source: WRI Aqueduct Floods (riverine, historical). Point value from a ~1km resolution raster — a local reference figure, not a precise on-site estimate.</div>
-    </div>
-  `;
-}
-
-// 選択中の再現期間で深度を取得し、読み取り結果部分だけを差し替える(ラジオ切替のたびに全体を再検索しない)
-async function refreshAqueductDepthReadout() {
-  const readoutEl = document.getElementById('aqueductDepthReadout');
-  if (!readoutEl || lastQueryLat === null) return;
-  readoutEl.textContent = 'Fetching…';
-  const depth = await readAqueductDepthAt(lastQueryLat, lastQueryLon, selectedAqueductRP);
-  const el = document.getElementById('aqueductDepthReadout'); // 非同期待ちの間にDOMが差し替わっている可能性への保険
-  if (!el) return;
-  if (depth === null) {
-    el.innerHTML = 'No data (outside coverage)';
-  } else if (depth === 0) {
-    el.innerHTML = '<span class="depth-value">0m</span> — not inundated in this scenario';
-  } else {
-    el.innerHTML = `<span class="depth-value">${depth.toFixed(2)}m</span> expected flood depth`;
-  }
-}
-
-// ラジオボタンのクリックをイベント委譲で拾う(パネルはqueryPointのたびにinnerHTMLごと再生成されるため)
-document.addEventListener('change', (e) => {
-  if (e.target && e.target.name === 'aqueductRP') {
-    selectedAqueductRP = e.target.value;
-    document.querySelectorAll('.aqueduct-rp-option').forEach(el => {
-      el.classList.toggle('active', el.querySelector('input').value === selectedAqueductRP);
-    });
-    refreshAqueductDepthReadout();
-  }
-});
-
 async function queryPoint(lat, lon) {
   const resultEl = document.getElementById('searchResult');
-  lastQueryLat = lat;
-  lastQueryLon = lon;
-  if (activeLayers.has('waterHazard') || activeLayers.has('aqueductFloods')) {
+  if (activeLayers.has('waterHazard')) {
     resultEl.className = 'search-result visible';
     resultEl.innerHTML = '<div class="result-elev">Fetching…</div>';
+  }
+
+  // Aqueduct Floods: 標高・降雨などの取得と並行して、その場でGeoTIFFのピクセルを読みに行く
+  // (他の項目とは完全に独立した処理・データソースのため、Promiseは待ち合わせない)
+  const aqueductWrapEl = document.getElementById('aqueductResultWrap');
+  const aqueductResultEl = document.getElementById('aqueductResult');
+  lastQueriedLatLon = { lat, lon };
+  if (activeLayers.has('aqueductFloods')) {
+    aqueductWrapEl.className = 'search-result visible';
+    aqueductResultEl.innerHTML = aqueductResultHtml(null, aqueductSelectedRP);
+    aqueductDepthAt(lat, lon, aqueductSelectedRP).then(depth => {
+      // 切替や再検索が割り込んでいたら(=座標が変わっていたら)この結果は捨てる
+      if (lastQueriedLatLon && lastQueriedLatLon.lat === lat && lastQueriedLatLon.lon === lon) {
+        aqueductResultEl.innerHTML = aqueductResultHtml(depth, aqueductSelectedRP);
+      }
+    });
+  } else {
+    aqueductWrapEl.className = 'search-result';
+    aqueductResultEl.innerHTML = '';
   }
 
   const dLat = metersToDegLat(SEARCH_RADIUS_M);
@@ -1160,7 +1173,9 @@ async function queryPoint(lat, lon) {
     }
 
     // 冠水ハザードチップがOFFの場合は判定結果(バッジ・標高差・方角グリッド)を表示しない
-    const waterHtml = activeLayers.has('waterHazard') ? `
+    if (activeLayers.has('waterHazard')) {
+      resultEl.className = 'search-result visible';
+      resultEl.innerHTML = `
         <span class="result-badge" style="background:${waterBadge.color};">${waterBadge.label}</span>
         ${riskLegendHtml()}
         <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
@@ -1170,15 +1185,7 @@ async function queryPoint(lat, lon) {
             return `<div style="background:${dRisk.color};color:#fff;">${d.name}<br>${(d.elev - centerElev >= 0 ? '+' : '')}${(d.elev - centerElev).toFixed(1)}m</div>`;
           }).join('')}
         </div>
-    ` : '';
-    // Aqueduct Floodsチップは水害ハザードとは独立(統合しない)。地点検索のみで対応し、
-    // マップ上のヒートマップとは別に、中国域COGから該当ピクセルの浸水深を都度読む。
-    const aqueductHtml = activeLayers.has('aqueductFloods') ? aqueductDepthPanelSkeleton() : '';
-
-    if (waterHtml || aqueductHtml) {
-      resultEl.className = 'search-result visible';
-      resultEl.innerHTML = waterHtml + aqueductHtml;
-      if (aqueductHtml) refreshAqueductDepthReadout();
+      `;
     } else {
       resultEl.className = 'search-result';
       resultEl.innerHTML = '';
