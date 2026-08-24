@@ -24,18 +24,6 @@ name: Update Hazard Data
         description: "Run WRI Aqueduct Floods depth fetch (10yr & 100yr return period — powers both the map heatmap and point search)"
         type: boolean
         default: false
-      rivers_url:
-        description: "HydroRIVERS Asia region download URL (.zip, from hydrosheds.org). Usually blocked by bot protection from GitHub Actions — kept as a fallback attempt only."
-        type: string
-        default: ""
-      run_rivers_kaggle:
-        description: "Run rivers update via Kaggle mirror (recommended — bypasses hydrosheds.org's bot blocking). Requires the KAGGLE_API_TOKEN repo secret."
-        type: boolean
-        default: false
-      kaggle_rivers_dataset:
-        description: "Kaggle dataset slug for the HydroRIVERS mirror (owner/dataset-name)"
-        type: string
-        default: "charlesbwhetstone/hydrorivers"
       run_lightning:
         description: "Run WGLC lightning climatology update (downloads ~27MB NetCDF, climate data — rarely needs to change)"
         type: boolean
@@ -168,68 +156,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/aqueduct_depth_rp10.tif data/aqueduct_depth_rp100.tif data/aqueduct_floods_rp10.geojson data/aqueduct_floods_rp100.geojson
           git diff --staged --quiet || git commit -m "chore: update Aqueduct Floods depth data [auto]"
-          git pull --rebase origin main
-          git push
-
-  update-rivers-hydrosheds:
-    runs-on: ubuntu-latest
-    # hydrosheds.orgはGitHub ActionsのIPを含むクラウド環境をボット対策でブロックしていることを確認済み。
-    # 成功する可能性は低いが、サイト側の対策状況が変わった場合に備えてフォールバックとして残している。
-    # 基本的には update-rivers-kaggle を使うこと。
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.rivers_url != ''
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: pip install geopandas
-      - name: Download rivers zip via curl
-        run: |
-          curl -L --fail \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-            -e "https://www.hydrosheds.org/products/hydrorivers" \
-            -o rivers.zip \
-            "${{ github.event.inputs.rivers_url }}"
-      - name: Fetch rivers
-        run: python scripts/fetch_rivers.py --file rivers.zip --min-order 4 --out data/rivers.geojson
-      - name: Commit and push if changed
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/rivers.geojson
-          git diff --staged --quiet || git commit -m "chore: update rivers.geojson [auto]"
-          git pull --rebase origin main
-          git push
-
-  update-rivers-kaggle:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_rivers_kaggle == 'true'
-    timeout-minutes: 30
-    env:
-      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: pip install geopandas kaggle
-      - name: Download rivers dataset from Kaggle
-        run: |
-          mkdir -p kaggle_rivers
-          kaggle datasets download -d "${{ github.event.inputs.kaggle_rivers_dataset }}" -p kaggle_rivers --unzip
-      - name: List downloaded files (debug)
-        run: find kaggle_rivers -type f | head -100
-      - name: Fetch rivers
-        run: python scripts/fetch_rivers.py --shp-dir kaggle_rivers --min-order 4 --out data/rivers.geojson
-      - name: Commit and push if changed
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/rivers.geojson
-          git diff --staged --quiet || git commit -m "chore: update rivers.geojson via Kaggle [auto]"
           git pull --rebase origin main
           git push
 
