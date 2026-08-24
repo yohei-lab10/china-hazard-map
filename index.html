@@ -625,10 +625,12 @@ function splitContiguousRuns(items, predicate) {
   return runs;
 }
 
-// 台風の軌跡をポリライン(線)で描画する。以前はヒートマップ(点の集合)だったが、
-// ズームすると点同士の画面上の間隔が広がり、どれだけ区間を細かく補間しても
-// 十分ズームすれば点在する丸に見えてしまう問題があった。軌跡は本来「線」のデータなので、
-// ズームレベルに関わらず常に連続して見える実際のポリラインで描く方式に変更した。
+// 台風の軌跡はヒートマップ(L.heatLayer)で描画する。以前はcircle(暴風域バッファ)+
+// polyline(軌跡線)を1本ずつ重ねて描いていたが、沿岸部のように何十本もの台風の軌跡が
+// 同じ場所を通ると、半透明の図形が積み重なって不透明度が加算され、べったり単色に潰れて
+// 下の地図が見えなくなる問題があった。lightning/waterHazard/aqueductFloodsと同じ
+// L.heatLayer方式にすることで、「頻度・強度が高い場所ほど濃い」という段階的なグラデーション
+// になり、重ね塗りで潰れることがなくなる。
 //
 // 同じ台風の中でも発達・衰弱で色が変わるよう、区間(2地点間)ごとに、その両端の風速の
 // 平均で色を決める。地点検索(typhoonTileColor)と基準を揃えるため、130kt(スーパー台風
@@ -636,26 +638,16 @@ function splitContiguousRuns(items, predicate) {
 // する相対基準だったが、地点検索とズレていたため統一した)。
 const TYPHOON_WIND_REF_KT = 130;
 
-function drawTyphoonTrack(coords, windsKt, r34Km, layerGroup, fallbackRatio) {
+// 区間ごとにSTEPS+1点へ補間し、ズームレベルに関わらず連続した軌跡に見えるヒートポイント列を作る
+const TYPHOON_HEAT_INTERP_STEPS = 8;
+
+function collectTyphoonHeatPoints(coords, windsKt, fallbackRatio, heatPoints) {
   const items = coords.map(([lon, lat], i) => ({
     lat, lon,
     wind: (windsKt && typeof windsKt[i] === 'number') ? windsKt[i] : null,
-    r34: (r34Km && typeof r34Km[i] === 'number') ? r34Km[i] : null,
   }));
   const runs = splitContiguousRuns(items, item => inLandBbox(item.lat, item.lon));
   runs.forEach(run => {
-    // 暴風域バッファ(34kt風速半径)を先に描き、中心の軌跡線を後から上に重ねる。
-    // L.circleは半径をメートル(実距離)で指定するため、ヒートマップと違いズームしても
-    // 常に正しい実距離の円として表示され続ける(ズームで点在して見える問題が起きない)。
-    // 中心線より目立たせすぎないよう、透過度をかなり高め(fillOpacity低め)にしている。
-    run.forEach(item => {
-      if (item.r34 === null) return;
-      const ratio = item.wind !== null ? Math.min(1, item.wind / TYPHOON_WIND_REF_KT) : fallbackRatio;
-      L.circle([item.lat, item.lon], {
-        radius: item.r34 * 1000, // km→m
-        color: colorForWeight(ratio), weight: 0, fillColor: colorForWeight(ratio), fillOpacity: 0.10,
-      }).addTo(layerGroup);
-    });
     for (let i = 0; i < run.length - 1; i++) {
       const a = run[i], b = run[i + 1];
       let segWind;
@@ -664,9 +656,10 @@ function drawTyphoonTrack(coords, windsKt, r34Km, layerGroup, fallbackRatio) {
       else if (typeof b.wind === 'number') segWind = b.wind;
       else segWind = null;
       const ratio = segWind !== null ? Math.min(1, segWind / TYPHOON_WIND_REF_KT) : fallbackRatio;
-      L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
-        color: colorForWeight(ratio), weight: 5, opacity: 0.65, lineCap: 'round', lineJoin: 'round',
-      }).addTo(layerGroup);
+      for (let s = 0; s <= TYPHOON_HEAT_INTERP_STEPS; s++) {
+        const t = s / TYPHOON_HEAT_INTERP_STEPS;
+        heatPoints.push([a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t, ratio]);
+      }
     }
   });
 }
@@ -674,6 +667,7 @@ function drawTyphoonTrack(coords, windsKt, r34Km, layerGroup, fallbackRatio) {
 async function buildTyphoonHazard() {
   const geojson = await fetchGeojsonSafe('data/typhoons.geojson');
   typhoonGeojsonCacheGlobal = geojson;
+  const heatPoints = [];
 
   if (geojson) {
     let minTime = Infinity, maxTime = -Infinity;
@@ -682,7 +676,7 @@ async function buildTyphoonHazard() {
       // winds_kt(地点ごとの風速)が無い古いデータ形式でも動くよう、その場合は
       // 台風全体の最大風速から一律の比率を計算してフォールバックに使う
       const fallbackRatio = typeof maxWind === 'number' ? Math.min(1, maxWind / TYPHOON_WIND_REF_KT) : 0.4;
-      drawTyphoonTrack(f.geometry.coordinates, f.properties?.winds_kt, f.properties?.r34_km, layerGroups.typhoonHazard, fallbackRatio);
+      collectTyphoonHeatPoints(f.geometry.coordinates, f.properties?.winds_kt, fallbackRatio, heatPoints);
       const st = f.properties?.start_time, et = f.properties?.end_time;
       if (st) minTime = Math.min(minTime, new Date(st).getTime());
       if (et) maxTime = Math.max(maxTime, new Date(et).getTime());
@@ -694,9 +688,12 @@ async function buildTyphoonHazard() {
   } else {
     TYPHOON_SAMPLE.forEach(t => {
       const lonLatCoords = t.points.map(([lat, lon]) => [lon, lat]);
-      drawTyphoonTrack(lonLatCoords, null, null, layerGroups.typhoonHazard, 0.5);
+      collectTyphoonHeatPoints(lonLatCoords, null, 0.5, heatPoints);
     });
   }
+
+  const heat = L.heatLayer(heatPoints, { radius: 22, blur: 18, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT });
+  heat.addTo(layerGroups.typhoonHazard);
 }
 
 // 水害ハザード: 降雨強度(CHIRPS)と標高(Open-Elevation)の高い方を基礎リスクとし、
