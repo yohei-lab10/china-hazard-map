@@ -17,6 +17,12 @@ cronでの定期実行例(月1回・毎月1日午前3時):
 - IBTrACSの全件データは大容量のため、初回ダウンロードに時間がかかります(西太平洋のみでも数万行)。
 - 中国上陸の判定は簡易的に「中国沿岸の緯度経度バウンディングボックス内を通過した経路点」で行っています。
   精緻な上陸判定(海岸線ポリゴンとの交差判定)が必要な場合はshapelyの導入を検討してください。
+
+【2026年8月改訂】
+以前は台風ごとに最大風速を1つだけ(properties.max_wind_kt)持たせていたが、
+地図上で軌跡を「発達→衰弱で色が変化する線」として表示するため、各地点の風速も
+properties.winds_kt(coordinatesと同じ並び順の配列、欠測はnull)として保持するよう変更した。
+max_wind_ktは後方互換のため引き続き出力する(古い実装のフォールバック用)。
 """
 import argparse
 import json
@@ -89,11 +95,16 @@ def to_geojson(df: pd.DataFrame) -> dict:
     features = []
     for sid, group in df.groupby("SID"):
         group = group.sort_values("ISO_TIME")
-        coords = [[float(lon), float(lat)] for lon, lat in zip(group["LON"], group["LAT"]) if pd.notna(lon) and pd.notna(lat)]
+        # LAT/LON/WMO_WINDを地点順に揃えて取り出す(欠測地点はここで除外し、対応するwinds_ktも同じ行だけ残す)
+        valid = group[pd.notna(group["LON"]) & pd.notna(group["LAT"])]
+        coords = [[float(lon), float(lat)] for lon, lat in zip(valid["LON"], valid["LAT"])]
         if len(coords) < 2:
             continue
+        winds_series = pd.to_numeric(valid.get("WMO_WIND"), errors="coerce")
+        # 地点ごとの風速(欠測はnullのままGeoJSONに出す。coordinatesと同じ並び順・同じ長さ)
+        winds_kt = [None if pd.isna(w) else float(w) for w in winds_series]
         name = group["NAME"].iloc[0] if "NAME" in group else sid
-        max_wind = pd.to_numeric(group.get("WMO_WIND"), errors="coerce").max()
+        max_wind = winds_series.max()
         features.append({
             "type": "Feature",
             "geometry": {"type": "LineString", "coordinates": coords},
@@ -103,6 +114,7 @@ def to_geojson(df: pd.DataFrame) -> dict:
                 "start_time": str(group["ISO_TIME"].min()),
                 "end_time": str(group["ISO_TIME"].max()),
                 "max_wind_kt": None if pd.isna(max_wind) else float(max_wind),
+                "winds_kt": winds_kt,
             },
         })
     return {"type": "FeatureCollection", "features": features}
