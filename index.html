@@ -575,42 +575,91 @@ async function fetchGeojsonSafe(path) {
   }
 }
 
-// 台風の軌跡(LineString)は、元データの頂点間隔が広いと点在する丸に見えてしまうため、
-// 頂点間をmaxGapKm間隔で線形補間し、連続した線状のヒートマップになるようにする。
-function densifyTrack(coords, maxGapKm) {
-  const out = [];
-  for (let i = 0; i < coords.length; i++) {
-    const [lon1, lat1] = coords[i];
-    out.push([lon1, lat1]);
-    if (i < coords.length - 1) {
-      const [lon2, lat2] = coords[i + 1];
-      const distKm = haversineKm(lat1, lon1, lat2, lon2);
-      const steps = Math.ceil(distKm / maxGapKm);
-      for (let s = 1; s < steps; s++) {
-        const t = s / steps;
-        out.push([lon1 + (lon2 - lon1) * t, lat1 + (lat2 - lat1) * t]);
-      }
+// HAZARD_GRADIENTの色停止点(0/0.25/0.5/0.75/1.0)の間を線形補間して、weight(0〜1)に対応する
+// 1色を返す。台風の軌跡を線(ポリライン)で描くために使う(ヒートマップの色と統一するため)。
+const HAZARD_GRADIENT_STOPS = [
+  [0.0, [0xD9, 0xA2, 0x2C]], [0.25, [0xD9, 0x72, 0x2C]], [0.5, [0xC1, 0x3A, 0x2E]],
+  [0.75, [0x7A, 0x3B, 0x8C]], [1.0, [0x1A, 0x21, 0x30]],
+];
+function colorForWeight(w) {
+  const cw = Math.max(0, Math.min(1, w));
+  for (let i = 0; i < HAZARD_GRADIENT_STOPS.length - 1; i++) {
+    const [t0, c0] = HAZARD_GRADIENT_STOPS[i], [t1, c1] = HAZARD_GRADIENT_STOPS[i + 1];
+    if (cw >= t0 && cw <= t1) {
+      const t = (cw - t0) / (t1 - t0);
+      const r = Math.round(c0[0] + (c1[0] - c0[0]) * t);
+      const g = Math.round(c0[1] + (c1[1] - c0[1]) * t);
+      const b = Math.round(c0[2] + (c1[2] - c0[2]) * t);
+      return `rgb(${r},${g},${b})`;
     }
   }
-  return out;
+  return '#1A2130';
+}
+
+// inLandBbox(陸地・沿岸のみ表示)でフィルタすると軌跡の一部が虫食いになるため、
+// 連続してtrueな区間だけをひとつながりの線として切り出す(そうしないと海上の空白を
+// 直線でショートカットしてしまい、不自然な線になる)。items内の各要素はpredicateで
+// 判定できる値を持つオブジェクトであればよい(座標に限らない汎用ヘルパー)。
+function splitContiguousRuns(items, predicate) {
+  const runs = [];
+  let current = [];
+  items.forEach(item => {
+    if (predicate(item)) {
+      current.push(item);
+    } else {
+      if (current.length >= 2) runs.push(current);
+      current = [];
+    }
+  });
+  if (current.length >= 2) runs.push(current);
+  return runs;
+}
+
+// 台風の軌跡をポリライン(線)で描画する。以前はヒートマップ(点の集合)だったが、
+// ズームすると点同士の画面上の間隔が広がり、どれだけ区間を細かく補間しても
+// 十分ズームすれば点在する丸に見えてしまう問題があった。軌跡は本来「線」のデータなので、
+// ズームレベルに関わらず常に連続して見える実際のポリラインで描く方式に変更した。
+//
+// 同じ台風の中でも発達・衰弱で色が変わるよう、区間(2地点間)ごとに、その両端の風速の
+// 平均で色を決める。地点検索(typhoonTileColor)と基準を揃えるため、130kt(スーパー台風
+// クラスの目安)を1.0とする絶対基準で正規化する(以前は「取得期間内の最大風速」を1.0と
+// する相対基準だったが、地点検索とズレていたため統一した)。
+const TYPHOON_WIND_REF_KT = 130;
+
+function drawTyphoonTrack(coords, windsKt, layerGroup, fallbackRatio) {
+  const items = coords.map(([lon, lat], i) => ({
+    lat, lon,
+    wind: (windsKt && typeof windsKt[i] === 'number') ? windsKt[i] : null,
+  }));
+  const runs = splitContiguousRuns(items, item => inLandBbox(item.lat, item.lon));
+  runs.forEach(run => {
+    for (let i = 0; i < run.length - 1; i++) {
+      const a = run[i], b = run[i + 1];
+      let segWind;
+      if (typeof a.wind === 'number' && typeof b.wind === 'number') segWind = (a.wind + b.wind) / 2;
+      else if (typeof a.wind === 'number') segWind = a.wind;
+      else if (typeof b.wind === 'number') segWind = b.wind;
+      else segWind = null;
+      const ratio = segWind !== null ? Math.min(1, segWind / TYPHOON_WIND_REF_KT) : fallbackRatio;
+      L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
+        color: colorForWeight(ratio), weight: 5, opacity: 0.65, lineCap: 'round', lineJoin: 'round',
+      }).addTo(layerGroup);
+    }
+  });
 }
 
 async function buildTyphoonHazard() {
   const geojson = await fetchGeojsonSafe('data/typhoons.geojson');
   typhoonGeojsonCacheGlobal = geojson;
-  const points = [];
 
   if (geojson) {
-    const winds = geojson.features.map(f => f.properties?.max_wind_kt).filter(w => typeof w === 'number');
-    const maxWind = winds.length ? Math.max(...winds) : 100;
     let minTime = Infinity, maxTime = -Infinity;
     geojson.features.forEach(f => {
-      const w = f.properties?.max_wind_kt;
-      const weight = typeof w === 'number' ? Math.min(1, w / maxWind) : 0.4;
-      const densified = densifyTrack(f.geometry.coordinates, 15); // 15km間隔で補間
-      densified.forEach(([lon, lat]) => {
-        if (inLandBbox(lat, lon)) points.push([lat, lon, weight]);
-      });
+      const maxWind = f.properties?.max_wind_kt;
+      // winds_kt(地点ごとの風速)が無い古いデータ形式でも動くよう、その場合は
+      // 台風全体の最大風速から一律の比率を計算してフォールバックに使う
+      const fallbackRatio = typeof maxWind === 'number' ? Math.min(1, maxWind / TYPHOON_WIND_REF_KT) : 0.4;
+      drawTyphoonTrack(f.geometry.coordinates, f.properties?.winds_kt, layerGroups.typhoonHazard, fallbackRatio);
       const st = f.properties?.start_time, et = f.properties?.end_time;
       if (st) minTime = Math.min(minTime, new Date(st).getTime());
       if (et) maxTime = Math.max(maxTime, new Date(et).getTime());
@@ -621,16 +670,10 @@ async function buildTyphoonHazard() {
     }
   } else {
     TYPHOON_SAMPLE.forEach(t => {
-      // densifyTrackは[lon,lat]形式を期待するため、[lat,lon]→[lon,lat]に変換してから補間
       const lonLatCoords = t.points.map(([lat, lon]) => [lon, lat]);
-      const densified = densifyTrack(lonLatCoords, 15);
-      densified.forEach(([lon, lat]) => {
-        if (inLandBbox(lat, lon)) points.push([lat, lon, 0.5]);
-      });
+      drawTyphoonTrack(lonLatCoords, null, layerGroups.typhoonHazard, 0.5);
     });
   }
-
-  L.heatLayer(points, { radius: 18, blur: 14, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.typhoonHazard);
 }
 
 // 水害ハザード: 降雨強度(CHIRPS)と標高(Open-Elevation)の高い方を基礎リスクとし、
@@ -1029,7 +1072,7 @@ function typhoonTileColor(lat, lon) {
     if (near && (maxWind === null || w > maxWind)) maxWind = w;
   });
   if (maxWind === null) return null;
-  const ratio = Math.min(1, maxWind / 130);
+  const ratio = Math.min(1, maxWind / TYPHOON_WIND_REF_KT);
   return WARNING_TIER_COLORS[Math.min(4, Math.floor(ratio * 5))];
 }
 
