@@ -139,11 +139,6 @@
     padding: 3px 9px; border-radius: 5px; margin-bottom: 4px; color: #fff;
   }
   .result-elev { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary); margin-bottom: 6px; line-height: 1.4; }
-  .result-dirs {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;
-    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: var(--text-muted); line-height: 1.25;
-  }
-  .result-dirs div { text-align: center; background: var(--bg); border-radius: 4px; padding: 2px 2px; }
   .aqueduct-result { margin-top: 4px; }
   .aqueduct-rp-group {
     display: flex; gap: 10px; margin-bottom: 8px;
@@ -1055,26 +1050,31 @@ function degBboxFilter(lat, lon, flat, flon, radiusKm) {
   return Math.abs(lat - flat) <= degMargin && Math.abs(lon - flon) <= degMargin;
 }
 
-// 地震: 周辺100km以内で観測された最大マグニチュードを震度階級ふうの5段階に変換
+// 地震: 周辺100km以内の地震のうち、マグニチュードと震源距離を組み合わせた実効的な
+// 危険度が最大のものを判定に使う。以前は「100km以内の最大マグニチュード」を二値判定
+// (圏内/圏外)していたため、5km先のM6.0も95km先のM6.0も同じ扱いになっていた。
+// lightningと同じ考え方で、震源距離に応じて線形減衰させる(100kmでゼロ)ようにした。
+// マグニチュード側はM5.0=0.0、M7.5以上=1.0となるよう線形正規化しており、震源距離ゼロの
+// 場合に旧来の固定閾値(M5.5/6.0/6.5/7.0で1段階ずつ)とちょうど一致するよう調整してある。
 function earthquakeRiskInfo(lat, lon) {
   if (!earthquakeGeojsonCache) return null;
-  let maxMag = null;
+  let best = null; // { mag, dist, effective }
   earthquakeGeojsonCache.features.forEach(f => {
     const [flon, flat] = f.geometry.coordinates;
     if (!degBboxFilter(lat, lon, flat, flon, 100)) return; // 先に安価な絞り込み
-    if (haversineKm(lat, lon, flat, flon) <= 100) {
-      const mag = f.properties?.mag;
-      if (typeof mag === 'number' && (maxMag === null || mag > maxMag)) maxMag = mag;
-    }
+    const mag = f.properties?.mag;
+    if (typeof mag !== 'number') return;
+    const dist = haversineKm(lat, lon, flat, flon);
+    if (dist > 100) return;
+    const falloff = Math.max(0, 1 - dist / 100);
+    const magRatio = Math.min(1, Math.max(0, (mag - 5.0) / 2.5));
+    const effective = magRatio * falloff;
+    if (!best || effective > best.effective) best = { mag, dist, effective };
   });
-  if (maxMag === null) return null;
-  let tier;
-  if (maxMag < 5.5) tier = 0;
-  else if (maxMag < 6.0) tier = 1;
-  else if (maxMag < 6.5) tier = 2;
-  else if (maxMag < 7.0) tier = 3;
-  else tier = 4;
-  return { tier, color: EARTHQUAKE_TIER_COLORS[tier], valueLabel: `M${maxMag.toFixed(1)}` };
+  // 100km境界付近のごく微弱な値はノイズとして扱い、「データなし」と同様に無視する
+  if (!best || best.effective <= 0.02) return null;
+  const tier = Math.min(4, Math.floor(best.effective * 5));
+  return { tier, color: EARTHQUAKE_TIER_COLORS[tier], valueLabel: `M${best.mag.toFixed(1)}, ${Math.round(best.dist)}km` };
 }
 function earthquakeTileColor(lat, lon) {
   const info = earthquakeRiskInfo(lat, lon);
@@ -1340,12 +1340,6 @@ async function queryPoint(lat, lon) {
         `).join('<div style="height:8px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
           <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
-          <div class="result-dirs">
-            ${surrounding.map(d => {
-              const dRisk = elevationToRiskInfo(d.elev);
-              return `<div style="background:${dRisk.color};color:#fff;">${d.name}<br>${(d.elev - centerElev >= 0 ? '+' : '')}${(d.elev - centerElev).toFixed(1)}m</div>`;
-            }).join('')}
-          </div>
         ` : ''}
       `;
     } else {
