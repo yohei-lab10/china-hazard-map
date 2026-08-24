@@ -40,6 +40,18 @@
     box-shadow: 0 0 0 1px var(--border);
   }
 
+  /* デスクトップ(タブレット以上の幅)では、モバイル向けのカード状の枠(430px×860px)をやめて
+     ビューポート全体に広げる。内部のチップ列は overflow-x: auto で元々折り返し対応済み、
+     地図(#map)は flex: 1 で残り領域を自動で埋めるため、この幅指定だけで全画面表示になる。 */
+  @media (min-width: 700px) {
+    #app {
+      max-width: 100vw;
+      max-height: 100vh;
+      width: 100vw;
+      box-shadow: none;
+    }
+  }
+
   /* Header */
   .masthead-top {
     display: flex; align-items: center; justify-content: space-between;
@@ -152,11 +164,6 @@
     display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace;
     font-size: 8px; color: var(--text-faint); margin-top: 2px;
   }
-  .risk-legend-nodata {
-    display: flex; align-items: center; gap: 4px; font-family: 'JetBrains Mono', monospace;
-    font-size: 8.5px; color: var(--text-faint); margin-top: 4px;
-  }
-  .risk-legend-nodata .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
   /* Map */
   #map { flex: 1; width: 100%; background: var(--bg); }
@@ -297,7 +304,7 @@ const LAYERS = [
   { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
-    note: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/lakes/coastline, and past flood record data. Gray tiles mean data is unavailable there, not that risk is low.' },
+    note: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/lakes/coastline, and past flood record data. Areas with no rainfall data show no color on the map (see the point-search panel for a "No data" label).' },
   { key: 'aqueductFloods', label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
     note: 'Aqueduct Floods: simulated flood depth (WRI) shown both as a map heatmap and at the searched point, for the selected return period (10-year / 100-year, switchable via radio buttons).' },
 ];
@@ -347,6 +354,9 @@ let activeLayers = new Set();
 
 function initMap() {
   map = L.map('map', { zoomControl: true, attributionControl: true }).setView([31.57, 120.30], 11);
+  // デスクトップでウィンドウ幅を変えた時など、#appのサイズが変わってもLeafletが
+  // 内部キャッシュしたサイズのままだとタイルが崩れるため、リサイズのたびに再計算する
+  window.addEventListener('resize', () => map.invalidateSize());
   // Light, professional cartographic base (CartoDB Positron)
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO',
@@ -429,8 +439,8 @@ function updateLegend() {
       ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
       <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
       ${l.key === 'waterHazard' || l.key === 'aqueductFloods' ? riskLegendHtml() : ''}
-      ${l.key === 'earthquake' ? riskLegendHtml(EARTHQUAKE_TIER_COLORS, false) : ''}
-      ${l.key === 'typhoonHazard' || l.key === 'lightning' ? riskLegendHtml(WARNING_TIER_COLORS, false) : ''}
+      ${l.key === 'earthquake' ? riskLegendHtml(EARTHQUAKE_TIER_COLORS) : ''}
+      ${l.key === 'typhoonHazard' || l.key === 'lightning' ? riskLegendHtml(WARNING_TIER_COLORS) : ''}
     </div>`;
   }).join('');
 
@@ -626,13 +636,26 @@ function splitContiguousRuns(items, predicate) {
 // する相対基準だったが、地点検索とズレていたため統一した)。
 const TYPHOON_WIND_REF_KT = 130;
 
-function drawTyphoonTrack(coords, windsKt, layerGroup, fallbackRatio) {
+function drawTyphoonTrack(coords, windsKt, r34Km, layerGroup, fallbackRatio) {
   const items = coords.map(([lon, lat], i) => ({
     lat, lon,
     wind: (windsKt && typeof windsKt[i] === 'number') ? windsKt[i] : null,
+    r34: (r34Km && typeof r34Km[i] === 'number') ? r34Km[i] : null,
   }));
   const runs = splitContiguousRuns(items, item => inLandBbox(item.lat, item.lon));
   runs.forEach(run => {
+    // 暴風域バッファ(34kt風速半径)を先に描き、中心の軌跡線を後から上に重ねる。
+    // L.circleは半径をメートル(実距離)で指定するため、ヒートマップと違いズームしても
+    // 常に正しい実距離の円として表示され続ける(ズームで点在して見える問題が起きない)。
+    // 中心線より目立たせすぎないよう、透過度をかなり高め(fillOpacity低め)にしている。
+    run.forEach(item => {
+      if (item.r34 === null) return;
+      const ratio = item.wind !== null ? Math.min(1, item.wind / TYPHOON_WIND_REF_KT) : fallbackRatio;
+      L.circle([item.lat, item.lon], {
+        radius: item.r34 * 1000, // km→m
+        color: colorForWeight(ratio), weight: 0, fillColor: colorForWeight(ratio), fillOpacity: 0.10,
+      }).addTo(layerGroup);
+    });
     for (let i = 0; i < run.length - 1; i++) {
       const a = run[i], b = run[i + 1];
       let segWind;
@@ -659,7 +682,7 @@ async function buildTyphoonHazard() {
       // winds_kt(地点ごとの風速)が無い古いデータ形式でも動くよう、その場合は
       // 台風全体の最大風速から一律の比率を計算してフォールバックに使う
       const fallbackRatio = typeof maxWind === 'number' ? Math.min(1, maxWind / TYPHOON_WIND_REF_KT) : 0.4;
-      drawTyphoonTrack(f.geometry.coordinates, f.properties?.winds_kt, layerGroups.typhoonHazard, fallbackRatio);
+      drawTyphoonTrack(f.geometry.coordinates, f.properties?.winds_kt, f.properties?.r34_km, layerGroups.typhoonHazard, fallbackRatio);
       const st = f.properties?.start_time, et = f.properties?.end_time;
       if (st) minTime = Math.min(minTime, new Date(st).getTime());
       if (et) maxTime = Math.max(maxTime, new Date(et).getTime());
@@ -671,7 +694,7 @@ async function buildTyphoonHazard() {
   } else {
     TYPHOON_SAMPLE.forEach(t => {
       const lonLatCoords = t.points.map(([lat, lon]) => [lon, lat]);
-      drawTyphoonTrack(lonLatCoords, null, layerGroups.typhoonHazard, 0.5);
+      drawTyphoonTrack(lonLatCoords, null, null, layerGroups.typhoonHazard, 0.5);
     });
   }
 }
@@ -841,16 +864,12 @@ async function buildWaterHazard() {
   }
 
   const riskPoints = [];
-  const grayPoints = [];
 
   if (rainfallGeojson) {
     rainfallGeojson.features.forEach(f => {
       const [lon, lat] = f.geometry.coordinates;
       const p = f.properties || {};
-      if (p.no_data) {
-        grayPoints.push([lat, lon]);
-        return;
-      }
+      if (p.no_data) return; // データなしは地図上には何も描かない(「No data」はテキストバッジ側に一本化)
       const rainfallRisk = typeof p.risk === 'number' ? p.risk : 0;
       // 同じ格子点付近の標高リスクも参照し、高い方を基礎リスクとする
       let elevRisk = 0;
@@ -876,13 +895,6 @@ async function buildWaterHazard() {
   if (riskPoints.length > 0) {
     L.heatLayer(riskPoints, { radius: 40, blur: 32, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.waterHazard);
   }
-  // データ欠損セルを灰色の小さな四角で明示(誤って「リスクなし」と読まれないよう独立表示)
-  grayPoints.forEach(([lat, lon]) => {
-    L.rectangle(
-      [[lat - 0.4, lon - 0.4], [lat + 0.4, lon + 0.4]],
-      { color: NO_DATA_COLOR, weight: 0, fillColor: NO_DATA_COLOR, fillOpacity: 0.35 }
-    ).addTo(layerGroups.waterHazard);
-  });
 }
 
 // Aqueduct Floods(WRI): 地点検索のみの方針に統一(地図上のヒートマップ表示は行わない)。
@@ -1010,17 +1022,14 @@ async function buildAqueductFloodsHeatmap(rp) {
   aqueductHeatLayerRef.addTo(layerGroups.aqueductFloods);
 }
 
-function riskLegendHtml(colors, showNoData) {
+function riskLegendHtml(colors) {
   const useColors = colors || WARNING_TIER_COLORS;
   const bar = useColors.map(c => `<span style="background:${c};"></span>`).join('');
-  const noData = showNoData === false ? '' :
-    `<div class="risk-legend-nodata"><span class="swatch" style="background:${NO_DATA_COLOR};"></span>No data (outside coverage) — not the same as low risk</div>`;
   return `
     <div class="risk-legend">
       <div class="risk-legend-bar">${bar}</div>
     </div>
     <div class="risk-legend-labels"><span>Low</span><span>Moderate</span><span>High</span><span>Severe</span><span>Extreme</span></div>
-    ${noData}
   `;
 }
 
@@ -1342,18 +1351,11 @@ async function queryPoint(lat, lon) {
       const elevRiskInfo = elevationToRiskInfo(cellElev);
       const elevRiskValue = elevRiskValueFromLabel(elevRiskInfo);
       const rainfallRiskValue = rainfallRiskAt(cell.lat, cell.lon);
-      const noRainData = rainfallRiskValue === null;
+      // データなしのマスは何も描かない(「No data」の明示はテキストバッジ側に一本化)
+      if (rainfallRiskValue === null) return;
 
       const halfLat = cellDLat / 2;
       const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
-
-      if (noRainData) {
-        L.rectangle(
-          [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
-          { color: NO_DATA_COLOR, weight: 0, fillColor: NO_DATA_COLOR, fillOpacity: 0.35 }
-        ).addTo(waterGridLayer);
-        return;
-      }
 
       const baseRisk = Math.max(rainfallRiskValue, elevRiskValue * waterProximityMultiplier(cell.lat, cell.lon, lakePoints));
       const weight = floodWeightAt(cell.lat, cell.lon);
