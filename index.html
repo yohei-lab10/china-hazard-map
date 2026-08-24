@@ -136,14 +136,14 @@
   .search-result.visible { display: block; }
   .result-badge {
     display: inline-block; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 11.5px;
-    padding: 4px 10px; border-radius: 5px; margin-bottom: 7px; color: #fff;
+    padding: 3px 9px; border-radius: 5px; margin-bottom: 4px; color: #fff;
   }
-  .result-elev { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary); margin-bottom: 8px; line-height: 1.5; }
+  .result-elev { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary); margin-bottom: 6px; line-height: 1.4; }
   .result-dirs {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-muted);
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: var(--text-muted); line-height: 1.25;
   }
-  .result-dirs div { text-align: center; background: var(--bg); border-radius: 4px; padding: 4px 2px; }
+  .result-dirs div { text-align: center; background: var(--bg); border-radius: 4px; padding: 2px 2px; }
   .aqueduct-result { margin-top: 4px; }
   .aqueduct-rp-group {
     display: flex; gap: 10px; margin-bottom: 8px;
@@ -155,14 +155,14 @@
     color: var(--text-primary); margin-bottom: 2px;
   }
   .aqueduct-depth-note { font-size: 10px; color: var(--text-faint); }
-  .risk-legend { display: flex; align-items: center; gap: 6px; margin-top: 9px; }
+  .risk-legend { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
   .risk-legend-bar {
-    display: flex; flex: 1; height: 12px; border-radius: 6px; overflow: hidden;
+    display: flex; flex: 1; height: 10px; border-radius: 5px; overflow: hidden;
   }
   .risk-legend-bar span { flex: 1; }
   .risk-legend-labels {
     display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace;
-    font-size: 8px; color: var(--text-faint); margin-top: 2px;
+    font-size: 8px; color: var(--text-faint); margin-top: 1px;
   }
 
   /* Map */
@@ -309,6 +309,10 @@ const LAYERS = [
     note: 'Aqueduct Floods: simulated flood depth (WRI) shown both as a map heatmap and at the searched point, for the selected return period (10-year / 100-year, switchable via radio buttons).' },
 ];
 
+// 地点検索で「評価バッジ+リスク凡例」を表示する4レイヤー(Aqueduct Floodsは浸水深mの
+// 実数値表示のため対象外)
+const BADGE_LAYER_KEYS = ['earthquake', 'typhoonHazard', 'lightning', 'waterHazard'];
+
 const METHODOLOGY = [
   { label: 'Earthquakes', color: COLORS.earthquake,
     desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
@@ -391,11 +395,17 @@ function renderLayerBar() {
         activeLayers.add(key);
         map.addLayer(layerGroups[key]);
       }
-      // 水害ハザードチップをOFFにしたら、地点検索の判定結果(バッジ・標高差・方角グリッド)も非表示にする
-      if (key === 'waterHazard' && !activeLayers.has('waterHazard')) {
-        const resultEl = document.getElementById('searchResult');
-        resultEl.className = 'search-result';
-        resultEl.innerHTML = '';
+      // 評価バッジ(地震・台風・雷・水害)のいずれかをON/OFFしたら、地点検索の結果表示を
+      // 直前の検索地点で再計算する。全てOFFになった場合は非表示にする。
+      if (BADGE_LAYER_KEYS.includes(key)) {
+        const anyBadgeActive = BADGE_LAYER_KEYS.some(k => activeLayers.has(k));
+        if (!anyBadgeActive) {
+          const resultEl = document.getElementById('searchResult');
+          resultEl.className = 'search-result';
+          resultEl.innerHTML = '';
+        } else if (lastQueriedLatLon) {
+          queryPoint(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
+        }
       }
       // Aqueduct Floodsチップの場合も同様。OFFなら非表示、ONに戻したら直前の検索地点で再取得する
       if (key === 'aqueductFloods') {
@@ -438,9 +448,6 @@ function updateLegend() {
       <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${summary}
       ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
       <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
-      ${l.key === 'waterHazard' || l.key === 'aqueductFloods' ? riskLegendHtml() : ''}
-      ${l.key === 'earthquake' ? riskLegendHtml(EARTHQUAKE_TIER_COLORS) : ''}
-      ${l.key === 'typhoonHazard' || l.key === 'lightning' ? riskLegendHtml(WARNING_TIER_COLORS) : ''}
     </div>`;
   }).join('');
 
@@ -625,12 +632,15 @@ function splitContiguousRuns(items, predicate) {
   return runs;
 }
 
-// 台風の軌跡はヒートマップ(L.heatLayer)で描画する。以前はcircle(暴風域バッファ)+
-// polyline(軌跡線)を1本ずつ重ねて描いていたが、沿岸部のように何十本もの台風の軌跡が
-// 同じ場所を通ると、半透明の図形が積み重なって不透明度が加算され、べったり単色に潰れて
-// 下の地図が見えなくなる問題があった。lightning/waterHazard/aqueductFloodsと同じ
-// L.heatLayer方式にすることで、「頻度・強度が高い場所ほど濃い」という段階的なグラデーション
-// になり、重ね塗りで潰れることがなくなる。
+// 台風の軌跡はポリライン(線)で描画する。以前はcircle(暴風域バッファ)+polylineの
+// 半透明な重ね描きだったが、沿岸部のように何十本もの台風の軌跡が同じ場所を通ると、
+// 半透明図形の不透明度が積み重なってべったり単色に潰れる問題があった。その後
+// L.heatLayer(ヒートマップ)化も試したが、これは「通過本数が多いほど濃くなる」
+// 積算方式のため、弱い台風が何本も通っただけの場所が強く見えてしまい、
+// 「その場所を通った最も強い台風で評価したい」という意図とズレていた。
+// 現在は、区間(ratio)の弱い順に不透明(opacity:1)なポリラインを描画し、
+// 強い区間ほど後(=上)に描く方式にしている。同じ場所を複数の軌跡が通っても
+// 不透明度は加算されず、単純に一番強い区間の色が最前面に残る(=最大値評価)。
 //
 // 同じ台風の中でも発達・衰弱で色が変わるよう、区間(2地点間)ごとに、その両端の風速の
 // 平均で色を決める。地点検索(typhoonTileColor)と基準を揃えるため、130kt(スーパー台風
@@ -638,10 +648,7 @@ function splitContiguousRuns(items, predicate) {
 // する相対基準だったが、地点検索とズレていたため統一した)。
 const TYPHOON_WIND_REF_KT = 130;
 
-// 区間ごとにSTEPS+1点へ補間し、ズームレベルに関わらず連続した軌跡に見えるヒートポイント列を作る
-const TYPHOON_HEAT_INTERP_STEPS = 8;
-
-function collectTyphoonHeatPoints(coords, windsKt, fallbackRatio, heatPoints) {
+function collectTyphoonSegments(coords, windsKt, fallbackRatio, segments) {
   const items = coords.map(([lon, lat], i) => ({
     lat, lon,
     wind: (windsKt && typeof windsKt[i] === 'number') ? windsKt[i] : null,
@@ -656,10 +663,7 @@ function collectTyphoonHeatPoints(coords, windsKt, fallbackRatio, heatPoints) {
       else if (typeof b.wind === 'number') segWind = b.wind;
       else segWind = null;
       const ratio = segWind !== null ? Math.min(1, segWind / TYPHOON_WIND_REF_KT) : fallbackRatio;
-      for (let s = 0; s <= TYPHOON_HEAT_INTERP_STEPS; s++) {
-        const t = s / TYPHOON_HEAT_INTERP_STEPS;
-        heatPoints.push([a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t, ratio]);
-      }
+      segments.push({ a, b, ratio });
     }
   });
 }
@@ -667,7 +671,7 @@ function collectTyphoonHeatPoints(coords, windsKt, fallbackRatio, heatPoints) {
 async function buildTyphoonHazard() {
   const geojson = await fetchGeojsonSafe('data/typhoons.geojson');
   typhoonGeojsonCacheGlobal = geojson;
-  const heatPoints = [];
+  const segments = [];
 
   if (geojson) {
     let minTime = Infinity, maxTime = -Infinity;
@@ -676,7 +680,7 @@ async function buildTyphoonHazard() {
       // winds_kt(地点ごとの風速)が無い古いデータ形式でも動くよう、その場合は
       // 台風全体の最大風速から一律の比率を計算してフォールバックに使う
       const fallbackRatio = typeof maxWind === 'number' ? Math.min(1, maxWind / TYPHOON_WIND_REF_KT) : 0.4;
-      collectTyphoonHeatPoints(f.geometry.coordinates, f.properties?.winds_kt, fallbackRatio, heatPoints);
+      collectTyphoonSegments(f.geometry.coordinates, f.properties?.winds_kt, fallbackRatio, segments);
       const st = f.properties?.start_time, et = f.properties?.end_time;
       if (st) minTime = Math.min(minTime, new Date(st).getTime());
       if (et) maxTime = Math.max(maxTime, new Date(et).getTime());
@@ -688,12 +692,18 @@ async function buildTyphoonHazard() {
   } else {
     TYPHOON_SAMPLE.forEach(t => {
       const lonLatCoords = t.points.map(([lat, lon]) => [lon, lat]);
-      collectTyphoonHeatPoints(lonLatCoords, null, 0.5, heatPoints);
+      collectTyphoonSegments(lonLatCoords, null, 0.5, segments);
     });
   }
 
-  const heat = L.heatLayer(heatPoints, { radius: 22, blur: 18, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT });
-  heat.addTo(layerGroups.typhoonHazard);
+  // 弱い区間から先に描画し、強い区間を最後(最前面)に描くことで、重なった場所では
+  // 常に最も強い台風の色が見えるようにする(不透明opacity:1のため加算ブレンドされない)
+  segments.sort((s1, s2) => s1.ratio - s2.ratio);
+  segments.forEach(seg => {
+    L.polyline([[seg.a.lat, seg.a.lon], [seg.b.lat, seg.b.lon]], {
+      color: colorForWeight(seg.ratio), weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round',
+    }).addTo(layerGroups.typhoonHazard);
+  });
 }
 
 // 水害ハザード: 降雨強度(CHIRPS)と標高(Open-Elevation)の高い方を基礎リスクとし、
@@ -1046,7 +1056,7 @@ function degBboxFilter(lat, lon, flat, flon, radiusKm) {
 }
 
 // 地震: 周辺100km以内で観測された最大マグニチュードを震度階級ふうの5段階に変換
-function earthquakeTileColor(lat, lon) {
+function earthquakeRiskInfo(lat, lon) {
   if (!earthquakeGeojsonCache) return null;
   let maxMag = null;
   earthquakeGeojsonCache.features.forEach(f => {
@@ -1064,11 +1074,15 @@ function earthquakeTileColor(lat, lon) {
   else if (maxMag < 6.5) tier = 2;
   else if (maxMag < 7.0) tier = 3;
   else tier = 4;
-  return EARTHQUAKE_TIER_COLORS[tier];
+  return { tier, color: EARTHQUAKE_TIER_COLORS[tier], valueLabel: `M${maxMag.toFixed(1)}` };
+}
+function earthquakeTileColor(lat, lon) {
+  const info = earthquakeRiskInfo(lat, lon);
+  return info ? info.color : null;
 }
 
 // 台風: 周辺50km以内を通過した経路の中で最大の風速を5段階に変換
-function typhoonTileColor(lat, lon) {
+function typhoonRiskInfo(lat, lon) {
   if (!typhoonGeojsonCacheGlobal) return null;
   let maxWind = null;
   typhoonGeojsonCacheGlobal.features.forEach(f => {
@@ -1079,11 +1093,16 @@ function typhoonTileColor(lat, lon) {
   });
   if (maxWind === null) return null;
   const ratio = Math.min(1, maxWind / TYPHOON_WIND_REF_KT);
-  return WARNING_TIER_COLORS[Math.min(4, Math.floor(ratio * 5))];
+  const tier = Math.min(4, Math.floor(ratio * 5));
+  return { tier, ratio, color: WARNING_TIER_COLORS[tier], valueLabel: `${Math.round(maxWind)}kt` };
+}
+function typhoonTileColor(lat, lon) {
+  const info = typhoonRiskInfo(lat, lon);
+  return info ? info.color : null;
 }
 
 // 雷: 既知の落雷多発地点までの距離から密度を推定し5段階に変換
-function lightningTileColor(lat, lon) {
+function lightningRiskInfo(lat, lon) {
   if (!lightningGeojsonCacheGlobal) return null;
   let nearest = null, nearestDist = Infinity;
   lightningGeojsonCacheGlobal.features.forEach(f => {
@@ -1097,7 +1116,12 @@ function lightningTileColor(lat, lon) {
   const falloff = Math.max(0, 1 - nearestDist / 80);
   const ratio = nearest * falloff;
   if (ratio <= 0.05) return null;
-  return WARNING_TIER_COLORS[Math.min(4, Math.floor(ratio * 5))];
+  const tier = Math.min(4, Math.floor(ratio * 5));
+  return { tier, ratio, color: WARNING_TIER_COLORS[tier], valueLabel: ratio.toFixed(2) };
+}
+function lightningTileColor(lat, lon) {
+  const info = lightningRiskInfo(lat, lon);
+  return info ? info.color : null;
 }
 
 // 洪水: 周辺80km以内で最も近い洪水記録の冠水面積を5段階に変換
@@ -1202,7 +1226,7 @@ async function fetchElevations(locations) {
 
 async function queryPoint(lat, lon) {
   const resultEl = document.getElementById('searchResult');
-  if (activeLayers.has('waterHazard')) {
+  if (BADGE_LAYER_KEYS.some(k => activeLayers.has(k))) {
     resultEl.className = 'search-result visible';
     resultEl.innerHTML = '<div class="result-elev">Fetching…</div>';
   }
@@ -1271,32 +1295,58 @@ async function queryPoint(lat, lon) {
     const elevRiskInfo = elevationToRiskInfo(centerElev);
     const rainfallRiskHere = rainfallRiskAt(lat, lon);
     const noRainDataHere = rainfallRiskHere === null;
+    const tierLabels = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
     let waterBadge;
     if (noRainDataHere) {
-      waterBadge = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR };
+      waterBadge = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS };
     } else {
       const proximity = waterProximityMultiplier(lat, lon, lakePoints);
       const baseRisk = Math.max(rainfallRiskHere, elevRiskValueFromLabel(elevRiskInfo) * proximity);
       const weight = floodWeightAt(lat, lon);
       const finalRisk = Math.min(1.0, baseRisk * weight);
       const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
-      const tierLabels = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
-      waterBadge = { label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier] };
+      waterBadge = { label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS };
     }
 
-    // 冠水ハザードチップがOFFの場合は判定結果(バッジ・標高差・方角グリッド)を表示しない
-    if (activeLayers.has('waterHazard')) {
+    // 地震・台風・雷は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)が、
+    // 表示更新のタイミングは水害と揃えて1回にまとめている
+    const badges = [];
+    if (activeLayers.has('earthquake')) {
+      const info = earthquakeRiskInfo(lat, lon);
+      badges.push(info
+        ? { label: `${tierLabels[info.tier]} earthquake hazard (${info.valueLabel})`, color: info.color, colors: EARTHQUAKE_TIER_COLORS }
+        : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS });
+    }
+    if (activeLayers.has('typhoonHazard')) {
+      const info = typhoonRiskInfo(lat, lon);
+      badges.push(info
+        ? { label: `${tierLabels[info.tier]} typhoon hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS }
+        : { label: 'No typhoon track within 50km', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
+    }
+    if (activeLayers.has('lightning')) {
+      const info = lightningRiskInfo(lat, lon);
+      badges.push(info
+        ? { label: `${tierLabels[info.tier]} lightning hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS }
+        : { label: 'No significant lightning density nearby', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
+    }
+    if (activeLayers.has('waterHazard')) badges.push(waterBadge);
+
+    if (badges.length > 0) {
       resultEl.className = 'search-result visible';
       resultEl.innerHTML = `
-        <span class="result-badge" style="background:${waterBadge.color};">${waterBadge.label}</span>
-        ${riskLegendHtml()}
-        <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
-        <div class="result-dirs">
-          ${surrounding.map(d => {
-            const dRisk = elevationToRiskInfo(d.elev);
-            return `<div style="background:${dRisk.color};color:#fff;">${d.name}<br>${(d.elev - centerElev >= 0 ? '+' : '')}${(d.elev - centerElev).toFixed(1)}m</div>`;
-          }).join('')}
-        </div>
+        ${badges.map(b => `
+          <span class="result-badge" style="background:${b.color};">${b.label}</span>
+          ${riskLegendHtml(b.colors)}
+        `).join('<div style="height:8px;"></div>')}
+        ${activeLayers.has('waterHazard') ? `
+          <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
+          <div class="result-dirs">
+            ${surrounding.map(d => {
+              const dRisk = elevationToRiskInfo(d.elev);
+              return `<div style="background:${dRisk.color};color:#fff;">${d.name}<br>${(d.elev - centerElev >= 0 ? '+' : '')}${(d.elev - centerElev).toFixed(1)}m</div>`;
+            }).join('')}
+          </div>
+        ` : ''}
       `;
     } else {
       resultEl.className = 'search-result';
