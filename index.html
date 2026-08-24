@@ -151,17 +151,25 @@
   }
   .aqueduct-depth-note { font-size: 10px; color: var(--text-faint); }
   .risk-legend { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .risk-legend-bar-wrap { position: relative; flex: 1; padding-top: 9px; }
   .risk-legend-bar {
-    display: flex; flex: 1; height: 10px; border-radius: 5px; overflow: hidden;
+    display: flex; height: 10px; border-radius: 5px; overflow: hidden;
   }
   .risk-legend-bar span { flex: 1; }
+  .risk-legend-marker {
+    position: absolute; top: 0; transform: translateX(-50%);
+    font-size: 9px; line-height: 1; color: var(--text-primary); pointer-events: none;
+  }
   .risk-legend-labels {
     display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace;
     font-size: 8px; color: var(--text-faint); margin-top: 1px;
   }
 
   /* Map */
-  #map { flex: 1; width: 100%; background: var(--bg); }
+  #map {
+    flex: 1; width: 100%; background: var(--bg);
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+  }
   .leaflet-popup-content-wrapper {
     background: var(--panel); color: var(--text-primary); border: 1px solid var(--border);
     border-radius: 6px; font-family: 'Inter', sans-serif; box-shadow: 0 2px 10px rgba(26,33,48,0.12);
@@ -1024,12 +1032,18 @@ async function buildAqueductFloodsHeatmap(rp) {
   aqueductHeatLayerRef.addTo(layerGroups.aqueductFloods);
 }
 
-function riskLegendHtml(colors) {
+function riskLegendHtml(colors, ratio) {
   const useColors = colors || WARNING_TIER_COLORS;
   const bar = useColors.map(c => `<span style="background:${c};"></span>`).join('');
+  const hasMarker = typeof ratio === 'number' && !isNaN(ratio);
+  // マーカーは棒の左右端で見切れないよう、ごくわずかに内側へクランプする
+  const pct = hasMarker ? Math.min(99, Math.max(1, ratio * 100)) : 0;
   return `
     <div class="risk-legend">
-      <div class="risk-legend-bar">${bar}</div>
+      <div class="risk-legend-bar-wrap">
+        ${hasMarker ? `<div class="risk-legend-marker" style="left:${pct.toFixed(1)}%;">▼</div>` : ''}
+        <div class="risk-legend-bar">${bar}</div>
+      </div>
     </div>
     <div class="risk-legend-labels"><span>Low</span><span>Moderate</span><span>High</span><span>Severe</span><span>Extreme</span></div>
   `;
@@ -1074,7 +1088,7 @@ function earthquakeRiskInfo(lat, lon) {
   // 100km境界付近のごく微弱な値はノイズとして扱い、「データなし」と同様に無視する
   if (!best || best.effective <= 0.02) return null;
   const tier = Math.min(4, Math.floor(best.effective * 5));
-  return { tier, color: EARTHQUAKE_TIER_COLORS[tier], valueLabel: `M${best.mag.toFixed(1)}, ${Math.round(best.dist)}km` };
+  return { tier, ratio: best.effective, color: EARTHQUAKE_TIER_COLORS[tier], valueLabel: `M${best.mag.toFixed(1)}, ${Math.round(best.dist)}km` };
 }
 function earthquakeTileColor(lat, lon) {
   const info = earthquakeRiskInfo(lat, lon);
@@ -1305,7 +1319,7 @@ async function queryPoint(lat, lon) {
       const weight = floodWeightAt(lat, lon);
       const finalRisk = Math.min(1.0, baseRisk * weight);
       const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
-      waterBadge = { label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS };
+      waterBadge = { label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk };
     }
 
     // 地震・台風・雷は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)が、
@@ -1314,19 +1328,19 @@ async function queryPoint(lat, lon) {
     if (activeLayers.has('earthquake')) {
       const info = earthquakeRiskInfo(lat, lon);
       badges.push(info
-        ? { label: `${tierLabels[info.tier]} earthquake hazard (${info.valueLabel})`, color: info.color, colors: EARTHQUAKE_TIER_COLORS }
+        ? { label: `${tierLabels[info.tier]} earthquake hazard (${info.valueLabel})`, color: info.color, colors: EARTHQUAKE_TIER_COLORS, ratio: info.ratio }
         : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS });
     }
     if (activeLayers.has('typhoonHazard')) {
       const info = typhoonRiskInfo(lat, lon);
       badges.push(info
-        ? { label: `${tierLabels[info.tier]} typhoon hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS }
+        ? { label: `${tierLabels[info.tier]} typhoon hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
         : { label: 'No typhoon track within 50km', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
     }
     if (activeLayers.has('lightning')) {
       const info = lightningRiskInfo(lat, lon);
       badges.push(info
-        ? { label: `${tierLabels[info.tier]} lightning hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS }
+        ? { label: `${tierLabels[info.tier]} lightning hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
         : { label: 'No significant lightning density nearby', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
     }
     if (activeLayers.has('waterHazard')) badges.push(waterBadge);
@@ -1336,7 +1350,7 @@ async function queryPoint(lat, lon) {
       resultEl.innerHTML = `
         ${badges.map(b => `
           <span class="result-badge" style="background:${b.color};">${b.label}</span>
-          ${riskLegendHtml(b.colors)}
+          ${riskLegendHtml(b.colors, b.ratio)}
         `).join('<div style="height:8px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
           <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
@@ -1508,10 +1522,44 @@ buildTyphoonHazard();
 buildWaterHazard();
 buildAqueductFloodsHeatmap(aqueductSelectedRP);
 
-map.on('click', (e) => {
-  document.getElementById('searchLat').value = e.latlng.lat.toFixed(4);
-  document.getElementById('searchLon').value = e.latlng.lng.toFixed(4);
-  queryPoint(e.latlng.lat, e.latlng.lng);
+// 地図タップは、以前はシングルタップで即検索していたが、地図を軽くタップ/パンする操作と
+// 誤操作しやすいため、長押し(500ms)専用に変更した。Leafletの mousedown/mousemove/mouseup
+// はタッチ操作でも同名イベントとして発火するため、タッチ・マウス共通のロジックで書ける。
+// ブラウザ標準の長押しメニュー(コピー/選択部分を検索/調べる)は#mapのCSS
+// (-webkit-touch-callout:none等)で抑止している。
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+let longPressTimer = null;
+let longPressStartPoint = null;
+
+function clearLongPressTimer() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  longPressStartPoint = null;
+}
+
+map.on('mousedown', (e) => {
+  longPressStartPoint = e.containerPoint;
+  clearTimeout(longPressTimer);
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null;
+    document.getElementById('searchLat').value = e.latlng.lat.toFixed(4);
+    document.getElementById('searchLon').value = e.latlng.lng.toFixed(4);
+    queryPoint(e.latlng.lat, e.latlng.lng);
+    if (navigator.vibrate) navigator.vibrate(10); // 長押しが認識されたことを伝える軽い振動(対応端末のみ)
+  }, LONG_PRESS_MS);
+});
+
+// 指が(またはマウスが)一定以上動いたら、パン操作とみなして長押し判定をキャンセルする
+map.on('mousemove', (e) => {
+  if (!longPressTimer || !longPressStartPoint) return;
+  if (e.containerPoint.distanceTo(longPressStartPoint) > LONG_PRESS_MOVE_TOLERANCE_PX) clearLongPressTimer();
+});
+
+map.on('mouseup dragstart zoomstart', clearLongPressTimer);
+
+// ブラウザの右クリック/長押しメニューが独自の長押し検索と競合しないよう抑止する
+map.on('contextmenu', (e) => {
+  if (e.originalEvent) e.originalEvent.preventDefault();
 });
 </script>
 </body>
