@@ -23,6 +23,12 @@ cronでの定期実行例(月1回・毎月1日午前3時):
 地図上で軌跡を「発達→衰弱で色が変化する線」として表示するため、各地点の風速も
 properties.winds_kt(coordinatesと同じ並び順の配列、欠測はnull)として保持するよう変更した。
 max_wind_ktは後方互換のため引き続き出力する(古い実装のフォールバック用)。
+【2026年8月改訂-2】
+地図上で軌跡の「周辺」も暴風域として表示するため、各地点の34kt風速半径
+(USA_R34_NE/SE/SW/NW、4方位別、単位nmile)の平均値をkmに変換し、
+properties.r34_km(coordinatesと同じ並び順の配列、欠測はnull)として保持する。
+34ktは国際的に「暴風域(gale-force wind)」の目安とされる閾値。
+本来は4方位で非対称な形をしているが、簡略化のため4方位の平均値による円で近似している。
 """
 import argparse
 import json
@@ -37,6 +43,9 @@ IBTRACS_WP_CSV_URL = (
     "international-best-track-archive-for-climate-stewardship-ibtracs/"
     "v04r01/access/csv/ibtracs.WP.list.v04r01.csv"
 )
+
+NMILE_TO_KM = 1.852
+R34_COLUMNS = ["USA_R34_NE", "USA_R34_SE", "USA_R34_SW", "USA_R34_NW"]
 
 # 中国沿岸域(上陸判定用の簡易バウンディングボックス)
 CHINA_COASTAL_BBOX = {"minlat": 18, "maxlat": 41, "minlon": 108, "maxlon": 123}
@@ -91,6 +100,19 @@ def filter_china_typhoons(df: pd.DataFrame, years: int) -> pd.DataFrame:
     return result
 
 
+def compute_r34_km(row) -> float:
+    """4方位(NE/SE/SW/NW)のR34(nmile)のうち、有効な値だけの平均をkmに変換して返す。
+    全方位が欠測(0またはNaN、IBTrACSでは未観測時に-999等が入ることもある)ならNoneを返す。"""
+    vals = []
+    for col in R34_COLUMNS:
+        v = row.get(col)
+        if pd.notna(v) and v > 0:
+            vals.append(float(v))
+    if not vals:
+        return None
+    return (sum(vals) / len(vals)) * NMILE_TO_KM
+
+
 def to_geojson(df: pd.DataFrame) -> dict:
     features = []
     for sid, group in df.groupby("SID"):
@@ -103,6 +125,10 @@ def to_geojson(df: pd.DataFrame) -> dict:
         winds_series = pd.to_numeric(valid.get("WMO_WIND"), errors="coerce")
         # 地点ごとの風速(欠測はnullのままGeoJSONに出す。coordinatesと同じ並び順・同じ長さ)
         winds_kt = [None if pd.isna(w) else float(w) for w in winds_series]
+        for col in R34_COLUMNS:
+            if col in valid.columns:
+                valid[col] = pd.to_numeric(valid[col], errors="coerce")
+        r34_km = [compute_r34_km(row) for _, row in valid.iterrows()]
         name = group["NAME"].iloc[0] if "NAME" in group else sid
         max_wind = winds_series.max()
         features.append({
@@ -115,6 +141,7 @@ def to_geojson(df: pd.DataFrame) -> dict:
                 "end_time": str(group["ISO_TIME"].max()),
                 "max_wind_kt": None if pd.isna(max_wind) else float(max_wind),
                 "winds_kt": winds_kt,
+                "r34_km": r34_km,
             },
         })
     return {"type": "FeatureCollection", "features": features}
