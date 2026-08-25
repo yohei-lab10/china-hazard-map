@@ -1306,10 +1306,13 @@ const DIRS = [
 ];
 const SEARCH_RADIUS_M = 100;
 
-// 500m圏内を細かい格子(グリッド)状にサンプリングして面で塗るための設定
-const GRID_RADIUS_M = 1500;
+// 検索地点周辺を細かい格子(グリッド)状にサンプリングして面で塗るための設定。
+// 2km四方をカバーする設計のため半径1000m(9x9=81マス、余白込みの実際の被覆範囲は
+// 一辺約2.25km)。2026年8月: 半径1500m(約3.25km四方)になっていたのを、
+// 本来の2km四方設計に合わせて修正。
+const GRID_RADIUS_M = 1000;
 const GRID_CELL_M = 250; // 1マスのサイズは今までと同じ(精細さを保つ)
-const GRID_STEPS = GRID_RADIUS_M / GRID_CELL_M; // 半径1500m ÷ 250m = 6マスずつ = 13x13グリッド
+const GRID_STEPS = GRID_RADIUS_M / GRID_CELL_M; // 半径1000m ÷ 250m = 4マスずつ = 9x9グリッド
 
 let searchMarkerLayer;
 let searchGridLayers = {}; // ハザードキーごとのタイルレイヤー(それぞれ対応するチップと連動)
@@ -1503,7 +1506,8 @@ async function queryPoint(lat, lon) {
 
     if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
 
-    // 500m〜1km圏内を、各ハザードのリスクに応じた色のタイルで塗る(地震・台風・雷はローカルデータのみ、追加通信なし)
+    // 半径1000m(一辺約2.25km、2km四方設計)圏内を、各ハザードのリスクに応じた色のタイルで塗る
+    // (地震・台風・雷はローカルデータのみ、追加通信なし)
     const hazardTileFns = {
       earthquake: earthquakeTileColor,
       typhoonHazard: typhoonTileColor,
