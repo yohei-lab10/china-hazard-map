@@ -164,6 +164,10 @@
     display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace;
     font-size: 8px; color: var(--text-faint); margin-top: 1px;
   }
+  .result-freq {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-muted);
+    margin-top: 4px; line-height: 1.4;
+  }
 
   /* Map */
   #map {
@@ -646,12 +650,79 @@ function splitContiguousRuns(items, predicate) {
 // 不透明度は加算されず、単純に一番強い区間の色が最前面に残る(=最大値評価)。
 //
 // 同じ台風の中でも発達・衰弱で色が変わるよう、区間(2地点間)ごとに、その両端の風速の
-// 平均で色を決める。地点検索(typhoonTileColor)と基準を揃えるため、130kt(スーパー台風
-// クラスの目安)を1.0とする絶対基準で正規化する(以前は「取得期間内の最大風速」を1.0と
-// する相対基準だったが、地点検索とズレていたため統一した)。
-const TYPHOON_WIND_REF_KT = 130;
+// 平均で色を決める。階級は米国のSaffir-Simpson風速階級(Category 1〜5)をそのまま採用する
+// (2026年8月改訂: 独自に決めた130kt基準ではなく、国際的に使われる基準に統一)。
+// Category1未満(34〜63kt、tropical storm)は「顕著な台風被害の目安」に届かないため
+// 対象外とし、区間・地点検索とも表示・判定しない。
+const TYPHOON_CATEGORY_BOUNDS_KT = [64, 83, 96, 114, 136]; // Category 1〜5の下限(kt)
+// 台風ごとの実際の暴風域半径(r34_km)がデータにある場合は、それを使って中心からの
+// 線形補間で風速を推定する(2026年8月改訂: 台風によって暴風域の大きさが11〜581km、
+// 中央値185kmと大きくばらつくため、一律の固定半径では小型で強い台風・大型で緩い台風を
+// 区別できなかった)。r34_kmが無い地点・台風のみ、フォールバックとして固定半径で判定する。
+const TYPHOON_FALLBACK_RADIUS_KM = 200; // r34_km欠損時のフォールバック(実データ中央値ベース)
+const TYPHOON_PREFILTER_RADIUS_KM = 600; // 安価な絞り込み用(実データの最大r34=581kmをカバー)
 
-function collectTyphoonSegments(coords, windsKt, fallbackRatio, segments) {
+// 台風1個分のデータから、指定地点での推定風速(kt)の最大値を求める。
+// 各時刻の地点ごとに、r34_kmがあれば「中心=その時刻の風速、r34地点=34kt」の線形補間、
+// 無ければ固定半径(TYPHOON_FALLBACK_RADIUS_KM)内かどうかの二値判定にフォールバックする。
+function estimateStormWindAt(feature, lat, lon) {
+  const coords = feature.geometry.coordinates;
+  const windsKt = feature.properties?.winds_kt;
+  const r34Km = feature.properties?.r34_km;
+  const maxWind = feature.properties?.max_wind_kt;
+  let best = null;
+  let anyPointWind = false;
+  coords.forEach(([flon, flat], i) => {
+    if (!degBboxFilter(lat, lon, flat, flon, TYPHOON_PREFILTER_RADIUS_KM)) return;
+    const w = windsKt && typeof windsKt[i] === 'number' ? windsKt[i] : null;
+    if (w === null) return;
+    anyPointWind = true;
+    const dist = haversineKm(lat, lon, flat, flon);
+    const r34 = r34Km && typeof r34Km[i] === 'number' ? r34Km[i] : null;
+    let est = null;
+    if (r34 !== null && r34 > 0) {
+      if (dist <= r34) est = 34 + (w - 34) * (1 - dist / r34); // 中心=w、境界(r34)=34ktで線形補間
+    } else if (dist <= TYPHOON_FALLBACK_RADIUS_KM) {
+      est = w; // r34不明な地点は、固定半径内なら距離を考慮せずその時刻の風速をそのまま使う
+    }
+    if (est !== null && (best === null || est > best)) best = est;
+  });
+  // winds_kt自体が無い古い形式のデータ(台風全体で1つの最大風速のみ)は、固定半径のみで判定
+  if (!anyPointWind && typeof maxWind === 'number') {
+    const near = coords.some(([flon, flat]) => degBboxFilter(lat, lon, flat, flon, TYPHOON_FALLBACK_RADIUS_KM) && haversineKm(lat, lon, flat, flon) <= TYPHOON_FALLBACK_RADIUS_KM);
+    if (near) best = maxWind;
+  }
+  return best;
+}
+
+// 全台風の中から、指定地点での推定風速(kt)の最大値を求める(=badge/タイル判定用)
+function typhoonWindEstimateAt(lat, lon) {
+  if (!typhoonGeojsonCacheGlobal) return null;
+  let best = null;
+  typhoonGeojsonCacheGlobal.features.forEach(f => {
+    const w = estimateStormWindAt(f, lat, lon);
+    if (w !== null && (best === null || w > best)) best = w;
+  });
+  return best;
+}
+
+// 風速(kt)をSaffir-Simpsonのtier(0=Category1〜4=Category5)とratio(0〜1、色のグラデーション用)に変換する。
+// Category1未満はnullを返す(=台風ハザードとして扱わない)。同じCategory内での強弱も
+// なめらかに反映されるよう、次のCategory境界に近いほどratioを1段階分の中で連続的に上げる
+// (Category5は上限が無いため、目安として+40ktの幅で頭打ちにする)。
+function typhoonWindToTierRatio(windKt) {
+  if (typeof windKt !== 'number' || windKt < TYPHOON_CATEGORY_BOUNDS_KT[0]) return null;
+  let tier = 0;
+  for (let i = 1; i < TYPHOON_CATEGORY_BOUNDS_KT.length; i++) {
+    if (windKt >= TYPHOON_CATEGORY_BOUNDS_KT[i]) tier = i;
+  }
+  const lower = TYPHOON_CATEGORY_BOUNDS_KT[tier];
+  const upper = tier < 4 ? TYPHOON_CATEGORY_BOUNDS_KT[tier + 1] : lower + 40;
+  const within = Math.min(1, (windKt - lower) / (upper - lower));
+  return { tier, ratio: (tier + within) / 5 };
+}
+
+function collectTyphoonSegments(coords, windsKt, fallbackTierRatio, segments) {
   const items = coords.map(([lon, lat], i) => ({
     lat, lon,
     wind: (windsKt && typeof windsKt[i] === 'number') ? windsKt[i] : null,
@@ -665,8 +736,10 @@ function collectTyphoonSegments(coords, windsKt, fallbackRatio, segments) {
       else if (typeof a.wind === 'number') segWind = a.wind;
       else if (typeof b.wind === 'number') segWind = b.wind;
       else segWind = null;
-      const ratio = segWind !== null ? Math.min(1, segWind / TYPHOON_WIND_REF_KT) : fallbackRatio;
-      segments.push({ a, b, ratio });
+      const tr = segWind !== null ? typhoonWindToTierRatio(segWind) : fallbackTierRatio;
+      // Category1未満の区間は台風ハザードとして描画しない(米国基準でtropical stormは対象外)
+      if (!tr) continue;
+      segments.push({ a, b, ratio: tr.ratio });
     }
   });
 }
@@ -681,9 +754,10 @@ async function buildTyphoonHazard() {
     geojson.features.forEach(f => {
       const maxWind = f.properties?.max_wind_kt;
       // winds_kt(地点ごとの風速)が無い古いデータ形式でも動くよう、その場合は
-      // 台風全体の最大風速から一律の比率を計算してフォールバックに使う
-      const fallbackRatio = typeof maxWind === 'number' ? Math.min(1, maxWind / TYPHOON_WIND_REF_KT) : 0.4;
-      collectTyphoonSegments(f.geometry.coordinates, f.properties?.winds_kt, fallbackRatio, segments);
+      // 台風全体の最大風速から一律のtier/ratioを計算してフォールバックに使う。
+      // 最大風速でもCategory1(64kt)未満の台風は、そもそも描画対象にしない。
+      const fallbackTierRatio = typhoonWindToTierRatio(maxWind);
+      collectTyphoonSegments(f.geometry.coordinates, f.properties?.winds_kt, fallbackTierRatio, segments);
       const st = f.properties?.start_time, et = f.properties?.end_time;
       if (st) minTime = Math.min(minTime, new Date(st).getTime());
       if (et) maxTime = Math.max(maxTime, new Date(et).getTime());
@@ -695,7 +769,7 @@ async function buildTyphoonHazard() {
   } else {
     TYPHOON_SAMPLE.forEach(t => {
       const lonLatCoords = t.points.map(([lat, lon]) => [lon, lat]);
-      collectTyphoonSegments(lonLatCoords, null, 0.5, segments);
+      collectTyphoonSegments(lonLatCoords, null, { tier: 2, ratio: 0.5 }, segments);
     });
   }
 
@@ -1049,6 +1123,15 @@ function riskLegendHtml(colors, ratio) {
   `;
 }
 
+// Category1+台風の発生頻度(再現期間)の表示。過去の最大値(バッジ本体)とは別の指標なので、
+// 混同されないよう「past N years」を明記し、不確実性の90%区間もあわせて示す。
+function typhoonFreqHtml(freq) {
+  if (!freq.observed) {
+    return `<div class="result-freq">Category 1+ typhoon: not observed within 200km in past ${freq.totalYears}yrs (insufficient data for a frequency estimate)</div>`;
+  }
+  return `<div class="result-freq">Category 1+ frequency: ~${freq.returnPeriod.toFixed(1)}yr return period (annual prob. ${(freq.pAnnual * 100).toFixed(0)}%, 90% CI: ${freq.ciLow.toFixed(1)}–${freq.ciHigh.toFixed(1)}yr, based on ${freq.totalYears}yrs of data)</div>`;
+}
+
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -1095,24 +1178,74 @@ function earthquakeTileColor(lat, lon) {
   return info ? info.color : null;
 }
 
-// 台風: 周辺50km以内を通過した経路の中で最大の風速を5段階に変換
+// 台風: 指定地点での推定風速(r34_kmがあれば線形補間、無ければ固定半径フォールバック)を、
+// 米国のSaffir-Simpson階級(Category 1〜5)で判定する。Category1未満(tropical storm)は対象外。
 function typhoonRiskInfo(lat, lon) {
-  if (!typhoonGeojsonCacheGlobal) return null;
-  let maxWind = null;
-  typhoonGeojsonCacheGlobal.features.forEach(f => {
-    const w = f.properties?.max_wind_kt;
-    if (typeof w !== 'number') return;
-    const near = f.geometry.coordinates.some(([flon, flat]) => degBboxFilter(lat, lon, flat, flon, 50) && haversineKm(lat, lon, flat, flon) <= 50);
-    if (near && (maxWind === null || w > maxWind)) maxWind = w;
-  });
-  if (maxWind === null) return null;
-  const ratio = Math.min(1, maxWind / TYPHOON_WIND_REF_KT);
-  const tier = Math.min(4, Math.floor(ratio * 5));
-  return { tier, ratio, color: WARNING_TIER_COLORS[tier], valueLabel: `${Math.round(maxWind)}kt` };
+  const estWind = typhoonWindEstimateAt(lat, lon);
+  const tr = typhoonWindToTierRatio(estWind);
+  if (!tr) return null;
+  return { tier: tr.tier, ratio: tr.ratio, color: WARNING_TIER_COLORS[tr.tier], valueLabel: `Category ${tr.tier + 1}, ~${Math.round(estWind)}kt at this point` };
 }
 function typhoonTileColor(lat, lon) {
   const info = typhoonRiskInfo(lat, lon);
   return info ? info.color : null;
+}
+
+// 台風の発生頻度(再現期間)を、周辺200km以内・過去のデータ期間全体から統計的に推定する。
+// 「Category3バッジ」が過去の最大値(1個のイベント)を示すのに対し、こちらは
+// 「Category1以上が平均どれくらいの頻度で来るか」という発生回数(頻度)の指標で、別物。
+// 2026年8月実装: 年ごとにCategory1+の発生回数をカウントし、ポアソン分布で
+// 年間発生確率・再現期間を点推定。加えて、年別データを1000回ブートストラップ再抽出して
+// (11年程度の少ないデータに由来する)推定の不確実性を90%区間として示す。
+// 対数正規分布などの連続分布は「0回の年」を表現できないため採用していない(過去の検討より)。
+function typhoonReturnPeriodInfo(lat, lon) {
+  if (!typhoonGeojsonCacheGlobal) return null;
+  const years = typhoonGeojsonCacheGlobal.features
+    .map(f => f.properties?.start_time ? new Date(f.properties.start_time).getFullYear() : null)
+    .filter(y => y !== null);
+  if (years.length === 0) return null;
+  const minYear = Math.min(...years), maxYear = Math.max(...years);
+  const totalYears = maxYear - minYear + 1;
+
+  // 年ごとにCategory1+の発生回数をカウント(r34_kmがあれば線形補間、無ければ固定半径フォールバック)
+  const countByYear = {};
+  for (let y = minYear; y <= maxYear; y++) countByYear[y] = 0;
+  typhoonGeojsonCacheGlobal.features.forEach(f => {
+    const estWind = estimateStormWindAt(f, lat, lon);
+    if (estWind === null || estWind < TYPHOON_CATEGORY_BOUNDS_KT[0]) return; // Category1未満は対象外
+    const y = f.properties?.start_time ? new Date(f.properties.start_time).getFullYear() : null;
+    if (y !== null && countByYear[y] !== undefined) countByYear[y]++;
+  });
+  const counts = Object.values(countByYear);
+  const totalEvents = counts.reduce((s, c) => s + c, 0);
+
+  if (totalEvents === 0) return { totalYears, observed: false };
+
+  // 点推定(ポアソン分布): lambda = 年平均発生回数
+  const lambda = totalEvents / totalYears;
+  const pAnnual = 1 - Math.exp(-lambda);
+  const returnPeriod = 1 / pAnnual;
+
+  // ブートストラップ(1000回、年単位で重複ありに再抽出)で不確実性の90%区間を求める
+  const BOOTSTRAP_N = 1000;
+  const rps = [];
+  for (let i = 0; i < BOOTSTRAP_N; i++) {
+    let sampleSum = 0;
+    for (let j = 0; j < counts.length; j++) {
+      sampleSum += counts[Math.floor(Math.random() * counts.length)];
+    }
+    const lamB = sampleSum / counts.length;
+    if (lamB === 0) continue; // この試行では「発生なし」となり再現期間は定義できないため除外
+    const pB = 1 - Math.exp(-lamB);
+    rps.push(1 / pB);
+  }
+  rps.sort((a, b) => a - b);
+  const pct = (p) => rps.length ? rps[Math.min(rps.length - 1, Math.floor(rps.length * p))] : null;
+
+  return {
+    totalYears, observed: true, totalEvents, pAnnual, returnPeriod,
+    ciLow: pct(0.05), ciHigh: pct(0.95),
+  };
 }
 
 // 雷: 既知の落雷多発地点までの距離から密度を推定し5段階に変換
@@ -1333,9 +1466,13 @@ async function queryPoint(lat, lon) {
     }
     if (activeLayers.has('typhoonHazard')) {
       const info = typhoonRiskInfo(lat, lon);
-      badges.push(info
-        ? { label: `${tierLabels[info.tier]} typhoon hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
-        : { label: 'No typhoon track within 50km', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
+      const freq = typhoonReturnPeriodInfo(lat, lon);
+      badges.push({
+        ...(info
+          ? { label: `${tierLabels[info.tier]} typhoon hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
+          : { label: 'No Category 1+ typhoon impact at this point', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS }),
+        freqInfo: freq,
+      });
     }
     if (activeLayers.has('lightning')) {
       const info = lightningRiskInfo(lat, lon);
@@ -1351,6 +1488,7 @@ async function queryPoint(lat, lon) {
         ${badges.map(b => `
           <span class="result-badge" style="background:${b.color};">${b.label}</span>
           ${riskLegendHtml(b.colors, b.ratio)}
+          ${b.freqInfo ? typhoonFreqHtml(b.freqInfo) : ''}
         `).join('<div style="height:8px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
           <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
