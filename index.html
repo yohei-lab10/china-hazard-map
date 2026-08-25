@@ -170,9 +170,11 @@
   }
 
   /* Map */
+  #map, #map * {
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+  }
   #map {
     flex: 1; width: 100%; background: var(--bg);
-    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
   }
   .leaflet-popup-content-wrapper {
     background: var(--panel); color: var(--text-primary); border: 1px solid var(--border);
@@ -1661,44 +1663,70 @@ buildWaterHazard();
 buildAqueductFloodsHeatmap(aqueductSelectedRP);
 
 // 地図タップは、以前はシングルタップで即検索していたが、地図を軽くタップ/パンする操作と
-// 誤操作しやすいため、長押し(500ms)専用に変更した。Leafletの mousedown/mousemove/mouseup
-// はタッチ操作でも同名イベントとして発火するため、タッチ・マウス共通のロジックで書ける。
-// ブラウザ標準の長押しメニュー(コピー/選択部分を検索/調べる)は#mapのCSS
-// (-webkit-touch-callout:none等)で抑止している。
+// 誤操作しやすいため、長押し(500ms)専用に変更した。
+//
+// 【バグ修正 2026年8月・その2】当初はLeafletの'mousedown'イベントでタイマーを開始して
+// いたが、スマホでは全く動作しなかった。原因は、タッチ操作の「互換mousedownイベント」は
+// 指を触れた瞬間ではなく指を離した瞬間(touchend後)に初めて発火するため、押している間は
+// 一切発火せず、長押しの検知が原理的に不可能だったこと。native の touchstart/touchmove/
+// touchend を直接使う方式に変更し、押した瞬間から正しくタイマーを開始できるようにした。
+// あわせて、指のわずかな自然なブレでLeaflet自身のパン(ドラッグ)が先に始まってしまい
+// タイマーが潰れる問題があったため、長押し判定中はdragging機能を一時的に無効化している。
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 let longPressTimer = null;
 let longPressStartPoint = null;
 
-function clearLongPressTimer() {
+function cancelLongPress() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   longPressStartPoint = null;
+  if (!map.dragging.enabled()) map.dragging.enable();
 }
 
-map.on('mousedown', (e) => {
-  longPressStartPoint = e.containerPoint;
+function startLongPress(evt) {
+  const containerPoint = map.mouseEventToContainerPoint(evt);
+  const latlng = map.containerPointToLatLng(containerPoint);
+  longPressStartPoint = containerPoint;
   clearTimeout(longPressTimer);
+  map.dragging.disable(); // 長押し判定中はパンを止め、指のブレでドラッグ扱いになるのを防ぐ
   longPressTimer = setTimeout(() => {
     longPressTimer = null;
-    document.getElementById('searchLat').value = e.latlng.lat.toFixed(4);
-    document.getElementById('searchLon').value = e.latlng.lng.toFixed(4);
-    queryPoint(e.latlng.lat, e.latlng.lng);
+    map.dragging.enable();
+    document.getElementById('searchLat').value = latlng.lat.toFixed(4);
+    document.getElementById('searchLon').value = latlng.lng.toFixed(4);
+    queryPoint(latlng.lat, latlng.lng);
     if (navigator.vibrate) navigator.vibrate(10); // 長押しが認識されたことを伝える軽い振動(対応端末のみ)
   }, LONG_PRESS_MS);
-});
+}
 
-// 指が(またはマウスが)一定以上動いたら、パン操作とみなして長押し判定をキャンセルする
-map.on('mousemove', (e) => {
+function moveLongPress(evt) {
   if (!longPressTimer || !longPressStartPoint) return;
-  if (e.containerPoint.distanceTo(longPressStartPoint) > LONG_PRESS_MOVE_TOLERANCE_PX) clearLongPressTimer();
-});
+  const pt = map.mouseEventToContainerPoint(evt);
+  if (pt.distanceTo(longPressStartPoint) > LONG_PRESS_MOVE_TOLERANCE_PX) cancelLongPress();
+}
 
-map.on('mouseup dragstart zoomstart', clearLongPressTimer);
+const mapContainer = map.getContainer();
 
-// ブラウザの右クリック/長押しメニューが独自の長押し検索と競合しないよう抑止する
-map.on('contextmenu', (e) => {
-  if (e.originalEvent) e.originalEvent.preventDefault();
-});
+// タッチ操作(スマホ): touchstartは指を触れた瞬間に発火するため、ここでタイマーを開始する
+mapContainer.addEventListener('touchstart', (e) => {
+  if (e.touches.length !== 1) { cancelLongPress(); return; } // 2本指以降(ピンチ操作等)は対象外
+  e.preventDefault(); // OS標準の長押しメニューを抑止し、後続の合成mousedownの重複発火も防ぐ
+  startLongPress(e.touches[0]);
+}, { passive: false });
+mapContainer.addEventListener('touchmove', (e) => {
+  if (e.touches.length !== 1) return;
+  moveLongPress(e.touches[0]);
+}, { passive: true });
+mapContainer.addEventListener('touchend', cancelLongPress, { passive: true });
+mapContainer.addEventListener('touchcancel', cancelLongPress, { passive: true });
+
+// マウス操作(PC): mousedownは押した瞬間に発火するため、そのまま使える
+mapContainer.addEventListener('mousedown', startLongPress);
+mapContainer.addEventListener('mousemove', moveLongPress);
+mapContainer.addEventListener('mouseup', cancelLongPress);
+
+// ブラウザの右クリックメニュー(PC)が独自の長押し検索と競合しないよう抑止する
+mapContainer.addEventListener('contextmenu', (e) => e.preventDefault());
 </script>
 </body>
 </html>
