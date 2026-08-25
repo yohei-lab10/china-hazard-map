@@ -1670,8 +1670,13 @@ buildAqueductFloodsHeatmap(aqueductSelectedRP);
 // 指を触れた瞬間ではなく指を離した瞬間(touchend後)に初めて発火するため、押している間は
 // 一切発火せず、長押しの検知が原理的に不可能だったこと。native の touchstart/touchmove/
 // touchend を直接使う方式に変更し、押した瞬間から正しくタイマーを開始できるようにした。
-// あわせて、指のわずかな自然なブレでLeaflet自身のパン(ドラッグ)が先に始まってしまい
-// タイマーが潰れる問題があったため、長押し判定中はdragging機能を一時的に無効化している。
+//
+// 【バグ修正 2026年8月・その3】その際、指のブレでLeaflet自身のパンが先に始まってしまう
+// のを防ごうとdragging機能を一時的に無効化していたが、これが原因で通常の1本指パンその
+// ものが機能しなくなった(touchstartの瞬間に毎回パンを止めてしまうため、Leaflet側が
+// ドラッグ開始を検知できなかった。2本指の場合はこの無効化処理を通らないため無事だった)。
+// dragging.disable/enableは撤去し、自前の移動量チェック(10px)とLeafletの'dragstart'/
+// 'zoomstart'イベントの両方で長押し判定をキャンセルする、素直な方式に戻した。
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 let longPressTimer = null;
@@ -1680,7 +1685,6 @@ let longPressStartPoint = null;
 function cancelLongPress() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   longPressStartPoint = null;
-  if (!map.dragging.enabled()) map.dragging.enable();
 }
 
 function startLongPress(evt) {
@@ -1688,10 +1692,8 @@ function startLongPress(evt) {
   const latlng = map.containerPointToLatLng(containerPoint);
   longPressStartPoint = containerPoint;
   clearTimeout(longPressTimer);
-  map.dragging.disable(); // 長押し判定中はパンを止め、指のブレでドラッグ扱いになるのを防ぐ
   longPressTimer = setTimeout(() => {
     longPressTimer = null;
-    map.dragging.enable();
     document.getElementById('searchLat').value = latlng.lat.toFixed(4);
     document.getElementById('searchLon').value = latlng.lng.toFixed(4);
     queryPoint(latlng.lat, latlng.lng);
@@ -1724,6 +1726,9 @@ mapContainer.addEventListener('touchcancel', cancelLongPress, { passive: true })
 mapContainer.addEventListener('mousedown', startLongPress);
 mapContainer.addEventListener('mousemove', moveLongPress);
 mapContainer.addEventListener('mouseup', cancelLongPress);
+
+// 実際にLeaflet側でパン/ズームが始まった場合も、念のため長押し判定を確実にキャンセルする
+map.on('dragstart zoomstart', cancelLongPress);
 
 // ブラウザの右クリックメニュー(PC)が独自の長押し検索と競合しないよう抑止する
 mapContainer.addEventListener('contextmenu', (e) => e.preventDefault());
