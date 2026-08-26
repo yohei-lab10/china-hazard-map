@@ -118,7 +118,13 @@ jobs:
   update-rainfall:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_rainfall == 'true'
-    timeout-minutes: 120
+    # 2026年8月改訂: fetch_rainfall.pyが「直近180日の近似値」方式から「20年分の年最大値+
+    # Gumbel分布フィット」方式に変更されたことに伴い更新。
+    # 初回実行は20年分(約7,300日)の日次データを新規取得するため、旧来の120分では
+    # 完走しない可能性が高い。GitHub Actions(無料枠)の上限に近い350分まで延長した。
+    # 2回目以降は data/rainfall_annual_max_cache.json に前回分がキャッシュされるため、
+    # 不足分(通常は直近1年分のみ)だけ取得すればよく、大幅に短時間で終わるはずである。
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -127,12 +133,12 @@ jobs:
       - name: Install dependencies
         run: pip install rasterio requests numpy
       - name: Fetch rainfall risk grid
-        run: python scripts/fetch_rainfall.py --days 180 --grid-deg 1.0 --out data/rainfall_risk.geojson
+        run: python scripts/fetch_rainfall.py --years 20 --grid-deg 1.0 --out data/rainfall_risk.geojson --cache data/rainfall_annual_max_cache.json
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/rainfall_risk.geojson
+          git add data/rainfall_risk.geojson data/rainfall_annual_max_cache.json
           git diff --staged --quiet || git commit -m "chore: update rainfall_risk.geojson [auto]"
           git pull --rebase origin main
           git push
