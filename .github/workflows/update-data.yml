@@ -118,13 +118,15 @@ jobs:
   update-rainfall:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_rainfall == 'true'
-    # 2026年8月改訂: fetch_rainfall.pyが「直近180日の近似値」方式から「20年分の年最大値+
+    # 2026年8月改訂: fetch_rainfall.pyが「直近180日の近似値」方式から「年最大値+
     # Gumbel分布フィット」方式に変更されたことに伴い更新。
-    # 初回実行は20年分(約7,300日)の日次データを新規取得するため、旧来の120分では
-    # 完走しない可能性が高い。GitHub Actions(無料枠)の上限に近い350分まで延長した。
-    # 2回目以降は data/rainfall_annual_max_cache.json に前回分がキャッシュされるため、
-    # 不足分(通常は直近1年分のみ)だけ取得すればよく、大幅に短時間で終わるはずである。
-    timeout-minutes: 350
+    # 実測(#39: 180日で3分51秒)から1日約1.3秒。10年分(3,650日)で約1.6時間、
+    # 20年分なら約3.2時間の見込み。まずはサーバー負荷を抑えるため10年で運用し、
+    # 安定して完走するようなら --years を増やすことを検討する。
+    # timeoutは10年分の見込み(1.6時間)に余裕を持たせて300分に設定。
+    # なおスクリプト側が年ごとにキャッシュをcommit・pushするため、途中でtimeoutに
+    # 達しても完了済みの年はリポジトリに残り、次回はその続きから再開できる。
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -132,8 +134,15 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: pip install rasterio requests numpy
+      - name: Configure git
+        # 2026年8月追加: fetch_rainfall.py内部が年ごとにgit commit/pushを行うようになった
+        # ため、スクリプト実行前にgit configを済ませておく必要がある(以前は最後の
+        # 「Commit and push if changed」ステップでのみ設定していたが、それでは遅い)。
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
       - name: Fetch rainfall risk grid
-        run: python scripts/fetch_rainfall.py --years 20 --grid-deg 1.0 --out data/rainfall_risk.geojson --cache data/rainfall_annual_max_cache.json
+        run: python scripts/fetch_rainfall.py --years 10 --grid-deg 1.0 --out data/rainfall_risk.geojson --cache data/rainfall_annual_max_cache.json
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
