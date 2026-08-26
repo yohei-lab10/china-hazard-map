@@ -24,17 +24,34 @@ fetch_rainfall.py (2026年8月改訂版)
 --years を増やす形を想定している。
 
 【実行時間についての重要な注意】
-旧版(直近180日)は実測で約2分〜だったが、20年(約7,300日)は単純計算で約40倍、
-つまり数時間規模になる可能性が高い。GitHub Actionsのworkflow timeoutを
-大幅に延長するか、下記のいずれかの対策が必要:
-  (a) 年ごとに分割し、複数回のworkflow実行に分ける(例: 5年ずつ×4回)
-  (b) 取得済みの年別最大値をリポジトリ内にキャッシュし(data/rainfall_annual_max_cache.json)、
-      2回目以降は不足分の年だけ追加取得する(本スクリプトはこのキャッシュ機構を実装済み)
-  (c) CHIRPSの日次プロダクトではなく、取得量の少ないペンタド(5日ごと)/月別プロダクトで
+旧版(直近180日)は実測で3分51秒だった(2026年8月、GitHub Actions #39)。
+1日あたり約1.3秒として、リクエスト間隔0.3秒を加えた実行時間の目安は:
+  10年分(3,650日) … 約1.6時間
+  20年分(7,300日) … 約3.2時間
+GitHub Actionsのworkflow timeoutをこれに合わせて延長しておくこと。
+なお本スクリプトはキャッシュ(data/rainfall_annual_max_cache.json)を年単位で
+その場でcommit・pushするため、timeoutで打ち切られても、完了済みの年は保持される。
+2回目以降の実行は不足している年(通常は最新1年分のみ)だけを取得すればよく、
+実行時間は大幅に短縮される。初回実行のみ長時間かかる点に留意すること。
+
+【サーバー側の拒否への対策(2026年8月追加)】
+20年分を一気に取得しようとした際、CHIRPSサーバー(UCSB)から全日程で
+「Connection refused」を返され、5時間半を空振りした事例があった。
+その2日前には180日版が正常に成功していたことから、恒久的なIPブロックではなく、
+短時間の大量リクエストに対するレート制限(または一時的な障害)と判断している。
+対策として以下を実装済み:
+  - 指数バックオフによるリトライ(5→10→20秒、最大4回)。404のみ即時スキップ
+  - リクエスト間に0.3秒の待機を入れ、サーバーへの負荷を抑える
+  - 50日連続で失敗したら処理を中断(最大約29分で打ち切られ、無駄な空振りを防ぐ)
+それでも全日程が失敗する場合は、時間をおいて再実行すること。
+恒久的に接続できなくなった場合の代替案:
+  (a) 年ごとに分割し、複数回のworkflow実行に分ける(例: 5年ずつ)
+  (b) CHIRPSの日次プロダクトではなく、取得量の少ないペンタド(5日ごと)/月別プロダクトで
       近似する(精度は落ちる)
-本スクリプトはデフォルトで(b)のキャッシュ機構を使うため、2回目以降の実行は
-不足している年(通常は最新1年分のみ)だけを取得すればよく、実行時間は大幅に短縮される。
-初回実行時のみ20年分をまとめて取得するため長時間かかる点に留意すること。
+  (c) Google Earth Engine経由(UCSB-CHG/CHIRPS/DAILY)に切り替える。サービスアカウントで
+      自動化可能だが、中国国内からは利用できない点に注意
+  ※ IRI Data Library(iridl.ldeo.columbia.edu)は2026年8月時点で全ユーザーに
+     サインインが必須化されており、自動取得には使えないことを確認済み
 
 使い方:
   python fetch_rainfall.py --years 20 --grid-deg 1.0 --out data/rainfall_risk.geojson
@@ -45,7 +62,9 @@ import argparse
 import json
 import math
 import os
+import subprocess
 import sys
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -59,6 +78,17 @@ CHIRPS_BASE_URL = (
 
 # 中国域のおおよそのバウンディングボックス(西/南/東/北)
 CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)
+
+# --- ダウンロードのリトライ・流量制御(2026年8月追加) ---
+# 短時間に大量のリクエストを送るとCHIRPSサーバー側に拒否される事例があったため、
+# リトライと待機を入れてサーバーに配慮する。詳細は
+# fetch_daily_raster_max_per_cell() のdocstringを参照。
+MAX_RETRIES = 4                  # 1日あたりの最大試行回数
+RETRY_BASE_WAIT_SEC = 5          # 指数バックオフの初期待機秒数(5→10→20秒)
+REQUEST_INTERVAL_SEC = 0.3       # 成功時も次のリクエストまでこれだけ待つ
+# 連続でこの日数分失敗したら、サーバー側の恒久的な問題とみなして処理全体を中断する。
+# (2026年8月の事例のように、接続できない状態で数時間空振りし続けるのを防ぐため)
+MAX_CONSECUTIVE_FAILURES = 50
 
 
 def rainfall_to_risk(mm):
@@ -123,22 +153,80 @@ def save_cache(cache_path, cache):
         json.dump(cache, f)
 
 
+def git_commit_push(path, message):
+    """
+    2026年8月追加: 年ごとの処理が終わるたびに、その年のキャッシュ差分だけを
+    その場でコミット・pushする。理由: 20年分の取得は数時間かかることがあり、
+    途中でGitHub Actionsのtimeoutに達すると強制終了される。従来はワークフロー側の
+    「Commit and push if changed」ステップがスクリプト完走後にしか実行されなかったため、
+    timeoutで打ち切られると、それまでの進捗(既に取得済みだった年のキャッシュ)が
+    リポジトリに一切残らず、次回また1年目からやり直しになってしまっていた。
+    毎年ここでコミット・pushしておけば、途中で打ち切られても、そこまでの年は
+    保存され、次回実行時はそこから再開できる(save_cacheでの巻き戻り防止と対になる仕組み)。
+
+    git操作に失敗しても(例: 一時的なネットワーク障害、pushの競合)、処理全体は
+    止めずに警告を出して次の年に進む。失敗しても最終的にワークフロー側の
+    「Commit and push if changed」ステップが最後にもう一度コミットを試みるため、
+    多くの場合はそこで回収される。
+    """
+    try:
+        subprocess.run(["git", "add", path], check=True)
+        diff_result = subprocess.run(["git", "diff", "--staged", "--quiet"])
+        if diff_result.returncode == 0:
+            print(f"  (変更なし、コミットをスキップ: {path})")
+            return
+        subprocess.run(["git", "commit", "-m", message], check=True)
+        subprocess.run(["git", "pull", "--rebase", "origin", "main"], check=True)
+        subprocess.run(["git", "push"], check=True)
+        print(f"  git commit・push完了: {message}")
+    except subprocess.CalledProcessError as e:
+        print(f"  [WARN] git操作に失敗しました({e})。この年の進捗はローカルには残っているが、"
+              f"リポジトリへの反映は次回の実行(または最終ステップ)に持ち越される。", file=sys.stderr)
+
+
 def fetch_daily_raster_max_per_cell(day, grid_points):
     """
     指定日のCHIRPS日次ラスタ(.tif.gz)をダウンロードし、各グリッド点における
     降水量(mm)を読み取る。ラスタの読み取りには rasterio を使う。
-    ネットワーク障害時は None のリストを返す(その日はスキップされる)。
+    リトライを尽くしても取得できなければ None のリストを返す(その日はスキップされる)。
+
+    【2026年8月追加: リトライ・スロットリング】
+    20年分(約7,300日)を一気に取得しようとした際、CHIRPSサーバー(UCSB)から
+    全日程で「Connection refused」を返され続け、5時間半を空振りした事例があった。
+    その2日前に180日版(約180リクエスト、3分51秒)が問題なく成功していたことから、
+    恒久的なIPブロックではなく、短時間に大量のリクエストを送ったことによる
+    レート制限(あるいは一時的なサーバー障害)と判断した。
+    そのため、(1)指数バックオフによるリトライ、(2)リクエスト間の待機、を追加している。
     """
     import rasterio
     from rasterio.io import MemoryFile
 
     url = f"{CHIRPS_BASE_URL}/{day.year}/chirps-v2.0.{day.strftime('%Y.%m.%d')}.tif.gz"
-    try:
-        resp = requests.get(url, timeout=60)
-        resp.raise_for_status()
-    except requests.RequestException as e:
-        print(f"  [WARN] {day}: ダウンロード失敗 ({e})、この日はスキップ", file=sys.stderr)
-        return [None] * len(grid_points)
+
+    resp = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            resp = requests.get(url, timeout=60)
+            # 404は「その日のファイルが存在しない」ため、リトライしても無意味。即座に諦める
+            if resp.status_code == 404:
+                print(f"  [WARN] {day}: ファイルが存在しない(404)、この日はスキップ", file=sys.stderr)
+                return [None] * len(grid_points)
+            resp.raise_for_status()
+            break  # 成功
+        except requests.RequestException as e:
+            if attempt < MAX_RETRIES - 1:
+                # 指数バックオフ(例: 5秒 → 10秒 → 20秒 …)。サーバー側の一時的な
+                # 拒否やレート制限は、時間を空けることで回復することが多い
+                wait = RETRY_BASE_WAIT_SEC * (2 ** attempt)
+                print(f"  [RETRY] {day}: 取得失敗({type(e).__name__})、{wait}秒待って再試行 "
+                      f"({attempt + 1}/{MAX_RETRIES})", file=sys.stderr)
+                time.sleep(wait)
+            else:
+                print(f"  [WARN] {day}: {MAX_RETRIES}回試行しても失敗 ({e})、この日はスキップ", file=sys.stderr)
+                return [None] * len(grid_points)
+
+    # サーバーに負荷をかけすぎないよう、成功時も次のリクエストまで少し待つ
+    time.sleep(REQUEST_INTERVAL_SEC)
 
     import gzip
     import io
@@ -199,13 +287,30 @@ def main():
     else:
         print("すべての年がキャッシュ済み。ダウンロードをスキップして統計計算のみ実行する。")
 
+    consecutive_failures = 0
+    aborted = False
     for year in years_to_fetch:
+        if aborted:
+            break
         print(f"--- {year}年を処理中 ---")
         year_max = {pt: None for pt in grid_points}
         d = date(year, 1, 1)
         end = date(year, 12, 31)
         while d <= end:
             daily_values = fetch_daily_raster_max_per_cell(d, grid_points)
+            if all(v is None for v in daily_values):
+                consecutive_failures += 1
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    # サーバーに繋がらない状態で延々と試行し続けても意味がないため、
+                    # ここまでに取得できた分をキャッシュに残して処理を打ち切る。
+                    print(f"\n[ABORT] {MAX_CONSECUTIVE_FAILURES}日連続で取得に失敗しました。"
+                          f"CHIRPSサーバー側の障害またはレート制限の可能性が高いため、処理を中断します。\n"
+                          f"        ここまでの進捗はキャッシュに保存済みです。時間をおいて再実行してください。",
+                          file=sys.stderr)
+                    aborted = True
+                    break
+            else:
+                consecutive_failures = 0
             for pt, val in zip(grid_points, daily_values):
                 if val is not None:
                     if year_max[pt] is None or val > year_max[pt]:
@@ -215,7 +320,8 @@ def main():
             key = f"{pt[0]},{pt[1]}"
             cache.setdefault(key, {})[str(year)] = val
         save_cache(args.cache, cache)  # 年単位でこまめに保存(途中で落ちても再開できるように)
-        print(f"  {year}年 完了")
+        git_commit_push(args.cache, f"chore: rainfall annual max cache — {year}年分を追加 [auto]")
+        print(f"  {year}年 {'(中断、部分的)' if aborted else '完了'}")
 
     # Gumbelフィット + 出力GeoJSON生成
     features = []
