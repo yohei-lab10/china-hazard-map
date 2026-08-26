@@ -313,7 +313,7 @@ const LAYERS = [
   { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
-    note: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/lakes/coastline, and past flood record data. Areas with no rainfall data show no color on the map (see the point-search panel for a "No data" label).' },
+    note: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live, not shown on the map-wide layer). Areas with no rainfall data show no color on the map (see the point-search panel for a "No data" label).' },
   { key: 'aqueductFloods', label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
     note: 'Aqueduct Floods: simulated flood depth (WRI) shown both as a map heatmap and at the searched point, for the selected return period (10-year / 100-year, switchable via radio buttons).' },
 ];
@@ -330,7 +330,7 @@ const METHODOLOGY = [
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
   { label: 'Water Hazard', color: COLORS.waterHazard,
-    desc: 'Created based on historical rainfall, elevation, proximity to rivers/lakes/coastline, and past flood record data. A simplified reference indicator, not a hydrodynamic flood simulation. Gray tiles mean data is unavailable there, not that risk is low.' },
+    desc: 'Created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live at search time; the map-wide layer does not include lakes). A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
   { label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
     desc: 'Source: WRI Aqueduct Floods hydrodynamic river-flood simulation data (not an observed historical event — a statistical return-period estimate). Shown as both a map heatmap and a point-search value, for the 10-year or 100-year return period.' },
   { label: 'Point Lookup', color: '#5C6675',
@@ -1354,6 +1354,49 @@ function rainfallRiskAt(lat, lon) {
   return nearestRisk;
 }
 
+// 降雨の再現期間(2026年8月実装、Aqueduct Floodsの10年/100年切替と同じ発想)。
+// fetch_rainfall.py側で20年分の年最大値にフィット済みのGumbel分布パラメータ
+// (gumbel_mu, gumbel_beta)を使い、固定の再現期間(10年/50年/100年)それぞれについて
+// 「その再現期間に相当する降水量(mm)」を逆算する。
+// 台風がポアソン分布(離散カウント)なのに対し、降雨は「年最大値」という連続量を扱うため
+// Gumbel分布(極値統計で標準的に使われる連続分布)を使う。
+// 逆関数: x_T = mu - beta * ln(-ln(1 - 1/T))  ※Tは再現期間(年)
+// 20年分のデータでは、50年・100年は観測期間の2.5〜5倍の外挿になり不確実性が非常に大きい
+// 点に注意(台風のCategory4/5と同種の限界)。10年(観測期間の半分)はおおむね妥当。
+const RAINFALL_RETURN_PERIODS_YR = [10, 50, 100];
+function rainfallReturnPeriodInfo(lat, lon) {
+  if (!rainfallGeojsonCacheGlobal) return null;
+  let nearest = null, nearestDist = Infinity;
+  rainfallGeojsonCacheGlobal.features.forEach(f => {
+    const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 150)) return;
+    const d = haversineKm(lat, lon, flat, flon);
+    if (d < nearestDist) { nearestDist = d; nearest = f.properties || {}; }
+  });
+  if (!nearest || typeof nearest.gumbel_mu !== 'number' || typeof nearest.gumbel_beta !== 'number') {
+    return null; // 旧形式データ(Gumbelパラメータ未生成)の場合は表示しない
+  }
+  const { gumbel_mu: mu, gumbel_beta: beta, years_used: yearsUsed } = nearest;
+  const results = RAINFALL_RETURN_PERIODS_YR.map(T => {
+    const mm = mu - beta * Math.log(-Math.log(1 - 1 / T));
+    return { years: T, mm };
+  });
+  return { results, yearsUsed };
+}
+
+function rainfallFreqHtml(freq) {
+  if (!freq) return '';
+  // 観測年数の2倍を超える再現期間は外挿の不確実性が非常に大きいため注記を付ける
+  const anyExtrapolated = freq.results.some(r => r.years > freq.yearsUsed * 2);
+  const rows = freq.results.map(r => {
+    const extrapolated = r.years > freq.yearsUsed * 2;
+    return `${r.years}yr: ~${r.mm.toFixed(0)}mm${extrapolated ? '*' : ''}`;
+  }).join(' / ');
+  const note = anyExtrapolated ? `<br>*観測年数(${freq.yearsUsed}年)を大きく超える外挿のため不確実性大` : '';
+  // 「〇年に1度」は上限ではなく、平均的にその量を超える頻度の目安であることを一言添える
+  return `<div class="result-freq">Rainfall return period (24h): ${rows}${note}, based on ${freq.yearsUsed}yrs of data<br>(値はその量を超える頻度の目安。稀に短期間で再び超えることもある)</div>`;
+}
+
 function metersToDegLat(m) { return m / 111000; }
 function metersToDegLon(m, lat) { return m / (111000 * Math.cos(lat * Math.PI / 180)); }
 
@@ -1457,7 +1500,8 @@ async function queryPoint(lat, lon) {
       const weight = floodWeightAt(lat, lon);
       const finalRisk = Math.min(1.0, baseRisk * weight);
       const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
-      waterBadge = { label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk };
+      const rainfallFreq = rainfallReturnPeriodInfo(lat, lon);
+      waterBadge = { label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk, freqInfo: rainfallFreq, freqHtmlFn: rainfallFreqHtml };
     }
 
     // 地震・台風・雷は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)が、
@@ -1476,7 +1520,7 @@ async function queryPoint(lat, lon) {
         ...(info
           ? { label: `${tierLabels[info.tier]} typhoon hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
           : { label: 'No Category 1+ typhoon impact at this point', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS }),
-        freqInfo: freq,
+        freqInfo: freq, freqHtmlFn: typhoonFreqHtml,
       });
     }
     if (activeLayers.has('lightning')) {
@@ -1493,7 +1537,7 @@ async function queryPoint(lat, lon) {
         ${badges.map(b => `
           <span class="result-badge" style="background:${b.color};">${b.label}</span>
           ${riskLegendHtml(b.colors, b.ratio)}
-          ${b.freqInfo ? typhoonFreqHtml(b.freqInfo) : ''}
+          ${b.freqInfo && b.freqHtmlFn ? b.freqHtmlFn(b.freqInfo) : ''}
         `).join('<div style="height:8px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
           <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
