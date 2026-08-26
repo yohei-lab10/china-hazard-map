@@ -23,42 +23,52 @@ fetch_rainfall.py (2026年8月改訂版)
 (詳細は下記「実行時間について」を参照)。まずは20年で運用し、実行時間に余裕があれば
 --years を増やす形を想定している。
 
-【実行時間についての重要な注意】
-旧版(直近180日)は実測で3分51秒だった(2026年8月、GitHub Actions #39)。
-1日あたり約1.3秒として、リクエスト間隔0.3秒を加えた実行時間の目安は:
-  10年分(3,650日) … 約1.6時間
-  20年分(7,300日) … 約3.2時間
-GitHub Actionsのworkflow timeoutをこれに合わせて延長しておくこと。
-なお本スクリプトはキャッシュ(data/rainfall_annual_max_cache.json)を年単位で
-その場でcommit・pushするため、timeoutで打ち切られても、完了済みの年は保持される。
-2回目以降の実行は不足している年(通常は最新1年分のみ)だけを取得すればよく、
-実行時間は大幅に短縮される。初回実行のみ長時間かかる点に留意すること。
-
-【サーバー側の拒否への対策(2026年8月追加)】
+【サーバー側の拒否への対策(2026年8月追加・改訂)】
 20年分を一気に取得しようとした際、CHIRPSサーバー(UCSB)から全日程で
 「Connection refused」を返され、5時間半を空振りした事例があった。
-その2日前には180日版が正常に成功していたことから、恒久的なIPブロックではなく、
-短時間の大量リクエストに対するレート制限(または一時的な障害)と判断している。
-対策として以下を実装済み:
-  - 指数バックオフによるリトライ(5→10→20秒、最大4回)。404のみ即時スキップ
+その後の再実行では「ConnectTimeout(60秒待っても応答なし)」に変わり、
+接続はできるが極端に遅い/不安定という状態が確認された。
+このとき1日失敗するごとにリトライで35秒(5+10+20)を消費した結果、
+1時間17分かけても1年目の9月までしか進まず、完走が不可能なペースだった。
+
+そのため現在は「失敗した日は潔く諦める」方針に変更している:
+  - MAX_RETRIES = 1(リトライなし)。1日欠けても年最大値への影響は軽微という割り切り
+  - 接続タイムアウトを60→15秒に短縮(応答がないサーバーを長く待たない)
   - リクエスト間に0.3秒の待機を入れ、サーバーへの負荷を抑える
-  - 50日連続で失敗したら処理を中断(最大約29分で打ち切られ、無駄な空振りを防ぐ)
-それでも全日程が失敗する場合は、時間をおいて再実行すること。
+  - 50日連続で失敗したら処理を中断(無駄な空振りを防ぐ)
+
+【月単位のチェックポイント(2026年8月追加)】
+以前は1年分を取得し終えて初めてキャッシュに保存していたため、年の途中で
+timeoutになるとその年の進捗が丸ごと失われていた。現在は月ごとに
+キャッシュを保存・commit・pushするため、途中で打ち切られても次回は
+その続きの月から再開できる。進捗位置はキャッシュ内の "_progress" キーに
+{年: 完了した月} の形で記録される。
+なお統計(Gumbelフィット)に使うのは12ヶ月すべて揃った年のみで、
+途中までの暫定値は自動的に除外される(混ぜると年最大値を過小評価し、
+再現期間を危険側に誤るため)。
+
+【実行時間について】
+旧版(直近180日)は実測で3分51秒だった(2026年8月、GitHub Actions #39)。
+サーバーが安定していれば1日あたり約1.3秒で、10年分(3,650日)で約1.6時間の見込み。
+ただしサーバーが不安定な時間帯は大幅に遅くなるため、月単位のチェックポイントを
+活かして複数回に分けて実行することを想定している。
+サーバーはカリフォルニア(UCSB)にあるため、現地の負荷が低い時間帯を狙うのも有効。
+
 恒久的に接続できなくなった場合の代替案:
-  (a) 年ごとに分割し、複数回のworkflow実行に分ける(例: 5年ずつ)
-  (b) CHIRPSの日次プロダクトではなく、取得量の少ないペンタド(5日ごと)/月別プロダクトで
-      近似する(精度は落ちる)
-  (c) Google Earth Engine経由(UCSB-CHG/CHIRPS/DAILY)に切り替える。サービスアカウントで
+  (a) CHIRPSの日次プロダクトではなく、取得量の少ないペンタド(5日ごと)/月別プロダクトで
+      近似する(精度は落ちるが取得量は1/5以下になる)
+  (b) Google Earth Engine経由(UCSB-CHG/CHIRPS/DAILY)に切り替える。サービスアカウントで
       自動化可能だが、中国国内からは利用できない点に注意
   ※ IRI Data Library(iridl.ldeo.columbia.edu)は2026年8月時点で全ユーザーに
      サインインが必須化されており、自動取得には使えないことを確認済み
 
 使い方:
-  python fetch_rainfall.py --years 20 --grid-deg 1.0 --out data/rainfall_risk.geojson
-  python fetch_rainfall.py --years 20 --grid-deg 1.0 --out data/rainfall_risk.geojson --cache data/rainfall_annual_max_cache.json
+  python fetch_rainfall.py --years 10 --grid-deg 1.0 --out data/rainfall_risk.geojson
+  python fetch_rainfall.py --years 10 --grid-deg 1.0 --out data/rainfall_risk.geojson --cache data/rainfall_annual_max_cache.json
 """
 
 import argparse
+import calendar
 import json
 import math
 import os
@@ -83,9 +93,11 @@ CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)
 # 短時間に大量のリクエストを送るとCHIRPSサーバー側に拒否される事例があったため、
 # リトライと待機を入れてサーバーに配慮する。詳細は
 # fetch_daily_raster_max_per_cell() のdocstringを参照。
-MAX_RETRIES = 4                  # 1日あたりの最大試行回数
-RETRY_BASE_WAIT_SEC = 5          # 指数バックオフの初期待機秒数(5→10→20秒)
+MAX_RETRIES = 1                  # 1日あたりの最大試行回数(2026年8月: 4→1に変更、下記参照)
+RETRY_BASE_WAIT_SEC = 5          # 指数バックオフの初期待機秒数(MAX_RETRIES=1では未使用)
 REQUEST_INTERVAL_SEC = 0.3       # 成功時も次のリクエストまでこれだけ待つ
+CONNECT_TIMEOUT_SEC = 15         # 接続確立の待機上限(2026年8月: 60→15秒に短縮、下記参照)
+READ_TIMEOUT_SEC = 60            # 接続後のデータ読み取りの待機上限
 # 連続でこの日数分失敗したら、サーバー側の恒久的な問題とみなして処理全体を中断する。
 # (2026年8月の事例のように、接続できない状態で数時間空振りし続けるのを防ぐため)
 MAX_CONSECUTIVE_FAILURES = 50
@@ -206,7 +218,7 @@ def fetch_daily_raster_max_per_cell(day, grid_points):
     resp = None
     for attempt in range(MAX_RETRIES):
         try:
-            resp = requests.get(url, timeout=60)
+            resp = requests.get(url, timeout=(CONNECT_TIMEOUT_SEC, READ_TIMEOUT_SEC))
             # 404は「その日のファイルが存在しない」ため、リトライしても無意味。即座に諦める
             if resp.status_code == 404:
                 print(f"  [WARN] {day}: ファイルが存在しない(404)、この日はスキップ", file=sys.stderr)
@@ -293,42 +305,84 @@ def main():
         if aborted:
             break
         print(f"--- {year}年を処理中 ---")
-        year_max = {pt: None for pt in grid_points}
-        d = date(year, 1, 1)
-        end = date(year, 12, 31)
-        while d <= end:
-            daily_values = fetch_daily_raster_max_per_cell(d, grid_points)
-            if all(v is None for v in daily_values):
-                consecutive_failures += 1
-                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                    # サーバーに繋がらない状態で延々と試行し続けても意味がないため、
-                    # ここまでに取得できた分をキャッシュに残して処理を打ち切る。
-                    print(f"\n[ABORT] {MAX_CONSECUTIVE_FAILURES}日連続で取得に失敗しました。"
-                          f"CHIRPSサーバー側の障害またはレート制限の可能性が高いため、処理を中断します。\n"
-                          f"        ここまでの進捗はキャッシュに保存済みです。時間をおいて再実行してください。",
-                          file=sys.stderr)
-                    aborted = True
-                    break
-            else:
-                consecutive_failures = 0
-            for pt, val in zip(grid_points, daily_values):
-                if val is not None:
-                    if year_max[pt] is None or val > year_max[pt]:
-                        year_max[pt] = val
-            d += timedelta(days=1)
-        for pt, val in year_max.items():
+        ykey = str(year)
+        # 【2026年8月改訂: 月単位の保存・再開】
+        # 以前は1年分をすべて取得し終えてから初めてキャッシュに保存していたため、
+        # 年の途中でtimeoutになるとその年の進捗が丸ごと失われていた(実際、1年目の
+        # 9ヶ月目で1時間17分かかり、完走が絶望的になった事例がある)。
+        # 現在は月ごとに「その月までの暫定的な年最大値」と「どこまで処理したか」を
+        # 保存・commitするため、途中で止まっても翌回はその続きから再開できる。
+        # 暫定値はcacheの本体("lat,lon" -> {年: 最大値})にそのまま積み増していく形で、
+        # 進捗位置だけを別途 _progress キーに記録する。
+        progress = cache.get("_progress", {})
+        start_month = progress.get(ykey, 0) + 1  # 1〜12。完了済みの次の月から再開
+        if start_month > 12:
+            print(f"  {year}年はキャッシュ済みのためスキップ")
+            continue
+        if start_month > 1:
+            print(f"  {start_month}月から再開します(1〜{start_month - 1}月は取得済み)")
+
+        # 既に一部取得済みならその暫定値を引き継ぐ
+        year_max = {}
+        for pt in grid_points:
             key = f"{pt[0]},{pt[1]}"
-            cache.setdefault(key, {})[str(year)] = val
-        save_cache(args.cache, cache)  # 年単位でこまめに保存(途中で落ちても再開できるように)
-        git_commit_push(args.cache, f"chore: rainfall annual max cache — {year}年分を追加 [auto]")
+            year_max[pt] = cache.get(key, {}).get(ykey)
+
+        for month in range(start_month, 13):
+            if aborted:
+                break
+            d = date(year, month, 1)
+            end = date(year, month, calendar.monthrange(year, month)[1])
+            while d <= end:
+                daily_values = fetch_daily_raster_max_per_cell(d, grid_points)
+                if all(v is None for v in daily_values):
+                    consecutive_failures += 1
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                        # サーバーに繋がらない状態で延々と試行し続けても意味がないため、
+                        # ここまでに取得できた分をキャッシュに残して処理を打ち切る。
+                        print(f"\n[ABORT] {MAX_CONSECUTIVE_FAILURES}日連続で取得に失敗しました。"
+                              f"CHIRPSサーバー側の障害またはレート制限の可能性が高いため、処理を中断します。\n"
+                              f"        ここまでの進捗はキャッシュに保存済みです。時間をおいて再実行してください。",
+                              file=sys.stderr)
+                        aborted = True
+                        break
+                else:
+                    consecutive_failures = 0
+                for pt, val in zip(grid_points, daily_values):
+                    if val is not None:
+                        if year_max[pt] is None or val > year_max[pt]:
+                            year_max[pt] = val
+                d += timedelta(days=1)
+
+            # 月末(または中断時)に、ここまでの暫定的な年最大値を保存・commitする
+            for pt, val in year_max.items():
+                key = f"{pt[0]},{pt[1]}"
+                cache.setdefault(key, {})[ykey] = val
+            if not aborted:
+                cache.setdefault("_progress", {})[ykey] = month
+            save_cache(args.cache, cache)
+            git_commit_push(args.cache, f"chore: rainfall annual max cache — {year}年{month}月まで [auto]")
+            print(f"  {year}年{month}月まで完了")
+
         print(f"  {year}年 {'(中断、部分的)' if aborted else '完了'}")
 
     # Gumbelフィット + 出力GeoJSON生成
+    # 【重要】統計に使うのは「12ヶ月すべて取得できた年」のみに限る。
+    # 月単位の中断・再開に対応した結果、キャッシュには途中までしか取得していない年の
+    # 暫定値も入りうる。それを年最大値として混ぜると、実際より小さい値でGumbel分布を
+    # フィットすることになり、再現期間を過小評価(=危険側に誤る)してしまう。
+    progress = cache.get("_progress", {})
+    complete_years = [y for y in target_years if progress.get(str(y)) == 12]
+    incomplete = [y for y in target_years if progress.get(str(y), 0) not in (0, 12)]
+    if incomplete:
+        print(f"注意: 取得が未完了の年は統計から除外します: {incomplete}")
+    print(f"Gumbelフィットに使用する年: {len(complete_years)}年分 {complete_years}")
+
     features = []
     for lat, lon in grid_points:
         key = f"{lat},{lon}"
         yearly = cache.get(key, {})
-        maxima = [yearly[str(y)] for y in target_years if yearly.get(str(y)) is not None]
+        maxima = [yearly[str(y)] for y in complete_years if yearly.get(str(y)) is not None]
 
         if not maxima:
             features.append({
@@ -339,8 +393,9 @@ def main():
             continue
 
         fit = fit_gumbel(maxima)
-        # 直近の年最大値を「現在のリスク表示」用に引き続き使う(旧版との互換性維持)
-        latest_year = max(int(y) for y in yearly.keys()) if yearly else None
+        # 直近の年最大値を「現在のリスク表示」用に引き続き使う(旧版との互換性維持)。
+        # ここも完全に取得できた年のみを対象にする(部分的な年だと過小評価になるため)。
+        latest_year = max(complete_years) if complete_years else None
         latest_mm = yearly.get(str(latest_year)) if latest_year else None
         risk = rainfall_to_risk(latest_mm)
 
@@ -366,6 +421,15 @@ def main():
 
 
 def _cache_has_all_points(cache, grid_points, year):
+    """
+    その年が「完全に取得済み」かを判定する。
+    2026年8月改訂: 月単位の中断・再開に対応したため、値が入っているだけでは不十分
+    (途中の月まで取得した暫定値かもしれない)。_progressで12月まで完了していることを
+    必ず確認する。これを怠ると、部分的にしか取得していない年を「完了済み」とみなして
+    スキップしてしまい、その年の年最大値が過小評価されたまま確定してしまう。
+    """
+    if cache.get("_progress", {}).get(str(year)) != 12:
+        return False
     for pt in grid_points:
         key = f"{pt[0]},{pt[1]}"
         if cache.get(key, {}).get(str(year)) is None:
