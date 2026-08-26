@@ -86598,6 +86598,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tm2y"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000tnbm",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5709,
+          22.6053
+        ]
+      },
+      "properties": {
+        "mag": 5.5,
+        "place": "108 km NE of Hengchun, Taiwan",
+        "time": 1787641210853,
+        "depth_km": 14.608,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tnbm"
+      }
     }
   ]
 }
