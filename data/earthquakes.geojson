@@ -86616,6 +86616,24 @@
         "depth_km": 14.608,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tnbm"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tbwb",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85.515,
+          28.271
+        ]
+      },
+      "properties": {
+        "mag": 5.2,
+        "place": "55 km NW of Kodāri̇̄, Nepal",
+        "time": 1787712730000,
+        "depth_km": 0,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tbwb"
+      }
     }
   ]
 }
