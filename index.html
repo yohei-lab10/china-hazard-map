@@ -1364,6 +1364,22 @@ function rainfallRiskAt(lat, lon) {
 // 20年分のデータでは、50年・100年は観測期間の2.5〜5倍の外挿になり不確実性が非常に大きい
 // 点に注意(台風のCategory4/5と同種の限界)。10年(観測期間の半分)はおおむね妥当。
 const RAINFALL_RETURN_PERIODS_YR = [10, 50, 100];
+
+// 気候変動シナリオ(2026年8月実装)。
+// Gumbel分布は「降水量の統計的性質は時間で変わらない(定常性)」を前提にしており、
+// 気候変動による増加傾向を織り込めない。10年分のデータでは非定常GEV(時間依存パラメータ)で
+// トレンドを検出する統計的検出力が無いため、IPCCの知見に基づく係数を掛ける方式を採る。
+//
+// 根拠: IPCC AR6 第11章 — 年最大日降水量(Rx1day)の変化は世界平均地上気温の変化に比例し、
+// Clausius-Clapeyron関係に従って1℃の昇温あたり約7%増加する(観測・将来予測とも)。
+// 中国域の研究でも日降水量の極値は6〜7%/℃とほぼ同じ関係が確認されている。
+// このサイトが算出しているのはまさにRx1day(年最大24時間降水量)なので指標が一致する。
+//
+// 注意: これは「その昇温レベルに達した世界での想定値」であり、いつそうなるかを示すものではない。
+// 昇温量の選択(=どのSSPシナリオを想定するか)は利用者の判断に委ねる。
+const RAINFALL_CC_PCT_PER_DEG = 7; // %/℃(Clausius-Clapeyron関係)
+const RAINFALL_WARMING_SCENARIOS = [0, 1.5, 2, 3]; // ℃(0=現在の観測ベース)
+let rainfallSelectedWarming = 0;
 function rainfallReturnPeriodInfo(lat, lon) {
   if (!rainfallGeojsonCacheGlobal) return null;
   let nearest = null, nearestDist = Infinity;
@@ -1377,11 +1393,13 @@ function rainfallReturnPeriodInfo(lat, lon) {
     return null; // 旧形式データ(Gumbelパラメータ未生成)の場合は表示しない
   }
   const { gumbel_mu: mu, gumbel_beta: beta, years_used: yearsUsed } = nearest;
+  // 選択中の昇温シナリオに応じた気候変動係数(0℃なら1.0=観測ベースのまま)
+  const ccFactor = 1 + (RAINFALL_CC_PCT_PER_DEG / 100) * rainfallSelectedWarming;
   const results = RAINFALL_RETURN_PERIODS_YR.map(T => {
-    const mm = mu - beta * Math.log(-Math.log(1 - 1 / T));
-    return { years: T, mm };
+    const baseMm = mu - beta * Math.log(-Math.log(1 - 1 / T));
+    return { years: T, mm: baseMm * ccFactor };
   });
-  return { results, yearsUsed };
+  return { results, yearsUsed, warming: rainfallSelectedWarming };
 }
 
 function rainfallFreqHtml(freq) {
@@ -1393,8 +1411,36 @@ function rainfallFreqHtml(freq) {
     return `${r.years}yr: ~${r.mm.toFixed(0)}mm${extrapolated ? '*' : ''}`;
   }).join(' / ');
   const note = anyExtrapolated ? `<br>*観測年数(${freq.yearsUsed}年)を大きく超える外挿のため不確実性大` : '';
+
+  // 昇温シナリオの切替(Aqueduct Floodsの10年/100年ラジオボタンと同じ操作感に揃える)
+  const scenarioOptions = RAINFALL_WARMING_SCENARIOS.map(w => `
+    <label>
+      <input type="radio" name="rainfallWarming" value="${w}" ${w === freq.warming ? 'checked' : ''} onchange="onRainfallWarmingChange(this.value)">
+      ${w === 0 ? 'Current' : `+${w}°C`}
+    </label>
+  `).join('');
+  const scenarioNote = freq.warming === 0
+    ? '観測値(1981年以降のCHIRPS実測に基づく)'
+    : `+${freq.warming}°C昇温時の想定値(IPCC AR6: Rx1dayは約${RAINFALL_CC_PCT_PER_DEG}%/°C増加。到達時期を示すものではない)`;
+
   // 「〇年に1度」は上限ではなく、平均的にその量を超える頻度の目安であることを一言添える
-  return `<div class="result-freq">Rainfall return period (24h): ${rows}${note}, based on ${freq.yearsUsed}yrs of data<br>(値はその量を超える頻度の目安。稀に短期間で再び超えることもある)</div>`;
+  return `<div class="result-freq" id="rainfallFreq">
+    <div class="aqueduct-rp-group" style="margin-bottom:3px;">${scenarioOptions}</div>
+    Rainfall return period (24h): ${rows}${note}, based on ${freq.yearsUsed}yrs of data
+    <br>${scenarioNote}
+    <br>(値はその量を超える頻度の目安。稀に短期間で再び超えることもある)
+  </div>`;
+}
+
+// ラジオボタンで昇温シナリオが切り替わった時: 直前の検索地点に対してのみ再計算する。
+// 降雨の再現期間はGumbelパラメータからその場で算出できるため、通信は発生しない。
+function onRainfallWarmingChange(warmingStr) {
+  rainfallSelectedWarming = parseFloat(warmingStr);
+  if (!lastQueriedLatLon) return;
+  const el = document.getElementById('rainfallFreq');
+  if (!el) return;
+  const freq = rainfallReturnPeriodInfo(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
+  el.outerHTML = rainfallFreqHtml(freq);
 }
 
 function metersToDegLat(m) { return m / 111000; }
