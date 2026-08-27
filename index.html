@@ -1,523 +1,1831 @@
-#!/usr/bin/env python3
-"""
-fetch_rainfall.py (2026年8月改訂版)
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>China Natural Catastrophe Risk Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F3F4F6;
+    --panel: #FFFFFF;
+    --border: #E0E3E8;
+    --border-strong: #C7CCD4;
+    --text-primary: #1A2130;
+    --text-muted: #5C6675;
+    --text-faint: #94A0AF;
+    --navy: #1F3A5F;
+    --navy-soft: #2C4E7C;
+    --risk-low: #3F8F5F;
+    --risk-mid: #D9A22C;
+    --risk-high: #D9722C;
+    --risk-severe: #C13A2E;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body { font-family: 'Inter', sans-serif; }
 
-【変更点】
-旧版は「直近N日(既定180日)の最大24時間降水量」を集計するだけの近似値だった。
-これは台風のCategory1+発生頻度と同じ問題を抱えていた: 短期間のスナップショットを
-そのまま「危険度」として扱っており、統計的な「何年に一度」という評価になっていなかった。
+  #app {
+    position: relative;
+    width: 100%;
+    max-width: 430px;
+    height: 100vh;
+    max-height: 860px;
+    margin: 0 auto;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px var(--border);
+  }
 
-新版は、水文学で標準的な「年最大値法(Annual Maximum Method)」を使う:
-  1. 過去N年(既定20年)、各年の「年間最大24時間降水量」を1個ずつ求める
-  2. その年最大値の系列(20年なら20個)にGumbel分布をフィットする
-  3. Gumbel分布から、任意の閾値(50/100/250mm)に対する再現期間(年)を逆算できるようにする
+  /* デスクトップ(タブレット以上の幅)では、モバイル向けのカード状の枠(430px×860px)をやめて
+     ビューポート全体に広げる。内部のチップ列は overflow-x: auto で元々折り返し対応済み、
+     地図(#map)は flex: 1 で残り領域を自動で埋めるため、この幅指定だけで全画面表示になる。 */
+  @media (min-width: 700px) {
+    #app {
+      max-width: 100vw;
+      max-height: 100vh;
+      width: 100vw;
+      box-shadow: none;
+    }
+  }
 
-出力GeoJSONの各グリッド点には、フィット済みのGumbelパラメータ(mu, beta)を格納する。
-再現期間の計算自体はブラウザ側(index.html)で行う(パラメータ2つだけなので軽量)。
+  /* Header */
+  .masthead-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 16px 12px; background: var(--panel);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .seal-logo {
+    width: 32px; height: 32px; border-radius: 6px; background: var(--navy);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #fff; font-size: 12px;
+    letter-spacing: -0.5px; flex-shrink: 0;
+  }
+  .brand-text { display: flex; flex-direction: column; gap: 1px; }
+  .brand-title {
+    font-family: 'Inter', sans-serif; font-weight: 800; font-size: 14.5px;
+    color: var(--text-primary); letter-spacing: -0.2px; line-height: 1.2;
+  }
+  .brand-sub {
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 1.1px;
+    color: var(--text-faint); text-transform: uppercase;
+  }
+  .methodology-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.5px;
+    color: var(--text-muted); background: var(--bg); border: 1px solid var(--border-strong);
+    border-radius: 5px; padding: 7px 10px; flex-shrink: 0;
+  }
+  .methodology-btn.active { color: #fff; background: var(--navy); border-color: var(--navy); }
+  .rule-thin { height: 1px; background: var(--border); }
 
-【なぜ20年か】
-極値統計(Gumbel/GEVフィッティング)には最低20〜30年分が推奨される(WMOガイドライン等の一般的な目安)。
-10年だと「10年に一度」相当の再現期間を返すことになり、観測期間ぴったりの外挿になってしまう。
-40年(CHIRPSの全アーカイブ、1981年〜)を使わなかったのは、日次データの取得量が
-20年でも約7,300日分になり、GitHub Actionsのtimeout(120分)を圧迫するため
-(詳細は下記「実行時間について」を参照)。まずは20年で運用し、実行時間に余裕があれば
---years を増やす形を想定している。
+  /* Methodology panel */
+  .methodology-panel {
+    display: none; padding: 12px 16px 14px; background: var(--panel);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .methodology-panel.visible { display: block; }
+  .method-item { margin-bottom: 10px; }
+  .method-item:last-child { margin-bottom: 0; }
+  .method-label {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-primary); margin-bottom: 3px;
+  }
+  .method-label .dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+  .method-desc { font-family: 'Inter', sans-serif; font-size: 11px; line-height: 1.55; color: var(--text-muted); }
 
-【サーバー側の拒否への対策(2026年8月追加・改訂)】
-20年分を一気に取得しようとした際、CHIRPSサーバー(UCSB)から全日程で
-「Connection refused」を返され、5時間半を空振りした事例があった。
-その後の再実行では「ConnectTimeout(60秒待っても応答なし)」に変わり、
-接続はできるが極端に遅い/不安定という状態が確認された。
-このとき1日失敗するごとにリトライで35秒(5+10+20)を消費した結果、
-1時間17分かけても1年目の9月までしか進まず、完走が不可能なペースだった。
+  /* Layer toggle chips */
+  .layer-bar {
+    display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto;
+    border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--panel);
+  }
+  .layer-chip {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 600;
+    padding: 6px 12px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;
+    border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-muted);
+  }
+  .layer-chip .dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+  .layer-chip.active { color: #fff; border-color: transparent; }
 
-そのため現在は「失敗した日は潔く諦める」方針に変更している:
-  - MAX_RETRIES = 1(リトライなし)。1日欠けても年最大値への影響は軽微という割り切り
-  - 接続タイムアウトを60→15秒に短縮(応答がないサーバーを長く待たない)
-  - リクエスト間に0.3秒の待機を入れ、サーバーへの負荷を抑える
-  - 50日連続で失敗したら処理を中断(無駄な空振りを防ぐ)
+  /* Search panel */
+  .search-bar {
+    display: flex; flex-direction: column; gap: 7px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0;
+  }
+  .search-row { display: flex; gap: 8px; align-items: center; }
+  .search-row input {
+    flex: 1; min-width: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: var(--bg); color: var(--text-primary); border: 1px solid var(--border-strong);
+    border-radius: 6px; padding: 8px 9px;
+  }
+  .search-row input::placeholder { color: var(--text-faint); }
+  .search-row button {
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700;
+    background: var(--navy); color: #fff; border: none; border-radius: 6px;
+    padding: 9px 16px; flex-shrink: 0;
+  }
+  .search-hint { font-size: 10px; color: var(--text-faint); }
+  .search-result {
+    display: none; padding: 11px 16px; background: var(--panel);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .search-result.visible { display: block; }
+  .result-badge {
+    display: inline-block; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 11.5px;
+    padding: 3px 9px; border-radius: 5px; margin-bottom: 4px; color: #fff;
+  }
+  .result-elev { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary); margin-bottom: 6px; line-height: 1.4; }
+  .aqueduct-result { margin-top: 4px; }
+  .aqueduct-rp-group {
+    display: flex; gap: 10px; margin-bottom: 8px;
+    font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text-muted);
+  }
+  .aqueduct-rp-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .aqueduct-depth-value {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 2px;
+  }
+  .aqueduct-depth-note { font-size: 10px; color: var(--text-faint); }
+  .risk-legend { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .risk-legend-bar-wrap { position: relative; flex: 1; padding-top: 9px; }
+  .risk-legend-bar {
+    display: flex; height: 10px; border-radius: 5px; overflow: hidden;
+  }
+  .risk-legend-bar span { flex: 1; }
+  .risk-legend-marker {
+    position: absolute; top: 0; transform: translateX(-50%);
+    font-size: 9px; line-height: 1; color: var(--text-primary); pointer-events: none;
+  }
+  .risk-legend-labels {
+    display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; color: var(--text-faint); margin-top: 1px;
+  }
+  .result-freq {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-muted);
+    margin-top: 4px; line-height: 1.4;
+  }
 
-【月単位のチェックポイント(2026年8月追加)】
-以前は1年分を取得し終えて初めてキャッシュに保存していたため、年の途中で
-timeoutになるとその年の進捗が丸ごと失われていた。現在は月ごとに
-キャッシュを保存・commit・pushするため、途中で打ち切られても次回は
-その続きの月から再開できる。進捗位置はキャッシュ内の "_progress" キーに
-{年: 完了した月} の形で記録される。
-なお統計(Gumbelフィット)に使うのは12ヶ月すべて揃った年のみで、
-途中までの暫定値は自動的に除外される(混ぜると年最大値を過小評価し、
-再現期間を危険側に誤るため)。
+  /* Map */
+  #map, #map * {
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+  }
+  #map {
+    flex: 1; width: 100%; background: var(--bg);
+  }
+  .leaflet-popup-content-wrapper {
+    background: var(--panel); color: var(--text-primary); border: 1px solid var(--border);
+    border-radius: 6px; font-family: 'Inter', sans-serif; box-shadow: 0 2px 10px rgba(26,33,48,0.12);
+  }
+  .leaflet-popup-tip { background: var(--panel); }
+  .leaflet-popup-content { margin: 10px 12px; font-size: 12px; line-height: 1.6; }
+  .popup-title { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 4px; }
+  .popup-row { color: var(--text-muted); font-size: 11px; }
 
-【欠測率による年の除外(2026年8月追加)】
-サーバー不調時は「たまに成功、ほとんど失敗」という状態になり、連続失敗カウントが
-リセットされ続けるためMAX_CONSECUTIVE_FAILURESでは検出できない。実際、2022年5〜6月
-(中国の雨季)がほぼ全滅したまま「12月まで完了」と記録されかけた事例があった。
-年最大値法は「その年で最も降った1日」を拾う手法なので、雨季が欠測すると年最大値を
-実際より小さく見積もり、再現期間を過小評価してしまう(NOAA GHCNdを不採用にした
-理由とまったく同じ問題)。
-そのため年ごとの取得成功率を "_coverage" キーに記録し、MIN_YEAR_COVERAGE(既定90%)を
-下回る年は「統計から除外」かつ「次回実行時に自動で再取得(リセットして1月からやり直し)」
-する仕組みにしている。
+  .status-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 16px; border-top: 1px solid var(--border); background: var(--panel); flex-shrink: 0;
+  }
+  .mono-small {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.5px;
+    color: var(--text-faint); text-transform: uppercase;
+  }
+  .legend-note { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); line-height: 1.55; padding: 0 16px 10px; background: var(--panel); }
+  .legend-note.collapsed .legend-full { display: none; }
+  .legend-note .legend-toggle {
+    display: block; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    font-weight: 600; letter-spacing: 0.4px; color: var(--navy); cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div>
+    <div class="masthead-top">
+      <div class="brand">
+        <div class="brand-text">
+          <div class="brand-title">China Natural Catastrophe Risk Map</div>
+          <div class="brand-sub">Historical Peril & Hazard Layers</div>
+        </div>
+      </div>
+      <button class="methodology-btn" id="methodologyBtn">METHODOLOGY</button>
+    </div>
+    <div class="rule-thin"></div>
+  </div>
 
-【実行時間について】
-旧版(直近180日)は実測で3分51秒だった(2026年8月、GitHub Actions #39)。
-サーバーが安定していれば1日あたり約1.3秒で、10年分(3,650日)で約1.6時間の見込み。
-ただしサーバーが不安定な時間帯は大幅に遅くなるため、月単位のチェックポイントを
-活かして複数回に分けて実行することを想定している。
-サーバーはカリフォルニア(UCSB)にあるため、現地の負荷が低い時間帯を狙うのも有効。
+  <div class="methodology-panel" id="methodologyPanel"></div>
 
-恒久的に接続できなくなった場合の代替案:
-  (a) CHIRPSの日次プロダクトではなく、取得量の少ないペンタド(5日ごと)/月別プロダクトで
-      近似する(精度は落ちるが取得量は1/5以下になる)
-  (b) Google Earth Engine経由(UCSB-CHG/CHIRPS/DAILY)に切り替える。サービスアカウントで
-      自動化可能だが、中国国内からは利用できない点に注意
-  ※ IRI Data Library(iridl.ldeo.columbia.edu)は2026年8月時点で全ユーザーに
-     サインインが必須化されており、自動取得には使えないことを確認済み
+  <div class="layer-bar" id="layerBar"></div>
 
-使い方:
-  python fetch_rainfall.py --years 10 --grid-deg 1.0 --out data/rainfall_risk.geojson
-  python fetch_rainfall.py --years 10 --grid-deg 1.0 --out data/rainfall_risk.geojson --cache data/rainfall_annual_max_cache.json
-"""
+  <div class="search-bar">
+    <div class="search-row">
+      <input type="text" id="searchLat" placeholder="Latitude, e.g. 31.23" inputmode="decimal">
+      <input type="text" id="searchLon" placeholder="Longitude, e.g. 121.47" inputmode="decimal">
+      <button id="searchBtn">Locate</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
+        <input type="radio" name="coordSystem" id="coordWgs84" value="wgs84" checked style="width:14px;height:14px;">
+        WGS84 (OpenStreetMap, GPS) — no conversion needed
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
+        <input type="radio" name="coordSystem" id="coordGcj02" value="gcj02" style="width:14px;height:14px;">
+        GCJ-02 (Amap / 高德地图) — converts automatically
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
+        <input type="radio" name="coordSystem" id="coordBd09" value="bd09" style="width:14px;height:14px;">
+        BD-09 (Baidu Maps / 百度地图) — converts automatically
+      </label>
+    </div>
+  </div>
+  <div class="search-result" id="searchResult"></div>
+  <div class="search-result" id="aqueductResultWrap"><div id="aqueductResult"></div></div>
 
-import argparse
-import calendar
-import json
-import math
-import os
-import subprocess
-import sys
-import time
-from datetime import date, timedelta
-from pathlib import Path
+  <div id="map"></div>
 
-import numpy as np
-import requests
+  <div class="status-bar">
+    <span class="mono-small" id="statusLabel">Loading…</span>
+    <span class="mono-small" id="countLabel"></span>
+  </div>
+  <div class="legend-note" id="legendNote"></div>
+</div>
 
-CHIRPS_MAX_LAT = 50.0  # CHIRPSの有効カバー範囲(北緯50度〜南緯50度)
-CHIRPS_BASE_URL = (
-    "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/tifs/p05"
-)
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<!-- Aqueduct Floods地点検索用: 中国域に切り出したGeoTIFF(COG)から、その場でピクセル値(浸水深)を読み取る -->
+<script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+<script>
+// Peril identity colors (used for chip dots / markers — distinguishes hazard TYPE)
+const COLORS = {
+  earthquake: '#C13A2E',
+  lightning: '#D9A22C',
+  typhoonHazard: '#2C4E7C',
+  waterHazard: '#3F8F5F',
+  aqueductFloods: '#6B4E9A',
+};
 
-# 中国域のおおよそのバウンディングボックス(西/南/東/北)
-CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)
+// Gray used to mark grid cells with no data (outside CHIRPS coverage etc.) — must never be
+// confused with "low risk"; always paired with a "no data" label wherever it's used.
+const NO_DATA_COLOR = '#9AA3AF';
 
-# --- ダウンロードのリトライ・流量制御(2026年8月追加) ---
-# 短時間に大量のリクエストを送るとCHIRPSサーバー側に拒否される事例があったため、
-# リトライと待機を入れてサーバーに配慮する。詳細は
-# fetch_daily_raster_max_per_cell() のdocstringを参照。
-MAX_RETRIES = 1                  # 1日あたりの最大試行回数(2026年8月: 4→1に変更、下記参照)
-RETRY_BASE_WAIT_SEC = 5          # 指数バックオフの初期待機秒数(MAX_RETRIES=1では未使用)
-REQUEST_INTERVAL_SEC = 0.3       # 成功時も次のリクエストまでこれだけ待つ
-CONNECT_TIMEOUT_SEC = 15         # 接続確立の待機上限(2026年8月: 60→15秒に短縮、下記参照)
-READ_TIMEOUT_SEC = 60            # 接続後のデータ読み取りの待機上限
-# 連続でこの日数分失敗したら、サーバー側の恒久的な問題とみなして処理全体を中断する。
-# (2026年8月の事例のように、接続できない状態で数時間空振りし続けるのを防ぐため)
-MAX_CONSECUTIVE_FAILURES = 50
+// Risk-intensity gradient used inside every hazard heatmap (severity, independent of peril type)
+// ヒートマップ用グラデーション。下部の5段階凡例(WARNING_TIER_COLORS: Low→Extreme)と
+// 色を完全に一致させるため、同じ5色を均等配置している(以前は独自の緑→黄→赤の3色で、
+// 低強度側が凡例の黄色と合わず緑色に見えるズレがあった)。
+const HAZARD_GRADIENT = { 0.0: '#D9A22C', 0.25: '#D9722C', 0.5: '#C13A2E', 0.75: '#7A3B8C', 1.0: '#1A2130' };
 
-# 【2026年8月追加: 欠測率による年の除外】
-# サーバーが不安定な期間は「たまに成功、ほとんど失敗」という状態になり、
-# 連続失敗カウントがリセットされ続けるためMAX_CONSECUTIVE_FAILURESでは検出できない。
-# 実際、2022年5〜6月(中国の雨季)がほぼ全滅したまま「12月まで完了」と記録されかけた。
-# 年最大値法は「その年で最も降った1日」を拾う手法なので、雨季が欠測すると
-# 年最大値を実際より小さく見積もり、再現期間を過小評価(=危険側に誤る)してしまう。
-# NOAA GHCNdを不採用にした理由(65%欠測)とまったく同じ問題である。
-# そのため年ごとの取得成功率を記録し、閾値を下回る年は統計から除外する。
-MIN_YEAR_COVERAGE = 0.90  # その年の取得成功率がこれ未満なら統計に使わない
+// Bounding box used as a cheap first-pass filter before the coastline polygon test
+const CHINA_LAND_BBOX = { minlat: 18, maxlat: 41, minlon: 97, maxlon: 123 };
 
+// Rough coastline polygon (mainland China only, Taiwan Strait kept on the mainland side)
+// used to exclude open-water track points that a simple bounding box would still include
+// (e.g. the East China Sea, Yellow Sea, and Bohai Sea). Approximate, for visualization only.
+const CHINA_COASTLINE_POLYGON = [
+  [97, 18], [108, 18], [110, 20.2], [112.5, 21.5], [113.6, 22.2], [116.7, 23.4],
+  [118.2, 24.5], [119.6, 24.9], [120.2, 26.0], [120.8, 27.9], [121.6, 29.0],
+  [121.9, 30.8], [122.1, 31.6], [121.0, 32.1], [120.2, 33.3], [119.5, 34.3],
+  [119.0, 35.1], [119.6, 36.0], [120.8, 37.0], [121.6, 37.4], [122.6, 37.8],
+  [121.0, 38.9], [122.5, 40.0], [124.3, 40.0], [126.5, 42.5], [130.5, 46.0],
+  [134.5, 48.5], [131.0, 50.5], [120.0, 53.5], [97, 53.5],
+];
 
-def rainfall_to_risk(mm):
-    """中国気象局の暴雨分類基準(24時間降水量)に基づくリスク変換(表示用、従来通り)"""
-    if mm is None:
-        return None
-    if mm < 50:
-        return 0.0
-    if mm < 100:
-        return 0.33  # 暴雨
-    if mm < 250:
-        return 0.66  # 大暴雨
-    return 1.0  # 特大暴雨
+// Ray-casting point-in-polygon test
+function isOnLand(lat, lon) {
+  const poly = CHINA_COASTLINE_POLYGON;
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
 
+const LAYERS = [
+  { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
+    note: 'Earthquakes: historical M5.0+ events across China, based on USGS earthquake catalog data. Marker size scales with magnitude.' },
+  { key: 'lightning', label: 'Lightning', color: COLORS.lightning,
+    note: 'Lightning: historical stroke density (2010–2023 multi-year mean) from the WWLLN Global Lightning Climatology. A climatological average, not real-time data.' },
+  { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
+    note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
+  { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
+    note: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live, not shown on the map-wide layer). Areas with no rainfall data show no color on the map (see the point-search panel for a "No data" label).' },
+  { key: 'aqueductFloods', label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
+    note: 'Aqueduct Floods: simulated flood depth (WRI) shown both as a map heatmap and at the searched point, for the selected return period (10-year / 100-year, switchable via radio buttons).' },
+];
 
-def fit_gumbel(annual_maxima):
-    """
-    年最大値の系列(list of float, 単位mm)にGumbel分布をモーメント法でフィットする。
-    返り値: (mu, beta) 位置・尺度パラメータ。データが少なすぎる場合はNoneを返す。
+// 地点検索で「評価バッジ+リスク凡例」を表示する4レイヤー(Aqueduct Floodsは浸水深mの
+// 実数値表示のため対象外)
+const BADGE_LAYER_KEYS = ['earthquake', 'typhoonHazard', 'lightning', 'waterHazard'];
 
-    Gumbel分布の累積分布関数: F(x) = exp(-exp(-(x-mu)/beta))
-    モーメント法: beta = sqrt(6) * stdev / pi,  mu = mean - 0.5772 * beta (0.5772 = オイラー定数)
-    """
-    n = len(annual_maxima)
-    if n < 5:  # 5年未満ではフィット自体が無意味なため打ち切る
-        return None
-    arr = np.array(annual_maxima, dtype=float)
-    mean = arr.mean()
-    stdev = arr.std(ddof=1)  # 不偏標準偏差
-    if stdev <= 0:
-        return None
-    beta = math.sqrt(6) * stdev / math.pi
-    mu = mean - 0.5772156649 * beta
-    return mu, beta
+const METHODOLOGY = [
+  { label: 'Earthquakes', color: COLORS.earthquake,
+    desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
+  { label: 'Lightning', color: COLORS.lightning,
+    desc: 'Source: WWLLN Global Lightning Climatology (WGLC), 2010–2023 multi-year mean stroke density. Colored by relative density within China (not an official risk classification). A historical average, not a real-time warning.' },
+  { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
+    desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
+  { label: 'Water Hazard', color: COLORS.waterHazard,
+    desc: 'Created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live at search time; the map-wide layer does not include lakes). A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
+  { label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
+    desc: 'Source: WRI Aqueduct Floods hydrodynamic river-flood simulation data (not an observed historical event — a statistical return-period estimate). Shown as both a map heatmap and a point-search value, for the 10-year or 100-year return period.' },
+  { label: 'Point Lookup', color: '#5C6675',
+    desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
+];
 
+const TYPHOON_SAMPLE = [
+  { points: [[20.5,128.0],[22.5,122.0],[24.0,120.0],[24.82,118.57]] },
+  { points: [[27.9,128.5],[28.6,124.9],[29.5,122.5],[29.99,122.30]] },
+  { points: [[24.8,127.0],[27.0,124.5],[29.0,122.3],[29.99,122.30]] },
+  { points: [[22.0,130.0],[26.0,125.5],[28.0,121.8],[28.37,121.36]] },
+];
 
-def return_period_years(mm, mu, beta):
-    """Gumbel分布のパラメータから、降水量mmに対応する再現期間(年)を計算する"""
-    if beta <= 0:
-        return None
-    F = math.exp(-math.exp(-(mm - mu) / beta))
-    if F >= 1.0:
-        return None  # 数値的にオーバーフローする極端な値
-    p_exceed = 1 - F
-    if p_exceed <= 0:
-        return None
-    return 1 / p_exceed
+const LOWLAND_FLOOD_PRONE_PROXY = [
+  { center: [31.0, 121.4], weight: 0.7 },
+  { center: [23.1, 113.3], weight: 0.65 },
+  { center: [34.75, 113.65], weight: 0.6 },
+  { center: [30.5, 114.3], weight: 0.55 },
+  { center: [39.9, 116.4], weight: 0.5 },
+];
 
+// 雷: WGLC(WWLLN Global Lightning Climatology)由来のgeojsonをキャッシュする(読込直後に1回だけ設定)
+let lightningGeojsonCacheGlobal = null;
 
-def load_cache(cache_path):
-    if cache_path and Path(cache_path).exists():
-        with open(cache_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+function inLandBbox(lat, lon) {
+  // Cheap first-pass filter, then a finer coastline polygon check to exclude open water
+  const inBox = lat >= CHINA_LAND_BBOX.minlat && lat <= CHINA_LAND_BBOX.maxlat &&
+                lon >= CHINA_LAND_BBOX.minlon && lon <= CHINA_LAND_BBOX.maxlon;
+  return inBox && isOnLand(lat, lon);
+}
 
+let map, layerGroups = {};
+let activeLayers = new Set();
 
-def save_cache(cache_path, cache):
-    if not cache_path:
-        return
-    Path(cache_path).parent.mkdir(parents=True, exist_ok=True)
-    with open(cache_path, "w", encoding="utf-8") as f:
-        json.dump(cache, f)
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: true }).setView([31.57, 120.30], 11);
+  // デスクトップでウィンドウ幅を変えた時など、#appのサイズが変わってもLeafletが
+  // 内部キャッシュしたサイズのままだとタイルが崩れるため、リサイズのたびに再計算する
+  window.addEventListener('resize', () => map.invalidateSize());
+  // Light, professional cartographic base (CartoDB Positron)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd', maxZoom: 19,
+  }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 19,
+  }).addTo(map);
 
+  layerGroups.earthquake = L.layerGroup();
+  layerGroups.lightning = L.layerGroup();
+  layerGroups.typhoonHazard = L.layerGroup();
+  layerGroups.waterHazard = L.layerGroup();
+  layerGroups.aqueductFloods = L.layerGroup();
+}
 
-def git_commit_push(path, message):
-    """
-    2026年8月追加: 年ごとの処理が終わるたびに、その年のキャッシュ差分だけを
-    その場でコミット・pushする。理由: 20年分の取得は数時間かかることがあり、
-    途中でGitHub Actionsのtimeoutに達すると強制終了される。従来はワークフロー側の
-    「Commit and push if changed」ステップがスクリプト完走後にしか実行されなかったため、
-    timeoutで打ち切られると、それまでの進捗(既に取得済みだった年のキャッシュ)が
-    リポジトリに一切残らず、次回また1年目からやり直しになってしまっていた。
-    毎年ここでコミット・pushしておけば、途中で打ち切られても、そこまでの年は
-    保存され、次回実行時はそこから再開できる(save_cacheでの巻き戻り防止と対になる仕組み)。
-
-    git操作に失敗しても(例: 一時的なネットワーク障害、pushの競合)、処理全体は
-    止めずに警告を出して次の年に進む。失敗しても最終的にワークフロー側の
-    「Commit and push if changed」ステップが最後にもう一度コミットを試みるため、
-    多くの場合はそこで回収される。
-    """
-    try:
-        subprocess.run(["git", "add", path], check=True)
-        diff_result = subprocess.run(["git", "diff", "--staged", "--quiet"])
-        if diff_result.returncode == 0:
-            print(f"  (変更なし、コミットをスキップ: {path})")
-            return
-        subprocess.run(["git", "commit", "-m", message], check=True)
-        subprocess.run(["git", "pull", "--rebase", "origin", "main"], check=True)
-        subprocess.run(["git", "push"], check=True)
-        print(f"  git commit・push完了: {message}")
-    except subprocess.CalledProcessError as e:
-        print(f"  [WARN] git操作に失敗しました({e})。この年の進捗はローカルには残っているが、"
-              f"リポジトリへの反映は次回の実行(または最終ステップ)に持ち越される。", file=sys.stderr)
-
-
-def fetch_daily_raster_max_per_cell(day, grid_points):
-    """
-    指定日のCHIRPS日次ラスタ(.tif.gz)をダウンロードし、各グリッド点における
-    降水量(mm)を読み取る。ラスタの読み取りには rasterio を使う。
-    リトライを尽くしても取得できなければ None のリストを返す(その日はスキップされる)。
-
-    【2026年8月追加: リトライ・スロットリング】
-    20年分(約7,300日)を一気に取得しようとした際、CHIRPSサーバー(UCSB)から
-    全日程で「Connection refused」を返され続け、5時間半を空振りした事例があった。
-    その2日前に180日版(約180リクエスト、3分51秒)が問題なく成功していたことから、
-    恒久的なIPブロックではなく、短時間に大量のリクエストを送ったことによる
-    レート制限(あるいは一時的なサーバー障害)と判断した。
-    そのため、(1)指数バックオフによるリトライ、(2)リクエスト間の待機、を追加している。
-    """
-    import rasterio
-    from rasterio.io import MemoryFile
-
-    url = f"{CHIRPS_BASE_URL}/{day.year}/chirps-v2.0.{day.strftime('%Y.%m.%d')}.tif.gz"
-
-    resp = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = requests.get(url, timeout=(CONNECT_TIMEOUT_SEC, READ_TIMEOUT_SEC))
-            # 404は「その日のファイルが存在しない」ため、リトライしても無意味。即座に諦める
-            if resp.status_code == 404:
-                print(f"  [WARN] {day}: ファイルが存在しない(404)、この日はスキップ", file=sys.stderr)
-                return [None] * len(grid_points)
-            resp.raise_for_status()
-            break  # 成功
-        except requests.RequestException as e:
-            if attempt < MAX_RETRIES - 1:
-                # 指数バックオフ(例: 5秒 → 10秒 → 20秒 …)。サーバー側の一時的な
-                # 拒否やレート制限は、時間を空けることで回復することが多い
-                wait = RETRY_BASE_WAIT_SEC * (2 ** attempt)
-                print(f"  [RETRY] {day}: 取得失敗({type(e).__name__})、{wait}秒待って再試行 "
-                      f"({attempt + 1}/{MAX_RETRIES})", file=sys.stderr)
-                time.sleep(wait)
-            else:
-                print(f"  [WARN] {day}: {MAX_RETRIES}回試行しても失敗 ({e})、この日はスキップ", file=sys.stderr)
-                return [None] * len(grid_points)
-
-    # サーバーに負荷をかけすぎないよう、成功時も次のリクエストまで少し待つ
-    time.sleep(REQUEST_INTERVAL_SEC)
-
-    import gzip
-    import io
-
-    raw = gzip.decompress(resp.content)
-    values = []
-    with MemoryFile(raw) as memfile:
-        with memfile.open() as src:
-            for lat, lon in grid_points:
-                try:
-                    row, col = src.index(lon, lat)
-                    val = src.read(1)[row, col]
-                    # CHIRPSのno-data値(-9999)を除外
-                    values.append(float(val) if val > -9000 else None)
-                except (IndexError, ValueError):
-                    values.append(None)
-    return values
-
-
-def build_grid_points(bbox, grid_deg):
-    west, south, east, north = bbox
-    points = []
-    lat = south
-    while lat <= north:
-        lon = west
-        while lon <= east:
-            if abs(lat) <= CHIRPS_MAX_LAT:
-                points.append((round(lat, 4), round(lon, 4)))
-            lon += grid_deg
-        lat += grid_deg
-    return points
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--years", type=int, default=20, help="年最大値を集計する年数(既定20年)")
-    parser.add_argument("--grid-deg", type=float, default=1.0, help="グリッドの間隔(度、既定1.0)")
-    parser.add_argument("--out", type=str, default="data/rainfall_risk.geojson", help="出力GeoJSONパス")
-    parser.add_argument(
-        "--cache", type=str, default="data/rainfall_annual_max_cache.json",
-        help="年別最大値のキャッシュファイル(2回目以降の実行を高速化する)"
-    )
-    args = parser.parse_args()
-
-    today = date.today()
-    target_years = list(range(today.year - args.years, today.year))  # 直近の完全な年、今年は速報値として別途扱う
-
-    grid_points = build_grid_points(CHINA_BBOX, args.grid_deg)
-    print(f"グリッド点数: {len(grid_points)}(間隔{args.grid_deg}度)")
-    print(f"対象年: {target_years[0]}〜{target_years[-1]}({len(target_years)}年分)")
-
-    cache = load_cache(args.cache)
-    # cache構造: { "lat,lon": { "2006": 88.4, "2007": 120.1, ... } }
-
-    years_to_fetch = [y for y in target_years if not _cache_has_all_points(cache, grid_points, y)]
-    if years_to_fetch:
-        print(f"未取得の年: {years_to_fetch}(この年数分だけ新規にダウンロードする)")
-    else:
-        print("すべての年がキャッシュ済み。ダウンロードをスキップして統計計算のみ実行する。")
-
-    consecutive_failures = 0
-    aborted = False
-    for year in years_to_fetch:
-        if aborted:
-            break
-        print(f"--- {year}年を処理中 ---")
-        ykey = str(year)
-        # 【2026年8月改訂: 月単位の保存・再開】
-        # 以前は1年分をすべて取得し終えてから初めてキャッシュに保存していたため、
-        # 年の途中でtimeoutになるとその年の進捗が丸ごと失われていた(実際、1年目の
-        # 9ヶ月目で1時間17分かかり、完走が絶望的になった事例がある)。
-        # 現在は月ごとに「その月までの暫定的な年最大値」と「どこまで処理したか」を
-        # 保存・commitするため、途中で止まっても翌回はその続きから再開できる。
-        # 暫定値はcacheの本体("lat,lon" -> {年: 最大値})にそのまま積み増していく形で、
-        # 進捗位置だけを別途 _progress キーに記録する。
-        progress = cache.get("_progress", {})
-        cov_prev = cache.get("_coverage", {}).get(ykey, {})
-        prev_total = cov_prev.get("ok", 0) + cov_prev.get("failed", 0)
-        prev_cov = cov_prev.get("ok", 0) / prev_total if prev_total else None
-
-        # 欠測が多すぎて再取得対象になった年は、前回の中途半端な結果を引きずらないよう
-        # 完全にリセットしてから1月からやり直す(古い年最大値が残っていると、
-        # 再取得で得た値と混ざって「どちらの実行の結果か」が曖昧になるため)
-        if progress.get(ykey) == 12 and prev_cov is not None and prev_cov < MIN_YEAR_COVERAGE:
-            print(f"  {year}年は前回の取得成功率が{prev_cov:.0%}と低いため、リセットして再取得します")
-            for pt in grid_points:
-                k = f"{pt[0]},{pt[1]}"
-                if ykey in cache.get(k, {}):
-                    del cache[k][ykey]
-            cache.get("_progress", {}).pop(ykey, None)
-            cache.get("_coverage", {}).pop(ykey, None)
-            progress = cache.get("_progress", {})
-            cov_prev = {}
-
-        start_month = progress.get(ykey, 0) + 1  # 1〜12。完了済みの次の月から再開
-        if start_month > 12:
-            print(f"  {year}年はキャッシュ済みのためスキップ")
-            continue
-        if start_month > 1:
-            print(f"  {start_month}月から再開します(1〜{start_month - 1}月は取得済み)")
-
-        # 既に一部取得済みならその暫定値を引き継ぐ
-        year_max = {}
-        for pt in grid_points:
-            key = f"{pt[0]},{pt[1]}"
-            year_max[pt] = cache.get(key, {}).get(ykey)
-
-        # 取得成功/失敗の日数カウンタも、途中再開時は前回までの値を引き継ぐ
-        # (上でリセットされた場合は cov_prev が空になっているので0から始まる)
-        year_ok = cov_prev.get("ok", 0)
-        year_failed = cov_prev.get("failed", 0)
-
-        for month in range(start_month, 13):
-            if aborted:
-                break
-            d = date(year, month, 1)
-            end = date(year, month, calendar.monthrange(year, month)[1])
-            while d <= end:
-                daily_values = fetch_daily_raster_max_per_cell(d, grid_points)
-                if all(v is None for v in daily_values):
-                    year_failed += 1
-                    consecutive_failures += 1
-                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                        # サーバーに繋がらない状態で延々と試行し続けても意味がないため、
-                        # ここまでに取得できた分をキャッシュに残して処理を打ち切る。
-                        print(f"\n[ABORT] {MAX_CONSECUTIVE_FAILURES}日連続で取得に失敗しました。"
-                              f"CHIRPSサーバー側の障害またはレート制限の可能性が高いため、処理を中断します。\n"
-                              f"        ここまでの進捗はキャッシュに保存済みです。時間をおいて再実行してください。",
-                              file=sys.stderr)
-                        aborted = True
-                        break
-                else:
-                    year_ok += 1
-                    consecutive_failures = 0
-                for pt, val in zip(grid_points, daily_values):
-                    if val is not None:
-                        if year_max[pt] is None or val > year_max[pt]:
-                            year_max[pt] = val
-                d += timedelta(days=1)
-
-            # 月末(または中断時)に、ここまでの暫定的な年最大値を保存・commitする
-            for pt, val in year_max.items():
-                key = f"{pt[0]},{pt[1]}"
-                cache.setdefault(key, {})[ykey] = val
-            # 取得成功/失敗の日数を記録する(再開時に引き継げるようキャッシュに保存)
-            cache.setdefault("_coverage", {})[ykey] = {"ok": year_ok, "failed": year_failed}
-            if not aborted:
-                cache.setdefault("_progress", {})[ykey] = month
-            save_cache(args.cache, cache)
-            git_commit_push(args.cache, f"chore: rainfall annual max cache — {year}年{month}月まで [auto]")
-            total = year_ok + year_failed
-            cov = year_ok / total if total else 0
-            print(f"  {year}年{month}月まで完了(この年の取得成功率: {cov:.0%} = {year_ok}/{total}日)")
-
-        print(f"  {year}年 {'(中断、部分的)' if aborted else '完了'}")
-
-    # Gumbelフィット + 出力GeoJSON生成
-    # 【重要】統計に使う年は、次の2つの条件を両方満たすものだけに限る:
-    #   (1) 12ヶ月すべて処理を終えている(途中までの暫定値を混ぜない)
-    #   (2) その年の日次データの取得成功率がMIN_YEAR_COVERAGE以上
-    # (2)が必要な理由: サーバー不調時は「たまに成功、ほとんど失敗」となり、
-    # 12ヶ月processしても中身がスカスカな年ができる。年最大値法は「その年で最も
-    # 降った1日」を拾う手法なので、雨季が欠測していると年最大値を実際より小さく
-    # 見積もり、再現期間を過小評価(=危険側に誤る)してしまう。
-    progress = cache.get("_progress", {})
-    coverage = cache.get("_coverage", {})
-
-    def year_coverage(y):
-        c = coverage.get(str(y))
-        if not c:
-            return None  # 旧形式のキャッシュ(カバレッジ未記録)
-        total = c.get("ok", 0) + c.get("failed", 0)
-        return c.get("ok", 0) / total if total else 0
-
-    processed = [y for y in target_years if progress.get(str(y)) == 12]
-    incomplete = [y for y in target_years if progress.get(str(y), 0) not in (0, 12)]
-    complete_years = []
-    low_coverage = []
-    for y in processed:
-        cov = year_coverage(y)
-        # カバレッジ未記録(旧キャッシュ)の年は、判定材料が無いため従来通り採用する
-        if cov is None or cov >= MIN_YEAR_COVERAGE:
-            complete_years.append(y)
-        else:
-            low_coverage.append((y, cov))
-
-    if incomplete:
-        print(f"注意: 取得が未完了の年は統計から除外します: {incomplete}")
-    if low_coverage:
-        print(f"注意: 欠測が多すぎる年は統計から除外します(閾値{MIN_YEAR_COVERAGE:.0%}): "
-              + ", ".join(f"{y}年({c:.0%})" for y, c in low_coverage))
-        print(f"      これらの年は再取得が必要です。キャッシュの該当年の _progress を削除して再実行してください。")
-    print(f"Gumbelフィットに使用する年: {len(complete_years)}年分 {complete_years}")
-
-    features = []
-    for lat, lon in grid_points:
-        key = f"{lat},{lon}"
-        yearly = cache.get(key, {})
-        maxima = [yearly[str(y)] for y in complete_years if yearly.get(str(y)) is not None]
-
-        if not maxima:
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [lon, lat]},
-                "properties": {"no_data": True},
-            })
-            continue
-
-        fit = fit_gumbel(maxima)
-        # 直近の年最大値を「現在のリスク表示」用に引き続き使う(旧版との互換性維持)。
-        # ここも完全に取得できた年のみを対象にする(部分的な年だと過小評価になるため)。
-        latest_year = max(complete_years) if complete_years else None
-        latest_mm = yearly.get(str(latest_year)) if latest_year else None
-        risk = rainfall_to_risk(latest_mm)
-
-        props = {
-            "risk": risk,
-            "years_used": len(maxima),
+function renderLayerBar() {
+  const bar = document.getElementById('layerBar');
+  bar.innerHTML = LAYERS.map(l => {
+    const active = activeLayers.has(l.key);
+    return `<button class="layer-chip${active ? ' active' : ''}" style="${active ? `background:${l.color};border-color:${l.color};` : ''}" data-key="${l.key}">
+      <span class="dot" style="background:${active ? '#fff' : l.color};"></span>${l.label}
+    </button>`;
+  }).join('');
+  bar.querySelectorAll('.layer-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      if (activeLayers.has(key)) {
+        activeLayers.delete(key);
+        map.removeLayer(layerGroups[key]);
+      } else {
+        activeLayers.add(key);
+        map.addLayer(layerGroups[key]);
+      }
+      // 評価バッジ(地震・台風・雷・水害)のいずれかをON/OFFしたら、地点検索の結果表示を
+      // 直前の検索地点で再計算する。全てOFFになった場合は非表示にする。
+      if (BADGE_LAYER_KEYS.includes(key)) {
+        const anyBadgeActive = BADGE_LAYER_KEYS.some(k => activeLayers.has(k));
+        if (!anyBadgeActive) {
+          const resultEl = document.getElementById('searchResult');
+          resultEl.className = 'search-result';
+          resultEl.innerHTML = '';
+        } else if (lastQueriedLatLon) {
+          queryPoint(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
         }
-        if fit is not None:
-            mu, beta = fit
-            props["gumbel_mu"] = round(mu, 3)
-            props["gumbel_beta"] = round(beta, 3)
-        features.append({
-            "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [lon, lat]},
-            "properties": props,
-        })
+      }
+      // Aqueduct Floodsチップの場合も同様。OFFなら非表示、ONに戻したら直前の検索地点で再取得する
+      if (key === 'aqueductFloods') {
+        const aqueductWrapEl = document.getElementById('aqueductResultWrap');
+        const aqueductResultEl = document.getElementById('aqueductResult');
+        if (!activeLayers.has('aqueductFloods')) {
+          aqueductWrapEl.className = 'search-result';
+          aqueductResultEl.innerHTML = '';
+        } else if (lastQueriedLatLon) {
+          aqueductWrapEl.className = 'search-result visible';
+          aqueductResultEl.innerHTML = aqueductResultHtml(null, aqueductSelectedRP);
+          aqueductDepthAt(lastQueriedLatLon.lat, lastQueriedLatLon.lon, aqueductSelectedRP).then(depth => {
+            aqueductResultEl.innerHTML = aqueductResultHtml(depth, aqueductSelectedRP);
+          });
+        }
+      }
+      renderLayerBar();
+      updateLegend();
+    });
+  });
+}
 
-    geojson = {"type": "FeatureCollection", "features": features}
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    with open(args.out, "w", encoding="utf-8") as f:
-        json.dump(geojson, f)
-    print(f"出力完了: {args.out}({len(features)}地点)")
+let legendExpanded = new Set();
+let dataRanges = { typhoonHazard: null };
+
+function updateLegend() {
+  const container = document.getElementById('legendNote');
+  const active = LAYERS.filter(l => activeLayers.has(l.key));
+  if (active.length === 0) {
+    container.innerHTML = 'Select a layer above to see it on the map.';
+    return;
+  }
+  container.innerHTML = active.map(l => {
+    const firstSentenceEnd = l.note.indexOf('. ');
+    const summary = firstSentenceEnd > -1 ? l.note.slice(0, firstSentenceEnd + 1) : l.note;
+    const rest = firstSentenceEnd > -1 ? l.note.slice(firstSentenceEnd + 1).trim() : '';
+    const expanded = legendExpanded.has(l.key);
+    const range = dataRanges[l.key] ? ` <span style="color:var(--text-primary);font-weight:600;">[${dataRanges[l.key]}]</span>` : '';
+    return `<div style="margin-bottom:6px;">
+      <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${summary}
+      ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
+      <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  container.querySelectorAll('.legend-toggle').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.key;
+      if (legendExpanded.has(key)) legendExpanded.delete(key); else legendExpanded.add(key);
+      updateLegend();
+    });
+  });
+}
+
+function renderMethodology() {
+  const panel = document.getElementById('methodologyPanel');
+  panel.innerHTML = METHODOLOGY.map(m => `
+    <div class="method-item">
+      <div class="method-label"><span class="dot" style="background:${m.color};"></span>${m.label}</div>
+      <div class="method-desc">${m.desc}</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('methodologyBtn').addEventListener('click', () => {
+  const panel = document.getElementById('methodologyPanel');
+  const btn = document.getElementById('methodologyBtn');
+  panel.classList.toggle('visible');
+  btn.classList.toggle('active');
+});
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 地震・台風・洪水の実データは、地点検索のタイル色付けにも再利用するためグローバルにキャッシュしておく
+let earthquakeGeojsonCache = null;
+let typhoonGeojsonCacheGlobal = null;
+let floodGeojsonCacheGlobal = null;
+
+async function loadEarthquakes() {
+  document.getElementById('statusLabel').textContent = 'Fetching earthquakes…';
+
+  // Prefer the pre-generated, backfilled dataset (scripts/fetch_earthquakes.py)
+  const geojson = await fetchGeojsonSafe('data/earthquakes.geojson');
+
+  if (geojson) {
+    earthquakeGeojsonCache = geojson;
+    let count = 0;
+    let minTime = Infinity, maxTime = -Infinity;
+    geojson.features.forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const p = f.properties || {};
+      const mag = p.mag || 0;
+      // 地点検索(earthquakeTileColor)と同じ閾値で、地図上のマーカーもマグニチュードに応じた5段階配色にする
+      let tier;
+      if (mag < 5.5) tier = 0;
+      else if (mag < 6.0) tier = 1;
+      else if (mag < 6.5) tier = 2;
+      else if (mag < 7.0) tier = 3;
+      else tier = 4;
+      const tierColor = EARTHQUAKE_TIER_COLORS[tier];
+      const marker = L.circleMarker([lat, lon], {
+        radius: Math.max(4, mag * 2.2),
+        color: tierColor, weight: 1.5, fillColor: tierColor, fillOpacity: 0.35,
+      });
+      const date = p.time ? new Date(p.time).toLocaleDateString('en-US') : '';
+      marker.bindPopup(`<div class="popup-title">M${mag.toFixed(1)} Earthquake</div>
+        <div class="popup-row">${escapeHtml(p.place)}</div>
+        <div class="popup-row">${date}</div>`);
+      marker.addTo(layerGroups.earthquake);
+      count++;
+      if (p.time) { minTime = Math.min(minTime, p.time); maxTime = Math.max(maxTime, p.time); }
+    });
+    const minYear = isFinite(minTime) ? new Date(minTime).getFullYear() : '—';
+    const maxYear = isFinite(maxTime) ? new Date(maxTime).getFullYear() : '—';
+    document.getElementById('statusLabel').textContent = `Data range: ${minYear}–${maxYear}`;
+    document.getElementById('countLabel').textContent = `${count} earthquakes (M5.0+)`;
+    return;
+  }
+
+  // Fallback: live last-30-days query, used only until the backfilled file exists
+  try {
+    const url = 'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=' +
+      new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10) +
+      '&minlatitude=18&maxlatitude=54&minlongitude=73&maxlongitude=135&minmagnitude=3.5';
+    const res = await fetch(url);
+    const data = await res.json();
+    let count = 0;
+    (data.features || []).forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const mag = f.properties.mag || 0;
+      let tier;
+      if (mag < 5.5) tier = 0;
+      else if (mag < 6.0) tier = 1;
+      else if (mag < 6.5) tier = 2;
+      else if (mag < 7.0) tier = 3;
+      else tier = 4;
+      const tierColor = EARTHQUAKE_TIER_COLORS[tier];
+      const marker = L.circleMarker([lat, lon], {
+        radius: Math.max(4, mag * 2.2),
+        color: tierColor, weight: 1.5, fillColor: tierColor, fillOpacity: 0.35,
+      });
+      const date = new Date(f.properties.time).toLocaleString('en-US');
+      marker.bindPopup(`<div class="popup-title">M${mag.toFixed(1)} Earthquake</div>
+        <div class="popup-row">${escapeHtml(f.properties.place)}</div>
+        <div class="popup-row">${date}</div>`);
+      marker.addTo(layerGroups.earthquake);
+      count++;
+    });
+    document.getElementById('statusLabel').textContent = 'Live feed (last 30 days) — backfill not yet generated';
+    document.getElementById('countLabel').textContent = `${count} earthquakes (30d, M3.5+)`;
+  } catch (e) {
+    document.getElementById('statusLabel').textContent = 'Failed to load earthquake data';
+  }
+}
+
+async function loadLightning() {
+  const geojson = await fetchGeojsonSafe('data/lightning.geojson');
+  if (!geojson) return;
+  lightningGeojsonCacheGlobal = geojson;
+  // risk(0〜1)を重みとして使い、密度に応じたグラデーションで表示する(HAZARD_GRADIENTは既存の
+  // 緑→黄→赤のリスク強度グラデーションを他レイヤーと共通で使い回している)
+  const heatPoints = geojson.features
+    .map(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const risk = f.properties?.risk;
+      return typeof risk === 'number' ? [lat, lon, risk] : null;
+    })
+    .filter(Boolean);
+  const heat = L.heatLayer(heatPoints, { radius: 26, blur: 22, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT });
+  heat.addTo(layerGroups.lightning);
+}
+
+async function fetchGeojsonSafe(path) {
+  try {
+    const res = await fetch(path);
+    if (!res.ok) return null;
+    const geojson = await res.json();
+    if (!geojson.features || geojson.features.length === 0) return null;
+    return geojson;
+  } catch (e) {
+    return null;
+  }
+}
+
+// HAZARD_GRADIENTの色停止点(0/0.25/0.5/0.75/1.0)の間を線形補間して、weight(0〜1)に対応する
+// 1色を返す。台風の軌跡を線(ポリライン)で描くために使う(ヒートマップの色と統一するため)。
+const HAZARD_GRADIENT_STOPS = [
+  [0.0, [0xD9, 0xA2, 0x2C]], [0.25, [0xD9, 0x72, 0x2C]], [0.5, [0xC1, 0x3A, 0x2E]],
+  [0.75, [0x7A, 0x3B, 0x8C]], [1.0, [0x1A, 0x21, 0x30]],
+];
+function colorForWeight(w) {
+  const cw = Math.max(0, Math.min(1, w));
+  for (let i = 0; i < HAZARD_GRADIENT_STOPS.length - 1; i++) {
+    const [t0, c0] = HAZARD_GRADIENT_STOPS[i], [t1, c1] = HAZARD_GRADIENT_STOPS[i + 1];
+    if (cw >= t0 && cw <= t1) {
+      const t = (cw - t0) / (t1 - t0);
+      const r = Math.round(c0[0] + (c1[0] - c0[0]) * t);
+      const g = Math.round(c0[1] + (c1[1] - c0[1]) * t);
+      const b = Math.round(c0[2] + (c1[2] - c0[2]) * t);
+      return `rgb(${r},${g},${b})`;
+    }
+  }
+  return '#1A2130';
+}
+
+// inLandBbox(陸地・沿岸のみ表示)でフィルタすると軌跡の一部が虫食いになるため、
+// 連続してtrueな区間だけをひとつながりの線として切り出す(そうしないと海上の空白を
+// 直線でショートカットしてしまい、不自然な線になる)。items内の各要素はpredicateで
+// 判定できる値を持つオブジェクトであればよい(座標に限らない汎用ヘルパー)。
+function splitContiguousRuns(items, predicate) {
+  const runs = [];
+  let current = [];
+  items.forEach(item => {
+    if (predicate(item)) {
+      current.push(item);
+    } else {
+      if (current.length >= 2) runs.push(current);
+      current = [];
+    }
+  });
+  if (current.length >= 2) runs.push(current);
+  return runs;
+}
+
+// 台風の軌跡はポリライン(線)で描画する。以前はcircle(暴風域バッファ)+polylineの
+// 半透明な重ね描きだったが、沿岸部のように何十本もの台風の軌跡が同じ場所を通ると、
+// 半透明図形の不透明度が積み重なってべったり単色に潰れる問題があった。その後
+// L.heatLayer(ヒートマップ)化も試したが、これは「通過本数が多いほど濃くなる」
+// 積算方式のため、弱い台風が何本も通っただけの場所が強く見えてしまい、
+// 「その場所を通った最も強い台風で評価したい」という意図とズレていた。
+// 現在は、区間(ratio)の弱い順に不透明(opacity:1)なポリラインを描画し、
+// 強い区間ほど後(=上)に描く方式にしている。同じ場所を複数の軌跡が通っても
+// 不透明度は加算されず、単純に一番強い区間の色が最前面に残る(=最大値評価)。
+//
+// 同じ台風の中でも発達・衰弱で色が変わるよう、区間(2地点間)ごとに、その両端の風速の
+// 平均で色を決める。階級は米国のSaffir-Simpson風速階級(Category 1〜5)をそのまま採用する
+// (2026年8月改訂: 独自に決めた130kt基準ではなく、国際的に使われる基準に統一)。
+// Category1未満(34〜63kt、tropical storm)は「顕著な台風被害の目安」に届かないため
+// 対象外とし、区間・地点検索とも表示・判定しない。
+const TYPHOON_CATEGORY_BOUNDS_KT = [64, 83, 96, 114, 136]; // Category 1〜5の下限(kt)
+// 台風ごとの実際の暴風域半径(r34_km)がデータにある場合は、それを使って中心からの
+// 線形補間で風速を推定する(2026年8月改訂: 台風によって暴風域の大きさが11〜581km、
+// 中央値185kmと大きくばらつくため、一律の固定半径では小型で強い台風・大型で緩い台風を
+// 区別できなかった)。r34_kmが無い地点・台風のみ、フォールバックとして固定半径で判定する。
+const TYPHOON_FALLBACK_RADIUS_KM = 200; // r34_km欠損時のフォールバック(実データ中央値ベース)
+const TYPHOON_PREFILTER_RADIUS_KM = 600; // 安価な絞り込み用(実データの最大r34=581kmをカバー)
+
+// 台風1個分のデータから、指定地点での推定風速(kt)の最大値を求める。
+// 各時刻の地点ごとに、r34_kmがあれば「中心=その時刻の風速、r34地点=34kt」の線形補間、
+// 無ければ固定半径(TYPHOON_FALLBACK_RADIUS_KM)内かどうかの二値判定にフォールバックする。
+function estimateStormWindAt(feature, lat, lon) {
+  const coords = feature.geometry.coordinates;
+  const windsKt = feature.properties?.winds_kt;
+  const r34Km = feature.properties?.r34_km;
+  const maxWind = feature.properties?.max_wind_kt;
+  let best = null;
+  let anyPointWind = false;
+  coords.forEach(([flon, flat], i) => {
+    if (!degBboxFilter(lat, lon, flat, flon, TYPHOON_PREFILTER_RADIUS_KM)) return;
+    const w = windsKt && typeof windsKt[i] === 'number' ? windsKt[i] : null;
+    if (w === null) return;
+    anyPointWind = true;
+    const dist = haversineKm(lat, lon, flat, flon);
+    const r34 = r34Km && typeof r34Km[i] === 'number' ? r34Km[i] : null;
+    let est = null;
+    if (r34 !== null && r34 > 0) {
+      if (dist <= r34) est = 34 + (w - 34) * (1 - dist / r34); // 中心=w、境界(r34)=34ktで線形補間
+    } else if (dist <= TYPHOON_FALLBACK_RADIUS_KM) {
+      est = w; // r34不明な地点は、固定半径内なら距離を考慮せずその時刻の風速をそのまま使う
+    }
+    if (est !== null && (best === null || est > best)) best = est;
+  });
+  // winds_kt自体が無い古い形式のデータ(台風全体で1つの最大風速のみ)は、固定半径のみで判定
+  if (!anyPointWind && typeof maxWind === 'number') {
+    const near = coords.some(([flon, flat]) => degBboxFilter(lat, lon, flat, flon, TYPHOON_FALLBACK_RADIUS_KM) && haversineKm(lat, lon, flat, flon) <= TYPHOON_FALLBACK_RADIUS_KM);
+    if (near) best = maxWind;
+  }
+  return best;
+}
+
+// 全台風の中から、指定地点での推定風速(kt)の最大値を求める(=badge/タイル判定用)
+function typhoonWindEstimateAt(lat, lon) {
+  if (!typhoonGeojsonCacheGlobal) return null;
+  let best = null;
+  typhoonGeojsonCacheGlobal.features.forEach(f => {
+    const w = estimateStormWindAt(f, lat, lon);
+    if (w !== null && (best === null || w > best)) best = w;
+  });
+  return best;
+}
+
+// 風速(kt)をSaffir-Simpsonのtier(0=Category1〜4=Category5)とratio(0〜1、色のグラデーション用)に変換する。
+// Category1未満はnullを返す(=台風ハザードとして扱わない)。同じCategory内での強弱も
+// なめらかに反映されるよう、次のCategory境界に近いほどratioを1段階分の中で連続的に上げる
+// (Category5は上限が無いため、目安として+40ktの幅で頭打ちにする)。
+function typhoonWindToTierRatio(windKt) {
+  if (typeof windKt !== 'number' || windKt < TYPHOON_CATEGORY_BOUNDS_KT[0]) return null;
+  let tier = 0;
+  for (let i = 1; i < TYPHOON_CATEGORY_BOUNDS_KT.length; i++) {
+    if (windKt >= TYPHOON_CATEGORY_BOUNDS_KT[i]) tier = i;
+  }
+  const lower = TYPHOON_CATEGORY_BOUNDS_KT[tier];
+  const upper = tier < 4 ? TYPHOON_CATEGORY_BOUNDS_KT[tier + 1] : lower + 40;
+  const within = Math.min(1, (windKt - lower) / (upper - lower));
+  return { tier, ratio: (tier + within) / 5 };
+}
+
+function collectTyphoonSegments(coords, windsKt, fallbackTierRatio, segments) {
+  const items = coords.map(([lon, lat], i) => ({
+    lat, lon,
+    wind: (windsKt && typeof windsKt[i] === 'number') ? windsKt[i] : null,
+  }));
+  const runs = splitContiguousRuns(items, item => inLandBbox(item.lat, item.lon));
+  runs.forEach(run => {
+    for (let i = 0; i < run.length - 1; i++) {
+      const a = run[i], b = run[i + 1];
+      let segWind;
+      if (typeof a.wind === 'number' && typeof b.wind === 'number') segWind = (a.wind + b.wind) / 2;
+      else if (typeof a.wind === 'number') segWind = a.wind;
+      else if (typeof b.wind === 'number') segWind = b.wind;
+      else segWind = null;
+      const tr = segWind !== null ? typhoonWindToTierRatio(segWind) : fallbackTierRatio;
+      // Category1未満の区間は台風ハザードとして描画しない(米国基準でtropical stormは対象外)
+      if (!tr) continue;
+      segments.push({ a, b, ratio: tr.ratio });
+    }
+  });
+}
+
+async function buildTyphoonHazard() {
+  const geojson = await fetchGeojsonSafe('data/typhoons.geojson');
+  typhoonGeojsonCacheGlobal = geojson;
+  const segments = [];
+
+  if (geojson) {
+    let minTime = Infinity, maxTime = -Infinity;
+    geojson.features.forEach(f => {
+      const maxWind = f.properties?.max_wind_kt;
+      // winds_kt(地点ごとの風速)が無い古いデータ形式でも動くよう、その場合は
+      // 台風全体の最大風速から一律のtier/ratioを計算してフォールバックに使う。
+      // 最大風速でもCategory1(64kt)未満の台風は、そもそも描画対象にしない。
+      const fallbackTierRatio = typhoonWindToTierRatio(maxWind);
+      collectTyphoonSegments(f.geometry.coordinates, f.properties?.winds_kt, fallbackTierRatio, segments);
+      const st = f.properties?.start_time, et = f.properties?.end_time;
+      if (st) minTime = Math.min(minTime, new Date(st).getTime());
+      if (et) maxTime = Math.max(maxTime, new Date(et).getTime());
+    });
+    if (isFinite(minTime) && isFinite(maxTime)) {
+      dataRanges.typhoonHazard = `${new Date(minTime).getFullYear()}–${new Date(maxTime).getFullYear()}`;
+      updateLegend();
+    }
+  } else {
+    TYPHOON_SAMPLE.forEach(t => {
+      const lonLatCoords = t.points.map(([lat, lon]) => [lon, lat]);
+      collectTyphoonSegments(lonLatCoords, null, { tier: 2, ratio: 0.5 }, segments);
+    });
+  }
+
+  // 弱い区間から先に描画し、強い区間を最後(最前面)に描くことで、重なった場所では
+  // 常に最も強い台風の色が見えるようにする(不透明opacity:1のため加算ブレンドされない)
+  segments.sort((s1, s2) => s1.ratio - s2.ratio);
+  segments.forEach(seg => {
+    L.polyline([[seg.a.lat, seg.a.lon], [seg.b.lat, seg.b.lon]], {
+      color: colorForWeight(seg.ratio), weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round',
+    }).addTo(layerGroups.typhoonHazard);
+  });
+}
+
+// 水害ハザード: 降雨強度(CHIRPS)と標高(Open-Elevation)の高い方を基礎リスクとし、
+// 過去の洪水実績(DFO)で最大1.5倍まで底上げする。データ欠損セルは灰色で明示する。
+let rainfallGeojsonCacheGlobal = null;
+let elevationGeojsonCacheGlobal = null;
+
+function floodWeightAt(lat, lon) {
+  if (!floodGeojsonCacheGlobal) return 1.0;
+  const areaVals = floodGeojsonCacheGlobal.features
+    .map(f => f.properties?.affected_sq_km).filter(v => typeof v === 'number');
+  if (areaVals.length === 0) return 1.0;
+  const maxArea = Math.max(...areaVals);
+
+  let nearestArea = null, nearestDist = Infinity;
+  floodGeojsonCacheGlobal.features.forEach(f => {
+    const area = f.properties?.affected_sq_km;
+    if (typeof area !== 'number') return;
+    const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 80)) return;
+    const d = haversineKm(lat, lon, flat, flon);
+    if (d <= 80 && d < nearestDist) { nearestDist = d; nearestArea = area; }
+  });
+  if (nearestArea === null) return 1.0;
+  const relative = Math.min(1, nearestArea / maxArea);
+  return 1 + 0.5 * relative; // 1.0〜1.5、1を下回らない
+}
+
+// ==== 水域近接倍率(河川・湖・海への近さで標高リスクを底上げする) ====
+let riversGeojsonCacheGlobal = null;
+let riverSpatialIndex = null; // Map<"latCell_lonCell", number[]>(河川データのインデックス、featuresの添字)
+const RIVER_INDEX_CELL_DEG = 0.02; // 約2.2km四方の格子(2km圏内の検索に十分な粒度)
+
+// 河川データを読み込んだ直後に1回だけ呼ぶ: 各河川の頂点をもとに、格子ごとの索引を作る。
+// これにより検索のたびに全件(14万本規模)をスキャンする必要がなくなる。
+function buildRiverSpatialIndex(riversGeojson) {
+  const index = new Map();
+  if (!riversGeojson) return index;
+  riversGeojson.features.forEach((f, idx) => {
+    const coords = f.geometry?.coordinates;
+    if (!coords) return;
+    const seenCells = new Set(); // 同じ河川が同じ格子に何度も登録されるのを防ぐ
+    coords.forEach(([lon, lat]) => {
+      const cellKey = `${Math.floor(lat / RIVER_INDEX_CELL_DEG)}_${Math.floor(lon / RIVER_INDEX_CELL_DEG)}`;
+      if (seenCells.has(cellKey)) return;
+      seenCells.add(cellKey);
+      if (!index.has(cellKey)) index.set(cellKey, []);
+      index.get(cellKey).push(idx);
+    });
+  });
+  return index;
+}
+
+// 指定地点の周囲(3x3の格子=約6.6km四方)に該当する河川の候補だけを取り出す
+function nearbyRiverFeatures(lat, lon) {
+  if (!riverSpatialIndex || !riversGeojsonCacheGlobal) return [];
+  const baseLat = Math.floor(lat / RIVER_INDEX_CELL_DEG);
+  const baseLon = Math.floor(lon / RIVER_INDEX_CELL_DEG);
+  const candidateIdx = new Set();
+  for (let dLat = -1; dLat <= 1; dLat++) {
+    for (let dLon = -1; dLon <= 1; dLon++) {
+      const key = `${baseLat + dLat}_${baseLon + dLon}`;
+      const bucket = riverSpatialIndex.get(key);
+      if (bucket) bucket.forEach(i => candidateIdx.add(i));
+    }
+  }
+  return Array.from(candidateIdx).map(i => riversGeojsonCacheGlobal.features[i]);
+}
+
+// Overpass API(OpenStreetMap)で、指定地点周辺の湖・貯水池をその場に問い合わせる。
+// HydroLAKES(全世界820MBの事前ダウンロードが必要)を避けるための代替手段。
+// 地点検索1回につき1回だけ呼び出し、169マス全体で結果を使い回す(通信回数を抑えるため)。
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+
+async function fetchNearbyLakePoints(lat, lon, radiusM) {
+  const query = `[out:json][timeout:25];(way["natural"="water"]["water"~"lake|reservoir|oxbow"](around:${radiusM},${lat},${lon});relation["natural"="water"]["water"~"lake|reservoir|oxbow"](around:${radiusM},${lat},${lon}););out geom;`;
+  try {
+    const res = await fetch(OVERPASS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: query,
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const points = [];
+    (data.elements || []).forEach(el => {
+      if (el.geometry) {
+        el.geometry.forEach(g => points.push([g.lat, g.lon]));
+      } else if (el.members) {
+        el.members.forEach(m => {
+          if (m.geometry) m.geometry.forEach(g => points.push([g.lat, g.lon]));
+        });
+      }
+    });
+    return points;
+  } catch (e) {
+    // Overpass APIが混雑・失敗している場合は、湖の要素なしとして扱う(検索自体は継続する)
+    return [];
+  }
+}
+
+// 距離(km) → 最寄りの頂点との最短距離(度)を概算距離(km)に変換する簡易ヘルパー
+function pointToLineDistanceKm(lat, lon, coords) {
+  // 簡易実装: 線を構成する各頂点との距離のうち最小値を採用する(頂点間の補間はしない近似)
+  let minDist = Infinity;
+  coords.forEach(([clon, clat]) => {
+    const d = haversineKm(lat, lon, clat, clon);
+    if (d < minDist) minDist = d;
+  });
+  return minDist;
+}
+
+// 距離(m)を5段階の倍率(1.0〜1.5)に変換する
+function distanceToProximityMultiplier(distanceM) {
+  if (distanceM <= 500) return 1.5;
+  if (distanceM <= 1000) return 1.35;
+  if (distanceM <= 1500) return 1.2;
+  if (distanceM <= 2000) return 1.1;
+  return 1.0;
+}
+
+// 河川・湖(Overpassでその場取得したポイント)・海のうち最も近いものまでの距離を求め、倍率に変換する
+function waterProximityMultiplier(lat, lon, lakePoints) {
+  let minDistKm = Infinity;
+
+  // 空間インデックスから、周辺の格子(約6.6km四方)に該当する河川候補だけを取り出して判定する
+  // (全件スキャンではなく、近隣候補のみに絞ることで検索のたびの計算量を大幅に削減)
+  nearbyRiverFeatures(lat, lon).forEach(f => {
+    const coords = f.geometry?.coordinates;
+    if (!coords) return;
+    const d = pointToLineDistanceKm(lat, lon, coords);
+    if (d < minDistKm) minDistKm = d;
+  });
+
+  if (lakePoints && lakePoints.length > 0) {
+    lakePoints.forEach(([plat, plon]) => {
+      const d = haversineKm(lat, lon, plat, plon);
+      if (d < minDistKm) minDistKm = d;
+    });
+  }
+
+  // 海(既存の海岸線ポリゴンの頂点との距離で近似)
+  CHINA_COASTLINE_POLYGON.forEach(([clon, clat]) => {
+    const d = haversineKm(lat, lon, clat, clon);
+    if (d < minDistKm) minDistKm = d;
+  });
+
+  if (!isFinite(minDistKm)) return 1.0;
+  return distanceToProximityMultiplier(minDistKm * 1000);
+}
+
+async function buildWaterHazard() {
+  const [rainfallGeojson, elevationGeojson, riversGeojson] = await Promise.all([
+    fetchGeojsonSafe('data/rainfall_risk.geojson'),
+    fetchGeojsonSafe('data/elevation_risk.geojson'),
+    fetchGeojsonSafe('data/rivers.geojson'),
+  ]);
+  rainfallGeojsonCacheGlobal = rainfallGeojson;
+  elevationGeojsonCacheGlobal = elevationGeojson;
+  riversGeojsonCacheGlobal = riversGeojson;
+  riverSpatialIndex = buildRiverSpatialIndex(riversGeojson);
+
+  if (!floodGeojsonCacheGlobal) {
+    floodGeojsonCacheGlobal = await fetchGeojsonSafe('data/floods.geojson');
+  }
+
+  const riskPoints = [];
+
+  if (rainfallGeojson) {
+    rainfallGeojson.features.forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const p = f.properties || {};
+      if (p.no_data) return; // データなしは地図上には何も描かない(「No data」はテキストバッジ側に一本化)
+      const rainfallRisk = typeof p.risk === 'number' ? p.risk : 0;
+      // 同じ格子点付近の標高リスクも参照し、高い方を基礎リスクとする
+      let elevRisk = 0;
+      if (elevationGeojson) {
+        let nearestRisk = null, nearestDist = Infinity;
+        elevationGeojson.features.forEach(ef => {
+          const [elon, elat] = ef.geometry.coordinates;
+          if (!degBboxFilter(lat, lon, elat, elon, 150)) return;
+          const d = haversineKm(lat, lon, elat, elon);
+          if (d < nearestDist) { nearestDist = d; nearestRisk = ef.properties?.risk; }
+        });
+        if (typeof nearestRisk === 'number') elevRisk = nearestRisk;
+      }
+      // 全国俯瞰では、湖はOverpassの都度問い合わせが使えないため、河川・海のみで近接倍率を計算する
+      const proximity = waterProximityMultiplier(lat, lon, []);
+      const baseRisk = Math.max(rainfallRisk, elevRisk * proximity);
+      const weight = floodWeightAt(lat, lon);
+      const finalRisk = Math.min(1.0, baseRisk * weight);
+      if (finalRisk > 0) riskPoints.push([lat, lon, finalRisk]);
+    });
+  }
+
+  if (riskPoints.length > 0) {
+    L.heatLayer(riskPoints, { radius: 40, blur: 32, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.waterHazard);
+  }
+}
+
+// Aqueduct Floods(WRI): 地点検索のみの方針に統一(地図上のヒートマップ表示は行わない)。
+// 浸水深(m)は下部の「Aqueduct Floods 地点検索」セクションで取得・表示する。
+
+// ==== 地点検索: 各ハザードの5段階配色ロジック(標高以外はローカルデータのみで計算、追加通信なし) ====
+
+// 気象庁の震度階級配色を参考にした地震用5段階(黄→橙→赤→濃い赤→赤紫)
+const EARTHQUAKE_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F', '#7A2E6B'];
+// 気象庁の統一「警戒レベル」配色を参考にした台風・雷・洪水共通5段階(黄→橙→赤→紫→黒)
+const WARNING_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#7A3B8C', '#1A2130'];
+
+// 5段階配色のグラデーション凡例(温度計ふう)+データ欠損(灰色)の説明をHTMLで生成する共通関数
+// ==== Aqueduct Floods 地点検索: 中国域クリップ済みGeoTIFF(COG)からその場でピクセル値(浸水深m)を読む ====
+// 事前グリッド化(GeoJSON)はせず、地点検索のたびにHTTPレンジリクエストで該当ピクセルだけを取得する。
+// これによりファイルの事前間引き(粗い格子)が不要になり、元データの解像度(30秒角≒約1km)をそのまま使える。
+const AQUEDUCT_RETURN_PERIODS = [10, 100]; // 年
+let aqueductSelectedRP = 10;
+const aqueductImageCache = {}; // rp -> GeoTIFFのimageオブジェクト(1度読み込んだら使い回す)
+let lastQueriedLatLon = null; // ラジオボタン切替時に検索し直さず、この座標を再利用する
+
+async function loadAqueductImage(rp) {
+  if (aqueductImageCache[rp]) return aqueductImageCache[rp];
+  try {
+    const tiff = await GeoTIFF.fromUrl(`data/aqueduct_depth_rp${rp}.tif`);
+    const image = await tiff.getImage();
+    aqueductImageCache[rp] = image;
+    return image;
+  } catch (e) {
+    // ファイルが無い/取得失敗の場合はnullを返し、呼び出し側で「データなし」として扱う
+    aqueductImageCache[rp] = null;
+    return null;
+  }
+}
+
+// 指定地点の浸水深(m)を返す。範囲外・NoData・ファイル未取得の場合はnull。
+async function aqueductDepthAt(lat, lon, rp) {
+  const image = await loadAqueductImage(rp);
+  if (!image) return null;
+
+  const [minX, minY, maxX, maxY] = image.getBoundingBox(); // EPSG:4326前提(経度,緯度)
+  if (lon < minX || lon > maxX || lat < minY || lat > maxY) return null;
+
+  const width = image.getWidth();
+  const height = image.getHeight();
+  const px = Math.min(width - 1, Math.max(0, Math.floor((lon - minX) / (maxX - minX) * width)));
+  const py = Math.min(height - 1, Math.max(0, Math.floor((maxY - lat) / (maxY - minY) * height))); // 北が上なのでY反転
+
+  try {
+    // 1ピクセルだけをHTTPレンジリクエストで取得(全体ダウンロードを避ける)
+    const data = await image.readRasters({ window: [px, py, px + 1, py + 1] });
+    const value = data[0][0];
+    // WRIのGeoTIFFは陸地以外・データ欠損を負値やごく大きな値で表すため、妥当な範囲外は「データなし」とする
+    if (value === null || value === undefined || value < 0 || value > 50) return null;
+    return value;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Aqueduct Floods結果セクション(ラジオボタン+浸水深表示)のHTMLを生成する
+function aqueductResultHtml(depth, rp) {
+  const rpOptions = AQUEDUCT_RETURN_PERIODS.map(p => `
+    <label>
+      <input type="radio" name="aqueductRP" value="${p}" ${p === rp ? 'checked' : ''} onchange="onAqueductRPChange(this.value)">
+      ${p}-year
+    </label>
+  `).join('');
+  const valueHtml = depth === null
+    ? `<div class="aqueduct-depth-value" style="color:var(--text-faint);">No data (outside coverage)</div>`
+    : `<div class="aqueduct-depth-value">Simulated flood depth: ${depth.toFixed(2)}m</div>`;
+  return `
+    <div class="aqueduct-result">
+      <div class="aqueduct-rp-group">${rpOptions}</div>
+      ${valueHtml}
+      <div class="aqueduct-depth-note">WRI Aqueduct Floods (riverine, historical baseline, ${rp}-year return period)</div>
+    </div>
+  `;
+}
+
+// ラジオボタンで再現期間が切り替わった時: 通信済みの最後の検索地点に対してのみ再計算する(全体を再検索しない)
+async function onAqueductRPChange(rpStr) {
+  const rp = parseInt(rpStr, 10);
+  aqueductSelectedRP = rp;
+  if (lastQueriedLatLon) {
+    const resultEl = document.getElementById('aqueductResult');
+    if (resultEl) {
+      resultEl.innerHTML = aqueductResultHtml(null, rp); // 取得中は一旦「データなし」表示で待たせる
+      const depth = await aqueductDepthAt(lastQueriedLatLon.lat, lastQueriedLatLon.lon, rp);
+      resultEl.innerHTML = aqueductResultHtml(depth, rp);
+    }
+  }
+  // 地図のヒートマップも、地点検索と同じ再現期間(RP)のデータに合わせて更新する
+  buildAqueductFloodsHeatmap(rp);
+}
+
+// Aqueduct Floods 地図ヒートマップ: 地点検索と同じ浸水深(m)データを流用する。
+// data/aqueduct_floods_rp{RP}.geojson は、地点検索用COGを事前に間引いたグリッド
+// (properties.depth_m)で、fetch_aqueduct.pyが同じダウンロード元から一緒に生成する。
+const AQUEDUCT_HEATMAP_MAX_DEPTH_M = 5; // これ以上の深さは全て最大強度(1.0)として表示する目安値
+let aqueductHeatLayerRef = null;
+const aqueductHeatmapCache = {}; // rp -> geojson(切替のたびに再取得しないためのキャッシュ)
+
+async function buildAqueductFloodsHeatmap(rp) {
+  if (aqueductHeatLayerRef) {
+    layerGroups.aqueductFloods.removeLayer(aqueductHeatLayerRef);
+    aqueductHeatLayerRef = null;
+  }
+  let geojson = aqueductHeatmapCache[rp];
+  if (geojson === undefined) {
+    geojson = await fetchGeojsonSafe(`data/aqueduct_floods_rp${rp}.geojson`);
+    aqueductHeatmapCache[rp] = geojson;
+  }
+  if (!geojson) return;
+
+  const heatPoints = geojson.features
+    .map(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const depth = f.properties?.depth_m;
+      if (typeof depth !== 'number') return null;
+      return [lat, lon, Math.min(1, depth / AQUEDUCT_HEATMAP_MAX_DEPTH_M)];
+    })
+    .filter(Boolean);
+  aqueductHeatLayerRef = L.heatLayer(heatPoints, { radius: 40, blur: 32, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT });
+  aqueductHeatLayerRef.addTo(layerGroups.aqueductFloods);
+}
+
+function riskLegendHtml(colors, ratio) {
+  const useColors = colors || WARNING_TIER_COLORS;
+  const bar = useColors.map(c => `<span style="background:${c};"></span>`).join('');
+  const hasMarker = typeof ratio === 'number' && !isNaN(ratio);
+  // マーカーは棒の左右端で見切れないよう、ごくわずかに内側へクランプする
+  const pct = hasMarker ? Math.min(99, Math.max(1, ratio * 100)) : 0;
+  return `
+    <div class="risk-legend">
+      <div class="risk-legend-bar-wrap">
+        ${hasMarker ? `<div class="risk-legend-marker" style="left:${pct.toFixed(1)}%;">▼</div>` : ''}
+        <div class="risk-legend-bar">${bar}</div>
+      </div>
+    </div>
+    <div class="risk-legend-labels"><span>Low</span><span>Moderate</span><span>High</span><span>Severe</span><span>Extreme</span></div>
+  `;
+}
+
+// Category1+台風の発生頻度(再現期間)の表示。過去の最大値(バッジ本体)とは別の指標なので、
+// 混同されないよう「past N years」を明記し、不確実性の90%区間もあわせて示す。
+function typhoonFreqHtml(freq) {
+  if (!freq.observed) {
+    return `<div class="result-freq">Category 1+ typhoon: not observed within 200km in past ${freq.totalYears}yrs (insufficient data for a frequency estimate)</div>`;
+  }
+  return `<div class="result-freq">Category 1+ frequency: ~${freq.returnPeriod.toFixed(1)}yr return period (annual prob. ${(freq.pAnnual * 100).toFixed(0)}%, 90% CI: ${freq.ciLow.toFixed(1)}–${freq.ciHigh.toFixed(1)}yr, based on ${freq.totalYears}yrs of data)</div>`;
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// 度単位のざっくりした絞り込み(重い三角関数を使うhaversineの前段フィルタとして使う)。
+// 緯度1度は約111km固定。経度は高緯度ほど短くなるが、ここでは安全側に倍のマージンを取って簡略化する。
+function degBboxFilter(lat, lon, flat, flon, radiusKm) {
+  const degMargin = (radiusKm / 111) * 1.5;
+  return Math.abs(lat - flat) <= degMargin && Math.abs(lon - flon) <= degMargin;
+}
+
+// 地震: 周辺100km以内の地震のうち、マグニチュードと震源距離を組み合わせた実効的な
+// 危険度が最大のものを判定に使う。以前は「100km以内の最大マグニチュード」を二値判定
+// (圏内/圏外)していたため、5km先のM6.0も95km先のM6.0も同じ扱いになっていた。
+// lightningと同じ考え方で、震源距離に応じて線形減衰させる(100kmでゼロ)ようにした。
+// マグニチュード側はM5.0=0.0、M7.5以上=1.0となるよう線形正規化しており、震源距離ゼロの
+// 場合に旧来の固定閾値(M5.5/6.0/6.5/7.0で1段階ずつ)とちょうど一致するよう調整してある。
+function earthquakeRiskInfo(lat, lon) {
+  if (!earthquakeGeojsonCache) return null;
+  let best = null; // { mag, dist, effective }
+  earthquakeGeojsonCache.features.forEach(f => {
+    const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 100)) return; // 先に安価な絞り込み
+    const mag = f.properties?.mag;
+    if (typeof mag !== 'number') return;
+    const dist = haversineKm(lat, lon, flat, flon);
+    if (dist > 100) return;
+    const falloff = Math.max(0, 1 - dist / 100);
+    const magRatio = Math.min(1, Math.max(0, (mag - 5.0) / 2.5));
+    const effective = magRatio * falloff;
+    if (!best || effective > best.effective) best = { mag, dist, effective };
+  });
+  // 100km境界付近のごく微弱な値はノイズとして扱い、「データなし」と同様に無視する
+  if (!best || best.effective <= 0.02) return null;
+  const tier = Math.min(4, Math.floor(best.effective * 5));
+  return { tier, ratio: best.effective, color: EARTHQUAKE_TIER_COLORS[tier], valueLabel: `M${best.mag.toFixed(1)}, ${Math.round(best.dist)}km` };
+}
+function earthquakeTileColor(lat, lon) {
+  const info = earthquakeRiskInfo(lat, lon);
+  return info ? info.color : null;
+}
+
+// 台風: 指定地点での推定風速(r34_kmがあれば線形補間、無ければ固定半径フォールバック)を、
+// 米国のSaffir-Simpson階級(Category 1〜5)で判定する。Category1未満(tropical storm)は対象外。
+function typhoonRiskInfo(lat, lon) {
+  const estWind = typhoonWindEstimateAt(lat, lon);
+  const tr = typhoonWindToTierRatio(estWind);
+  if (!tr) return null;
+  return { tier: tr.tier, ratio: tr.ratio, color: WARNING_TIER_COLORS[tr.tier], valueLabel: `Category ${tr.tier + 1}, ~${Math.round(estWind)}kt at this point` };
+}
+function typhoonTileColor(lat, lon) {
+  const info = typhoonRiskInfo(lat, lon);
+  return info ? info.color : null;
+}
+
+// 台風の発生頻度(再現期間)を、周辺200km以内・過去のデータ期間全体から統計的に推定する。
+// 「Category3バッジ」が過去の最大値(1個のイベント)を示すのに対し、こちらは
+// 「Category1以上が平均どれくらいの頻度で来るか」という発生回数(頻度)の指標で、別物。
+// 2026年8月実装: 年ごとにCategory1+の発生回数をカウントし、ポアソン分布で
+// 年間発生確率・再現期間を点推定。加えて、年別データを1000回ブートストラップ再抽出して
+// (11年程度の少ないデータに由来する)推定の不確実性を90%区間として示す。
+// 対数正規分布などの連続分布は「0回の年」を表現できないため採用していない(過去の検討より)。
+function typhoonReturnPeriodInfo(lat, lon) {
+  if (!typhoonGeojsonCacheGlobal) return null;
+  const years = typhoonGeojsonCacheGlobal.features
+    .map(f => f.properties?.start_time ? new Date(f.properties.start_time).getFullYear() : null)
+    .filter(y => y !== null);
+  if (years.length === 0) return null;
+  const minYear = Math.min(...years), maxYear = Math.max(...years);
+  const totalYears = maxYear - minYear + 1;
+
+  // 年ごとにCategory1+の発生回数をカウント(r34_kmがあれば線形補間、無ければ固定半径フォールバック)
+  const countByYear = {};
+  for (let y = minYear; y <= maxYear; y++) countByYear[y] = 0;
+  typhoonGeojsonCacheGlobal.features.forEach(f => {
+    const estWind = estimateStormWindAt(f, lat, lon);
+    if (estWind === null || estWind < TYPHOON_CATEGORY_BOUNDS_KT[0]) return; // Category1未満は対象外
+    const y = f.properties?.start_time ? new Date(f.properties.start_time).getFullYear() : null;
+    if (y !== null && countByYear[y] !== undefined) countByYear[y]++;
+  });
+  const counts = Object.values(countByYear);
+  const totalEvents = counts.reduce((s, c) => s + c, 0);
+
+  if (totalEvents === 0) return { totalYears, observed: false };
+
+  // 点推定(ポアソン分布): lambda = 年平均発生回数
+  const lambda = totalEvents / totalYears;
+  const pAnnual = 1 - Math.exp(-lambda);
+  const returnPeriod = 1 / pAnnual;
+
+  // ブートストラップ(1000回、年単位で重複ありに再抽出)で不確実性の90%区間を求める
+  const BOOTSTRAP_N = 1000;
+  const rps = [];
+  for (let i = 0; i < BOOTSTRAP_N; i++) {
+    let sampleSum = 0;
+    for (let j = 0; j < counts.length; j++) {
+      sampleSum += counts[Math.floor(Math.random() * counts.length)];
+    }
+    const lamB = sampleSum / counts.length;
+    if (lamB === 0) continue; // この試行では「発生なし」となり再現期間は定義できないため除外
+    const pB = 1 - Math.exp(-lamB);
+    rps.push(1 / pB);
+  }
+  rps.sort((a, b) => a - b);
+  const pct = (p) => rps.length ? rps[Math.min(rps.length - 1, Math.floor(rps.length * p))] : null;
+
+  return {
+    totalYears, observed: true, totalEvents, pAnnual, returnPeriod,
+    ciLow: pct(0.05), ciHigh: pct(0.95),
+  };
+}
+
+// 雷: 既知の落雷多発地点までの距離から密度を推定し5段階に変換
+function lightningRiskInfo(lat, lon) {
+  if (!lightningGeojsonCacheGlobal) return null;
+  let nearest = null, nearestDist = Infinity;
+  lightningGeojsonCacheGlobal.features.forEach(f => {
+    const [slon, slat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, slat, slon, 80)) return;
+    const d = haversineKm(lat, lon, slat, slon);
+    if (d < nearestDist) { nearestDist = d; nearest = f.properties?.risk; }
+  });
+  if (nearest === null || nearest === undefined || nearestDist > 80) return null;
+  // 格子点(約55km間隔)からの距離で緩やかに減衰させ、格子の境目が不自然に見えないようにする
+  const falloff = Math.max(0, 1 - nearestDist / 80);
+  const ratio = nearest * falloff;
+  if (ratio <= 0.05) return null;
+  const tier = Math.min(4, Math.floor(ratio * 5));
+  return { tier, ratio, color: WARNING_TIER_COLORS[tier], valueLabel: ratio.toFixed(2) };
+}
+function lightningTileColor(lat, lon) {
+  const info = lightningRiskInfo(lat, lon);
+  return info ? info.color : null;
+}
+
+// 洪水: 周辺80km以内で最も近い洪水記録の冠水面積を5段階に変換
+function floodTileColor(lat, lon) {
+  if (!floodGeojsonCacheGlobal) return null;
+  let nearestArea = null, nearestDist = Infinity;
+  floodGeojsonCacheGlobal.features.forEach(f => {
+    const area = f.properties?.affected_sq_km;
+    if (typeof area !== 'number') return;
+    const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 80)) return;
+    const d = haversineKm(lat, lon, flat, flon);
+    if (d <= 80 && d < nearestDist) { nearestDist = d; nearestArea = area; }
+  });
+  if (nearestArea === null) return null;
+  const ratio = Math.min(1, nearestArea / 5000);
+  return WARNING_TIER_COLORS[Math.min(4, Math.floor(ratio * 5))];
+}
 
 
-def _cache_has_all_points(cache, grid_points, year):
-    """
-    その年が「完全に取得済み」かを判定する(Trueならその年の取得をスキップする)。
-    2026年8月改訂: 次の2条件を両方満たす場合のみTrueを返す。
-      (1) _progressが12(12ヶ月すべて処理済み)
-      (2) 取得成功率がMIN_YEAR_COVERAGE以上
-    (2)を入れた理由: サーバー不調で中身がスカスカな年を「完了」とみなしてスキップすると、
-    年最大値を過小評価したまま確定してしまう。カバレッジ不足の年は再取得の対象に戻す。
-    """
-    if cache.get("_progress", {}).get(str(year)) != 12:
-        return False
-    c = cache.get("_coverage", {}).get(str(year))
-    if c:
-        total = c.get("ok", 0) + c.get("failed", 0)
-        if total and (c.get("ok", 0) / total) < MIN_YEAR_COVERAGE:
-            return False  # 欠測が多すぎるので取り直す
-    for pt in grid_points:
-        key = f"{pt[0]},{pt[1]}"
-        if cache.get(key, {}).get(str(year)) is None:
-            return False
-    return True
+// so failed lookups are retried automatically before surfacing an error.
+// ==== Point lookup: elevation + comparison with 8 surrounding points ====
+// Open-Elevation supports CORS for direct browser calls (unlike the free tier of
+// Open-Topo-Data, which requires a paid plan for CORS). It's occasionally flaky,
+// so failed lookups are retried automatically before surfacing an error.
+const OPEN_ELEVATION_URL = 'https://api.open-elevation.com/api/v1/lookup';
+const ELEVATION_MAX_RETRIES = 2;
+const DIRS = [
+  { name: 'N', dLat: 1, dLon: 0 }, { name: 'NE', dLat: 1, dLon: 1 },
+  { name: 'E', dLat: 0, dLon: 1 }, { name: 'SE', dLat: -1, dLon: 1 },
+  { name: 'S', dLat: -1, dLon: 0 }, { name: 'SW', dLat: -1, dLon: -1 },
+  { name: 'W', dLat: 0, dLon: -1 }, { name: 'NW', dLat: 1, dLon: -1 },
+];
+const SEARCH_RADIUS_M = 100;
 
+// 検索地点周辺を細かい格子(グリッド)状にサンプリングして面で塗るための設定。
+// 2km四方をカバーする設計のため半径1000m(9x9=81マス、余白込みの実際の被覆範囲は
+// 一辺約2.25km)。2026年8月: 半径1500m(約3.25km四方)になっていたのを、
+// 本来の2km四方設計に合わせて修正。
+const GRID_RADIUS_M = 1000;
+const GRID_CELL_M = 250; // 1マスのサイズは今までと同じ(精細さを保つ)
+const GRID_STEPS = GRID_RADIUS_M / GRID_CELL_M; // 半径1000m ÷ 250m = 4マスずつ = 9x9グリッド
 
-if __name__ == "__main__":
-    main()
+let searchMarkerLayer;
+let searchGridLayers = {}; // ハザードキーごとのタイルレイヤー(それぞれ対応するチップと連動)
+
+function elevationToRiskInfo(elevation) {
+  if (elevation < 3) return { label: 'High risk (< 3m)', color: '#C13A2E' };
+  if (elevation < 5) return { label: 'Watch zone (3–5m)', color: '#D9722C' };
+  if (elevation < 10) return { label: 'Transition zone (5–10m)', color: '#D9A22C' };
+  return { label: 'Relatively low risk (10m+)', color: '#4E7BA8' };
+}
+
+// elevationToRiskInfoのラベルを0〜1の数値リスクに変換(水害ハザードの合成に使う)
+function elevRiskValueFromLabel(info) {
+  switch (info.label) {
+    case 'High risk (< 3m)': return 1.0;
+    case 'Watch zone (3–5m)': return 0.75;
+    case 'Transition zone (5–10m)': return 0.4;
+    default: return 0.1;
+  }
+}
+
+// 事前生成された降雨強度グリッド(data/rainfall_risk.geojson)から、最寄りの値を参照する。
+// データが存在しない(CHIRPS対象外・未生成)場合は null を返す。
+function rainfallRiskAt(lat, lon) {
+  if (!rainfallGeojsonCacheGlobal) return null;
+  let nearestRisk = null, nearestDist = Infinity, foundNoData = false;
+  rainfallGeojsonCacheGlobal.features.forEach(f => {
+    const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 150)) return;
+    const d = haversineKm(lat, lon, flat, flon);
+    if (d < nearestDist) {
+      nearestDist = d;
+      const p = f.properties || {};
+      if (p.no_data) { foundNoData = true; nearestRisk = null; }
+      else { foundNoData = false; nearestRisk = p.risk; }
+    }
+  });
+  if (foundNoData || nearestRisk === null) return null;
+  return nearestRisk;
+}
+
+// 降雨の再現期間(2026年8月実装、Aqueduct Floodsの10年/100年切替と同じ発想)。
+// fetch_rainfall.py側で20年分の年最大値にフィット済みのGumbel分布パラメータ
+// (gumbel_mu, gumbel_beta)を使い、固定の再現期間(10年/50年/100年)それぞれについて
+// 「その再現期間に相当する降水量(mm)」を逆算する。
+// 台風がポアソン分布(離散カウント)なのに対し、降雨は「年最大値」という連続量を扱うため
+// Gumbel分布(極値統計で標準的に使われる連続分布)を使う。
+// 逆関数: x_T = mu - beta * ln(-ln(1 - 1/T))  ※Tは再現期間(年)
+// 20年分のデータでは、50年・100年は観測期間の2.5〜5倍の外挿になり不確実性が非常に大きい
+// 点に注意(台風のCategory4/5と同種の限界)。10年(観測期間の半分)はおおむね妥当。
+const RAINFALL_RETURN_PERIODS_YR = [10, 50, 100];
+
+// 気候変動シナリオ(2026年8月実装)。
+// Gumbel分布は「降水量の統計的性質は時間で変わらない(定常性)」を前提にしており、
+// 気候変動による増加傾向を織り込めない。10年分のデータでは非定常GEV(時間依存パラメータ)で
+// トレンドを検出する統計的検出力が無いため、IPCCの知見に基づく係数を掛ける方式を採る。
+//
+// 根拠: IPCC AR6 第11章 — 年最大日降水量(Rx1day)の変化は世界平均地上気温の変化に比例し、
+// Clausius-Clapeyron関係に従って1℃の昇温あたり約7%増加する(観測・将来予測とも)。
+// 中国域の研究でも日降水量の極値は6〜7%/℃とほぼ同じ関係が確認されている。
+// このサイトが算出しているのはまさにRx1day(年最大24時間降水量)なので指標が一致する。
+//
+// 注意: これは「その昇温レベルに達した世界での想定値」であり、いつそうなるかを示すものではない。
+// 昇温量の選択(=どのSSPシナリオを想定するか)は利用者の判断に委ねる。
+const RAINFALL_CC_PCT_PER_DEG = 7; // %/℃(Clausius-Clapeyron関係)
+const RAINFALL_WARMING_SCENARIOS = [0, 1.5, 2, 3]; // ℃(0=現在の観測ベース)
+let rainfallSelectedWarming = 0;
+function rainfallReturnPeriodInfo(lat, lon) {
+  if (!rainfallGeojsonCacheGlobal) return null;
+  let nearest = null, nearestDist = Infinity;
+  rainfallGeojsonCacheGlobal.features.forEach(f => {
+    const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 150)) return;
+    const d = haversineKm(lat, lon, flat, flon);
+    if (d < nearestDist) { nearestDist = d; nearest = f.properties || {}; }
+  });
+  if (!nearest || typeof nearest.gumbel_mu !== 'number' || typeof nearest.gumbel_beta !== 'number') {
+    return null; // 旧形式データ(Gumbelパラメータ未生成)の場合は表示しない
+  }
+  const { gumbel_mu: mu, gumbel_beta: beta, years_used: yearsUsed } = nearest;
+  // 選択中の昇温シナリオに応じた気候変動係数(0℃なら1.0=観測ベースのまま)
+  const ccFactor = 1 + (RAINFALL_CC_PCT_PER_DEG / 100) * rainfallSelectedWarming;
+  const results = RAINFALL_RETURN_PERIODS_YR.map(T => {
+    const baseMm = mu - beta * Math.log(-Math.log(1 - 1 / T));
+    return { years: T, mm: baseMm * ccFactor };
+  });
+  return { results, yearsUsed, warming: rainfallSelectedWarming };
+}
+
+function rainfallFreqHtml(freq) {
+  if (!freq) return '';
+  // 観測年数の2倍を超える再現期間は外挿の不確実性が非常に大きいため注記を付ける
+  const anyExtrapolated = freq.results.some(r => r.years > freq.yearsUsed * 2);
+  const rows = freq.results.map(r => {
+    const extrapolated = r.years > freq.yearsUsed * 2;
+    return `${r.years}yr: ~${r.mm.toFixed(0)}mm${extrapolated ? '*' : ''}`;
+  }).join(' / ');
+  const note = anyExtrapolated ? `<br>*観測年数(${freq.yearsUsed}年)を大きく超える外挿のため不確実性大` : '';
+
+  // 昇温シナリオの切替(Aqueduct Floodsの10年/100年ラジオボタンと同じ操作感に揃える)
+  const scenarioOptions = RAINFALL_WARMING_SCENARIOS.map(w => `
+    <label>
+      <input type="radio" name="rainfallWarming" value="${w}" ${w === freq.warming ? 'checked' : ''} onchange="onRainfallWarmingChange(this.value)">
+      ${w === 0 ? 'Current' : `+${w}°C`}
+    </label>
+  `).join('');
+  const scenarioNote = freq.warming === 0
+    ? '観測値(1981年以降のCHIRPS実測に基づく)'
+    : `+${freq.warming}°C昇温時の想定値(IPCC AR6: Rx1dayは約${RAINFALL_CC_PCT_PER_DEG}%/°C増加。到達時期を示すものではない)`;
+
+  // 「〇年に1度」は上限ではなく、平均的にその量を超える頻度の目安であることを一言添える
+  return `<div class="result-freq" id="rainfallFreq">
+    <div class="aqueduct-rp-group" style="margin-bottom:3px;">${scenarioOptions}</div>
+    Rainfall return period (24h): ${rows}${note}, based on ${freq.yearsUsed}yrs of data
+    <br>${scenarioNote}
+    <br>(値はその量を超える頻度の目安。稀に短期間で再び超えることもある)
+  </div>`;
+}
+
+// ラジオボタンで昇温シナリオが切り替わった時: 直前の検索地点に対してのみ再計算する。
+// 降雨の再現期間はGumbelパラメータからその場で算出できるため、通信は発生しない。
+function onRainfallWarmingChange(warmingStr) {
+  rainfallSelectedWarming = parseFloat(warmingStr);
+  if (!lastQueriedLatLon) return;
+  const el = document.getElementById('rainfallFreq');
+  if (!el) return;
+  const freq = rainfallReturnPeriodInfo(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
+  el.outerHTML = rainfallFreqHtml(freq);
+}
+
+function metersToDegLat(m) { return m / 111000; }
+function metersToDegLon(m, lat) { return m / (111000 * Math.cos(lat * Math.PI / 180)); }
+
+async function fetchElevations(locations) {
+  for (let attempt = 1; attempt <= ELEVATION_MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(OPEN_ELEVATION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locations }),
+      });
+      if (!res.ok) throw new Error('elevation api error');
+      const data = await res.json();
+      const results = data.results || [];
+      if (results.length < locations.length) throw new Error('insufficient results');
+      return results.map(r => r.elevation);
+    } catch (e) {
+      if (attempt === ELEVATION_MAX_RETRIES) throw e;
+    }
+  }
+}
+
+async function queryPoint(lat, lon) {
+  const resultEl = document.getElementById('searchResult');
+  if (BADGE_LAYER_KEYS.some(k => activeLayers.has(k))) {
+    resultEl.className = 'search-result visible';
+    resultEl.innerHTML = '<div class="result-elev">Fetching…</div>';
+  }
+
+  // Aqueduct Floods: 標高・降雨などの取得と並行して、その場でGeoTIFFのピクセルを読みに行く
+  // (他の項目とは完全に独立した処理・データソースのため、Promiseは待ち合わせない)
+  const aqueductWrapEl = document.getElementById('aqueductResultWrap');
+  const aqueductResultEl = document.getElementById('aqueductResult');
+  lastQueriedLatLon = { lat, lon };
+  if (activeLayers.has('aqueductFloods')) {
+    aqueductWrapEl.className = 'search-result visible';
+    aqueductResultEl.innerHTML = aqueductResultHtml(null, aqueductSelectedRP);
+    aqueductDepthAt(lat, lon, aqueductSelectedRP).then(depth => {
+      // 切替や再検索が割り込んでいたら(=座標が変わっていたら)この結果は捨てる
+      if (lastQueriedLatLon && lastQueriedLatLon.lat === lat && lastQueriedLatLon.lon === lon) {
+        aqueductResultEl.innerHTML = aqueductResultHtml(depth, aqueductSelectedRP);
+      }
+    });
+  } else {
+    aqueductWrapEl.className = 'search-result';
+    aqueductResultEl.innerHTML = '';
+  }
+
+  const dLat = metersToDegLat(SEARCH_RADIUS_M);
+  const dLon = metersToDegLon(SEARCH_RADIUS_M, lat);
+  const locations = [{ latitude: lat, longitude: lon }];
+  DIRS.forEach(d => locations.push({ latitude: lat + d.dLat * dLat, longitude: lon + d.dLon * dLon }));
+
+  // 500m圏内の9x9グリッド(各マス約125m四方)の中心座標を用意
+  const cellDLat = metersToDegLat(GRID_CELL_M);
+  const gridCells = [];
+  for (let i = -GRID_STEPS; i <= GRID_STEPS; i++) {
+    for (let j = -GRID_STEPS; j <= GRID_STEPS; j++) {
+      const cellLat = lat + i * cellDLat;
+      const cellDLon = metersToDegLon(GRID_CELL_M, cellLat);
+      gridCells.push({ lat: cellLat, lon: lon + j * cellDLon });
+    }
+  }
+  const gridLocations = gridCells.map(c => ({ latitude: c.lat, longitude: c.lon }));
+
+  try {
+    const [elevations, gridElevations] = await Promise.all([
+      fetchElevations(locations),
+      fetchElevations(gridLocations),
+    ]);
+
+    const centerElev = elevations[0];
+    const surrounding = elevations.slice(1).map((elev, i) => ({ name: DIRS[i].name, elev }));
+    const avgSurrounding = surrounding.reduce((s, d) => s + d.elev, 0) / surrounding.length;
+    const diff = avgSurrounding - centerElev;
+
+    let compareLabel;
+    if (diff >= 1) compareLabel = 'Sits noticeably lower than its surroundings';
+    else if (diff >= 0.5) compareLabel = 'Slightly lower than its surroundings';
+    else if (diff > -0.5) compareLabel = 'About level with its surroundings';
+    else compareLabel = 'Higher than its surroundings — relatively favorable';
+
+    // バッジは「水害ハザード」の統合値(降雨×標高の高い方 × 洪水実績の重み)で判定する。
+    // 方角グリッド・標高差テキストは、引き続き標高そのものを参考情報として表示する。
+    // 湖の近接判定は、Overpass API(OpenStreetMap)にこの検索1回につき1回だけ問い合わせる
+    // (169マス個別には問い合わせず、結果を使い回すことで通信回数を抑える)。
+    const lakePoints = activeLayers.has('waterHazard')
+      ? await fetchNearbyLakePoints(lat, lon, GRID_RADIUS_M + 2000)
+      : [];
+
+    const elevRiskInfo = elevationToRiskInfo(centerElev);
+    const rainfallRiskHere = rainfallRiskAt(lat, lon);
+    const noRainDataHere = rainfallRiskHere === null;
+    const tierLabels = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
+    let waterBadge;
+    if (noRainDataHere) {
+      waterBadge = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS };
+    } else {
+      const proximity = waterProximityMultiplier(lat, lon, lakePoints);
+      const baseRisk = Math.max(rainfallRiskHere, elevRiskValueFromLabel(elevRiskInfo) * proximity);
+      const weight = floodWeightAt(lat, lon);
+      const finalRisk = Math.min(1.0, baseRisk * weight);
+      const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
+      const rainfallFreq = rainfallReturnPeriodInfo(lat, lon);
+      waterBadge = { label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk, freqInfo: rainfallFreq, freqHtmlFn: rainfallFreqHtml };
+    }
+
+    // 地震・台風・雷は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)が、
+    // 表示更新のタイミングは水害と揃えて1回にまとめている
+    const badges = [];
+    if (activeLayers.has('earthquake')) {
+      const info = earthquakeRiskInfo(lat, lon);
+      badges.push(info
+        ? { label: `${tierLabels[info.tier]} earthquake hazard (${info.valueLabel})`, color: info.color, colors: EARTHQUAKE_TIER_COLORS, ratio: info.ratio }
+        : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS });
+    }
+    if (activeLayers.has('typhoonHazard')) {
+      const info = typhoonRiskInfo(lat, lon);
+      const freq = typhoonReturnPeriodInfo(lat, lon);
+      badges.push({
+        ...(info
+          ? { label: `${tierLabels[info.tier]} typhoon hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
+          : { label: 'No Category 1+ typhoon impact at this point', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS }),
+        freqInfo: freq, freqHtmlFn: typhoonFreqHtml,
+      });
+    }
+    if (activeLayers.has('lightning')) {
+      const info = lightningRiskInfo(lat, lon);
+      badges.push(info
+        ? { label: `${tierLabels[info.tier]} lightning hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
+        : { label: 'No significant lightning density nearby', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
+    }
+    if (activeLayers.has('waterHazard')) badges.push(waterBadge);
+
+    if (badges.length > 0) {
+      resultEl.className = 'search-result visible';
+      resultEl.innerHTML = `
+        ${badges.map(b => `
+          <span class="result-badge" style="background:${b.color};">${b.label}</span>
+          ${riskLegendHtml(b.colors, b.ratio)}
+          ${b.freqInfo && b.freqHtmlFn ? b.freqHtmlFn(b.freqInfo) : ''}
+        `).join('<div style="height:8px;"></div>')}
+        ${activeLayers.has('waterHazard') ? `
+          <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
+        ` : ''}
+      `;
+    } else {
+      resultEl.className = 'search-result';
+      resultEl.innerHTML = '';
+    }
+
+    if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
+
+    // 半径1000m(一辺約2.25km、2km四方設計)圏内を、各ハザードのリスクに応じた色のタイルで塗る
+    // (地震・台風・雷はローカルデータのみ、追加通信なし)
+    const hazardTileFns = {
+      earthquake: earthquakeTileColor,
+      typhoonHazard: typhoonTileColor,
+      lightning: lightningTileColor,
+    };
+
+    Object.entries(searchGridLayers).forEach(([key, layer]) => {
+      if (layer) layerGroups[key].removeLayer(layer);
+    });
+    searchGridLayers = {};
+
+    Object.entries(hazardTileFns).forEach(([key, fn]) => {
+      if (!activeLayers.has(key)) return; // チップがOFFなら、そもそもタイルを生成しない(表示崩れの防止)
+      const layer = L.layerGroup();
+      let any = false;
+      gridCells.forEach((cell, idx) => {
+        const color = fn(cell.lat, cell.lon);
+        if (!color) return;
+        any = true;
+        const halfLat = cellDLat / 2;
+        const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
+        L.rectangle(
+          [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
+          { color, weight: 0, fillColor: color, fillOpacity: 0.45 }
+        ).addTo(layer);
+      });
+      if (any) {
+        layer.addTo(layerGroups[key]);
+        searchGridLayers[key] = layer;
+      }
+    });
+
+    // 水害ハザードのタイル: 標高は実測API値(このマス)、降雨強度は最寄りの事前生成データ、
+    // 洪水実績は重みとしてのみ使用。海上のマスは除外。チップがOFFなら生成自体をスキップする。
+    if (activeLayers.has('waterHazard')) {
+    const waterGridLayer = L.layerGroup();
+    gridCells.forEach((cell, idx) => {
+      if (!isOnLand(cell.lat, cell.lon)) return;
+      const cellElev = gridElevations[idx];
+      const elevRiskInfo = elevationToRiskInfo(cellElev);
+      const elevRiskValue = elevRiskValueFromLabel(elevRiskInfo);
+      const rainfallRiskValue = rainfallRiskAt(cell.lat, cell.lon);
+      // データなしのマスは何も描かない(「No data」の明示はテキストバッジ側に一本化)
+      if (rainfallRiskValue === null) return;
+
+      const halfLat = cellDLat / 2;
+      const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
+
+      const baseRisk = Math.max(rainfallRiskValue, elevRiskValue * waterProximityMultiplier(cell.lat, cell.lon, lakePoints));
+      const weight = floodWeightAt(cell.lat, cell.lon);
+      const finalRisk = Math.min(1.0, baseRisk * weight);
+      const tileColor = WARNING_TIER_COLORS[Math.min(4, Math.max(0, Math.floor(finalRisk * 5) - (finalRisk === 0 ? 1 : 0)))] ;
+      if (finalRisk <= 0) return;
+      L.rectangle(
+        [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
+        { color: tileColor, weight: 0, fillColor: tileColor, fillOpacity: 0.45 }
+      ).addTo(waterGridLayer);
+    });
+    waterGridLayer.addTo(layerGroups.waterHazard);
+    searchGridLayers.waterHazard = waterGridLayer;
+    }
+
+    // 指定地点そのものは📍ピンで表示(どのチップの状態にも関わらず常に表示)
+    searchMarkerLayer = L.marker([lat, lon], {
+      icon: L.divIcon({
+        html: '<div style="font-size:26px;line-height:1;transform:translateY(-4px);">📍</div>',
+        className: '',
+        iconSize: [26, 26],
+        iconAnchor: [13, 26],
+      }),
+    }).addTo(map);
+
+    map.setView([lat, lon], Math.max(map.getZoom(), 13));
+  } catch (e) {
+    resultEl.innerHTML = '<div class="result-elev">Could not fetch elevation data. Please try again shortly.</div>';
+  }
+}
+
+// ==== GCJ-02(百度地図・高徳地図などが使う中国独自座標系)→ WGS84 変換 ====
+// 公開されているeviltransform等のアルゴリズムに準拠した標準的な変換式。
+// 中国国外の座標は変換対象外(規制自体が中国国内向けのため)。
+function outOfChina(lat, lon) {
+  return lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271;
+}
+
+function gcj02Delta(lat, lon) {
+  const a = 6378245.0;
+  const ee = 0.00669342162296594323;
+  let dLat = -100.0 + 2.0 * lon + 3.0 * lat + 0.2 * lat * lat + 0.1 * lon * lat + 0.2 * Math.sqrt(Math.abs(lon));
+  dLat += (20.0 * Math.sin(6.0 * lon * Math.PI) + 20.0 * Math.sin(2.0 * lon * Math.PI)) * 2.0 / 3.0;
+  dLat += (20.0 * Math.sin(lat * Math.PI) + 40.0 * Math.sin(lat / 3.0 * Math.PI)) * 2.0 / 3.0;
+  dLat += (160.0 * Math.sin(lat / 12.0 * Math.PI) + 320 * Math.sin(lat * Math.PI / 30.0)) * 2.0 / 3.0;
+
+  let dLon = 300.0 + lon + 2.0 * lat + 0.1 * lon * lon + 0.1 * lon * lat + 0.1 * Math.sqrt(Math.abs(lon));
+  dLon += (20.0 * Math.sin(6.0 * lon * Math.PI) + 20.0 * Math.sin(2.0 * lon * Math.PI)) * 2.0 / 3.0;
+  dLon += (20.0 * Math.sin(lon * Math.PI) + 40.0 * Math.sin(lon / 3.0 * Math.PI)) * 2.0 / 3.0;
+  dLon += (150.0 * Math.sin(lon / 12.0 * Math.PI) + 300.0 * Math.sin(lon / 30.0 * Math.PI)) * 2.0 / 3.0;
+
+  const radLat = lat / 180.0 * Math.PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - ee * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+  dLon = (dLon * 180.0) / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+  return { dLat, dLon };
+}
+
+function gcj02ToWgs84(lat, lon) {
+  if (outOfChina(lat, lon)) return { lat, lon };
+  const { dLat, dLon } = gcj02Delta(lat, lon);
+  return { lat: lat - dLat, lon: lon - dLon };
+}
+
+// BD-09(百度地図)→ GCJ-02 変換(百度独自の追加オフセットを取り除く)
+function bd09ToGcj02(lat, lon) {
+  const xPi = Math.PI * 3000.0 / 180.0;
+  const x = lon - 0.0065;
+  const y = lat - 0.006;
+  const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * xPi);
+  const theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * xPi);
+  return { lat: z * Math.sin(theta), lon: z * Math.cos(theta) };
+}
+
+function bd09ToWgs84(lat, lon) {
+  const gcj = bd09ToGcj02(lat, lon);
+  return gcj02ToWgs84(gcj.lat, gcj.lon);
+}
+
+document.getElementById('searchBtn').addEventListener('click', () => {
+  let lat = parseFloat(document.getElementById('searchLat').value);
+  let lon = parseFloat(document.getElementById('searchLon').value);
+  if (isNaN(lat) || isNaN(lon)) return;
+  // 緯度は-90〜90の範囲しかありえない。範囲外なら経度と入れ替わっている可能性が高いので自動補正する
+  // (百度地図など「経度,緯度」の順でコピーされるサイトからの貼り付けを想定)
+  if ((lat < -90 || lat > 90) && lon >= -90 && lon <= 90) {
+    [lat, lon] = [lon, lat];
+  }
+  const system = document.querySelector('input[name="coordSystem"]:checked').value;
+  if (system === 'gcj02') {
+    const converted = gcj02ToWgs84(lat, lon);
+    lat = converted.lat; lon = converted.lon;
+  } else if (system === 'bd09') {
+    const converted = bd09ToWgs84(lat, lon);
+    lat = converted.lat; lon = converted.lon;
+  }
+  queryPoint(lat, lon);
+});
+
+initMap();
+renderLayerBar();
+renderMethodology();
+updateLegend();
+loadEarthquakes();
+loadLightning();
+buildTyphoonHazard();
+buildWaterHazard();
+buildAqueductFloodsHeatmap(aqueductSelectedRP);
+
+// 地図タップは、以前はシングルタップで即検索していたが、地図を軽くタップ/パンする操作と
+// 誤操作しやすいため、長押し(500ms)専用に変更した。
+//
+// 【バグ修正 2026年8月・その2】当初はLeafletの'mousedown'イベントでタイマーを開始して
+// いたが、スマホでは全く動作しなかった。原因は、タッチ操作の「互換mousedownイベント」は
+// 指を触れた瞬間ではなく指を離した瞬間(touchend後)に初めて発火するため、押している間は
+// 一切発火せず、長押しの検知が原理的に不可能だったこと。native の touchstart/touchmove/
+// touchend を直接使う方式に変更し、押した瞬間から正しくタイマーを開始できるようにした。
+//
+// 【バグ修正 2026年8月・その3】その際、指のブレでLeaflet自身のパンが先に始まってしまう
+// のを防ごうとdragging機能を一時的に無効化していたが、これが原因で通常の1本指パンその
+// ものが機能しなくなった(touchstartの瞬間に毎回パンを止めてしまうため、Leaflet側が
+// ドラッグ開始を検知できなかった。2本指の場合はこの無効化処理を通らないため無事だった)。
+// dragging.disable/enableは撤去し、自前の移動量チェック(10px)とLeafletの'dragstart'/
+// 'zoomstart'イベントの両方で長押し判定をキャンセルする、素直な方式に戻した。
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+let longPressTimer = null;
+let longPressStartPoint = null;
+
+function cancelLongPress() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  longPressStartPoint = null;
+}
+
+function startLongPress(evt) {
+  const containerPoint = map.mouseEventToContainerPoint(evt);
+  const latlng = map.containerPointToLatLng(containerPoint);
+  longPressStartPoint = containerPoint;
+  clearTimeout(longPressTimer);
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null;
+    document.getElementById('searchLat').value = latlng.lat.toFixed(4);
+    document.getElementById('searchLon').value = latlng.lng.toFixed(4);
+    queryPoint(latlng.lat, latlng.lng);
+    if (navigator.vibrate) navigator.vibrate(10); // 長押しが認識されたことを伝える軽い振動(対応端末のみ)
+  }, LONG_PRESS_MS);
+}
+
+function moveLongPress(evt) {
+  if (!longPressTimer || !longPressStartPoint) return;
+  const pt = map.mouseEventToContainerPoint(evt);
+  if (pt.distanceTo(longPressStartPoint) > LONG_PRESS_MOVE_TOLERANCE_PX) cancelLongPress();
+}
+
+const mapContainer = map.getContainer();
+
+// タッチ操作(スマホ): touchstartは指を触れた瞬間に発火するため、ここでタイマーを開始する
+mapContainer.addEventListener('touchstart', (e) => {
+  if (e.touches.length !== 1) { cancelLongPress(); return; } // 2本指以降(ピンチ操作等)は対象外
+  e.preventDefault(); // OS標準の長押しメニューを抑止し、後続の合成mousedownの重複発火も防ぐ
+  startLongPress(e.touches[0]);
+}, { passive: false });
+mapContainer.addEventListener('touchmove', (e) => {
+  if (e.touches.length !== 1) return;
+  moveLongPress(e.touches[0]);
+}, { passive: true });
+mapContainer.addEventListener('touchend', cancelLongPress, { passive: true });
+mapContainer.addEventListener('touchcancel', cancelLongPress, { passive: true });
+
+// マウス操作(PC): mousedownは押した瞬間に発火するため、そのまま使える
+mapContainer.addEventListener('mousedown', startLongPress);
+mapContainer.addEventListener('mousemove', moveLongPress);
+mapContainer.addEventListener('mouseup', cancelLongPress);
+
+// 実際にLeaflet側でパン/ズームが始まった場合も、念のため長押し判定を確実にキャンセルする
+map.on('dragstart zoomstart', cancelLongPress);
+
+// ブラウザの右クリックメニュー(PC)が独自の長押し検索と競合しないよう抑止する
+mapContainer.addEventListener('contextmenu', (e) => e.preventDefault());
+</script>
+</body>
+</html>
