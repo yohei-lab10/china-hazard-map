@@ -1404,13 +1404,7 @@ function rainfallReturnPeriodInfo(lat, lon) {
 
 function rainfallFreqHtml(freq) {
   if (!freq) return '';
-  // 観測年数の2倍を超える再現期間は外挿の不確実性が非常に大きいため注記を付ける
-  const anyExtrapolated = freq.results.some(r => r.years > freq.yearsUsed * 2);
-  const rows = freq.results.map(r => {
-    const extrapolated = r.years > freq.yearsUsed * 2;
-    return `${r.years}yr: ~${r.mm.toFixed(0)}mm${extrapolated ? '*' : ''}`;
-  }).join(' / ');
-  const note = anyExtrapolated ? `<br>*観測年数(${freq.yearsUsed}年)を大きく超える外挿のため不確実性大` : '';
+  const rows = freq.results.map(r => `${r.years}yr: ~${r.mm.toFixed(0)}mm`).join(' / ');
 
   // 昇温シナリオの切替(Aqueduct Floodsの10年/100年ラジオボタンと同じ操作感に揃える)
   const scenarioOptions = RAINFALL_WARMING_SCENARIOS.map(w => `
@@ -1419,16 +1413,14 @@ function rainfallFreqHtml(freq) {
       ${w === 0 ? 'Current' : `+${w}°C`}
     </label>
   `).join('');
+  // +1.5/+2/+3°C選択時のみ、IPCC根拠の説明を表示(Current時は観測値そのものなので説明不要)
   const scenarioNote = freq.warming === 0
-    ? '観測値(1981年以降のCHIRPS実測に基づく)'
-    : `+${freq.warming}°C昇温時の想定値(IPCC AR6: Rx1dayは約${RAINFALL_CC_PCT_PER_DEG}%/°C増加。到達時期を示すものではない)`;
+    ? ''
+    : `<br>+${freq.warming}°C昇温時の想定値(IPCC AR6: Rx1dayは約${RAINFALL_CC_PCT_PER_DEG}%/°C増加。到達時期を示すものではない)`;
 
-  // 「〇年に1度」は上限ではなく、平均的にその量を超える頻度の目安であることを一言添える
   return `<div class="result-freq" id="rainfallFreq">
     <div class="aqueduct-rp-group" style="margin-bottom:3px;">${scenarioOptions}</div>
-    Rainfall return period (24h): ${rows}${note}, based on ${freq.yearsUsed}yrs of data
-    <br>${scenarioNote}
-    <br>(値はその量を超える頻度の目安。稀に短期間で再び超えることもある)
+    Rainfall return period (24h): ${rows}, based on ${freq.yearsUsed}yrs of data${scenarioNote}
   </div>`;
 }
 
@@ -1587,6 +1579,7 @@ async function queryPoint(lat, lon) {
         `).join('<div style="height:8px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
           <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
+          <div class="result-elev" style="margin-top:3px; opacity:0.75;">Reference only — rainfall return period and elevation comparison above are not used in the Water Hazard score.</div>
         ` : ''}
       `;
     } else {
