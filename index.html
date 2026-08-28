@@ -1416,11 +1416,11 @@ function rainfallFreqHtml(freq) {
   // +1.5/+2/+3°C選択時のみ、IPCC根拠の説明を表示(Current時は観測値そのものなので説明不要)
   const scenarioNote = freq.warming === 0
     ? ''
-    : `<br>+${freq.warming}°C warming scenario (IPCC AR6: Rx1day increases ~${RAINFALL_CC_PCT_PER_DEG}%/°C; not tied to when this warming level is reached)`;
+    : `<br>+${freq.warming}°C scenario (IPCC AR6, ~${RAINFALL_CC_PCT_PER_DEG}%/°C)`;
 
   return `<div class="result-freq" id="rainfallFreq">
     <div class="aqueduct-rp-group" style="margin-bottom:3px;">${scenarioOptions}</div>
-    Rainfall return period (24h): ${rows}, based on ${freq.yearsUsed}yrs of data${scenarioNote}
+    ${rows} (${freq.yearsUsed}yrs data)${scenarioNote}
   </div>`;
 }
 
@@ -1579,7 +1579,7 @@ async function queryPoint(lat, lon) {
         `).join('<div style="height:8px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
           <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
-          <div class="result-elev" style="margin-top:3px; opacity:0.75;">Reference only — rainfall return period and elevation comparison above are not used in the Water Hazard score.</div>
+          <div class="result-elev" style="margin-top:3px; opacity:0.75;">Reference only, not part of the Water Hazard score.</div>
         ` : ''}
       `;
     } else {
