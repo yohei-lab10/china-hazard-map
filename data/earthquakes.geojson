@@ -86634,6 +86634,24 @@
         "depth_km": 0,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tbwb"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tc9m",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.9395,
+          33.2423
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "western Xizang",
+        "time": 1787841948054,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tc9m"
+      }
     }
   ]
 }
