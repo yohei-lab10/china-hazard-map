@@ -1416,7 +1416,7 @@ function rainfallFreqHtml(freq) {
   // +1.5/+2/+3°C選択時のみ、IPCC根拠の説明を表示(Current時は観測値そのものなので説明不要)
   const scenarioNote = freq.warming === 0
     ? ''
-    : `<br>+${freq.warming}°C昇温時の想定値(IPCC AR6: Rx1dayは約${RAINFALL_CC_PCT_PER_DEG}%/°C増加。到達時期を示すものではない)`;
+    : `<br>+${freq.warming}°C warming scenario (IPCC AR6: Rx1day increases ~${RAINFALL_CC_PCT_PER_DEG}%/°C; not tied to when this warming level is reached)`;
 
   return `<div class="result-freq" id="rainfallFreq">
     <div class="aqueduct-rp-group" style="margin-bottom:3px;">${scenarioOptions}</div>
