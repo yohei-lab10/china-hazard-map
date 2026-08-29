@@ -86652,6 +86652,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tc9m"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tcht",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          105.229,
+          29.2752
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "19 km NW of Fuji, China",
+        "time": 1787894015070,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tcht"
+      }
     }
   ]
 }
