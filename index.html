@@ -113,14 +113,10 @@
   .report-generate-btn:disabled { opacity: 0.5; }
   .report-status { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); margin-top: 6px; text-align: center; }
 
-  /* Printable report view (built off-screen, shown only via print) */
-  #reportView { display: none; }
-  @media print {
-    body > *:not(#reportView) { display: none !important; }
-    #reportView { display: block !important; background: #fff; }
-    #reportView .rpt-page { page-break-after: always; padding: 12mm; }
-    #reportView .rpt-page:last-child { page-break-after: auto; }
-  }
+  /* Printable report view (built off-screen; must stay rendered—not display:none—so
+     Chart.js/Plotly can lay out and html2canvas can capture it. Positioned off-viewport instead. */
+  #reportView { position: fixed; top: 0; left: -99999px; width: 720px; background: #fff; z-index: -1; }
+  #reportView:empty { left: -99999px; }
   #reportView { font-family: 'Inter', sans-serif; color: #0b0b0b; background: #fff; }
   #reportView .rpt-page { max-width: 720px; margin: 0 auto; padding: 24px; }
   #reportView .rpt-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 0.5px solid #d8d6cf; padding-bottom: 12px; margin-bottom: 14px; }
@@ -1993,6 +1989,8 @@ async function generateIntegratedReport() {
   try {
     await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js');
     await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js');
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
 
     const results = [];
     for (const loc of validLocs) {
@@ -2007,22 +2005,39 @@ async function generateIntegratedReport() {
 
     if (results.length === 0) { status.textContent = 'No valid coordinates entered.'; btn.disabled = false; return; }
 
-    status.textContent = 'Rendering report…';
-    renderReportView(results);
-    // Chart.js/Plotly はDOM挿入後に描画する必要があるため、次フレームまで待ってから印刷
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      status.textContent = 'Opening print dialog…';
-      window.print();
-      btn.disabled = false;
-      status.textContent = '';
-    }));
+    status.textContent = 'Rendering charts…';
+    await renderReportView(results);
+
+    status.textContent = 'Building PDF…';
+    const { jsPDF } = window.jspdf;
+    let pdf = null;
+    const pages = document.querySelectorAll('#reportView .rpt-page');
+    for (let i = 0; i < pages.length; i++) {
+      // scale:2 で高解像度化。各拠点1ページぶんの全内容を、改ページなしで1枚の縦長ページに収める
+      const canvas = await html2canvas(pages[i], { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const pageWidthMm = 210; // A4幅に合わせ、縦は内容量に応じて可変(1枚に収める)
+      const pageHeightMm = canvas.height * (pageWidthMm / canvas.width);
+      if (!pdf) {
+        pdf = new jsPDF({ unit: 'mm', format: [pageWidthMm, pageHeightMm] });
+      } else {
+        pdf.addPage([pageWidthMm, pageHeightMm]);
+      }
+      pdf.addImage(imgData, 'PNG', 0, 0, pageWidthMm, pageHeightMm);
+    }
+    pdf.save(`hazard-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+
+    document.getElementById('reportView').innerHTML = '';
+    status.textContent = 'PDF downloaded.';
+    btn.disabled = false;
   } catch (e) {
+    console.error(e);
     status.textContent = 'Failed to generate report. Please try again.';
     btn.disabled = false;
   }
 }
 
-function renderReportView(results) {
+async function renderReportView(results) {
   let view = document.getElementById('reportView');
   if (!view) {
     view = document.createElement('div');
@@ -2075,7 +2090,7 @@ function renderReportView(results) {
           <div class="rpt-h" style="font-size:11px;">Rainfall return period</div>
           <div class="rpt-desc">24h rainfall expected to be exceeded on average once every N years, from ${r.data.yearsUsed || '—'} years of CHIRPS data fit to a Gumbel distribution. Reference only.</div>
           <div class="rpt-mono">${RAINFALL_RETURN_PERIODS_YR.map((T, ti) => `${T}yr: ~${r.data.rainfallCurves[0].values[ti].toFixed(0)}mm`).join(' / ')} (${r.data.yearsUsed || '—'}yrs data)</div>
-          <div style="position:relative; height:130px; margin:8px 0 4px;"><canvas id="rptChart${i}"></canvas></div>
+          <div style="margin:8px 0 4px;"><canvas id="rptChart${i}" width="640" height="220"></canvas></div>
           <div style="display:flex; flex-wrap:wrap; gap:10px; font-size:10px; color:#52514e;">
             <span><span style="display:inline-block;width:8px;height:8px;background:#378ADD;border-radius:2px;margin-right:4px;"></span>Current</span>
             <span><span style="display:inline-block;width:8px;height:8px;background:#1D9E75;border-radius:2px;margin-right:4px;"></span>+1.5°C</span>
@@ -2095,27 +2110,30 @@ function renderReportView(results) {
     </div>
   `).join('');
 
-  results.forEach((r, i) => {
+  await Promise.all(results.map((r, i) => new Promise((resolveLoc) => {
+    const tasks = [];
     if (r.data.rainfallCurves) {
-      const canvas = document.getElementById(`rptChart${i}`);
-      const colors = ['#378ADD', '#1D9E75', '#EF9F27', '#D85A30'];
-      new Chart(canvas, {
-        type: 'line',
-        data: {
-          labels: RAINFALL_RETURN_PERIODS_YR.map(T => `${T}yr`),
-          datasets: r.data.rainfallCurves.map((c, ci) => ({
-            data: c.values, borderColor: colors[ci], backgroundColor: 'transparent', tension: 0.35, pointRadius: 2,
-          })),
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { enabled: false } },
-          scales: {
-            y: { title: { display: true, text: 'mm', color: '#898781', font: { size: 10 } }, ticks: { color: '#898781', font: { size: 10 } }, grid: { color: '#e1e0d9' } },
-            x: { title: { display: true, text: 'return period', color: '#898781', font: { size: 10 } }, ticks: { color: '#898781', font: { size: 10 } }, grid: { display: false } },
+      tasks.push(new Promise((resolveChart) => {
+        const canvas = document.getElementById(`rptChart${i}`);
+        const colors = ['#378ADD', '#1D9E75', '#EF9F27', '#D85A30'];
+        new Chart(canvas, {
+          type: 'line',
+          data: {
+            labels: RAINFALL_RETURN_PERIODS_YR.map(T => `${T}yr`),
+            datasets: r.data.rainfallCurves.map((c, ci) => ({
+              data: c.values, borderColor: colors[ci], backgroundColor: 'transparent', tension: 0.35, pointRadius: 2,
+            })),
           },
-        },
-      });
+          options: {
+            responsive: false, animation: { onComplete: () => resolveChart() },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: {
+              y: { title: { display: true, text: 'mm', color: '#898781', font: { size: 10 } }, ticks: { color: '#898781', font: { size: 10 } }, grid: { color: '#e1e0d9' } },
+              x: { title: { display: true, text: 'return period', color: '#898781', font: { size: 10 } }, ticks: { color: '#898781', font: { size: 10 } }, grid: { display: false } },
+            },
+          },
+        });
+      }));
     }
 
     // 標高地形: 中心+周囲8方向(実測9点)を3x3グリッドとしてプロット(補間はしない)
@@ -2128,22 +2146,38 @@ function renderReportView(results) {
       z[row][col] = name === null ? elevByName.C : elevByName[name];
     });
     const axis = [-100, 0, 100];
-    Plotly.newPlot(`rptTerrain${i}`, [{
-      z, x: axis, y: axis, type: 'surface', showscale: true,
-      colorscale: [[0, '#185FA5'], [0.35, '#1D9E75'], [0.6, '#FAC775'], [0.8, '#D85A30'], [1, '#791F1F']],
-      contours: { z: { show: false } },
-      colorbar: { title: { text: 'elevation (m)', side: 'right', font: { size: 10, color: '#52514e' } }, tickfont: { size: 9, color: '#898781' }, thickness: 12, len: 0.7 },
-    }], {
-      margin: { l: 0, r: 0, t: 0, b: 0 },
-      scene: {
-        xaxis: { title: { text: 'E–W (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' }, gridcolor: '#e1e0d9' },
-        yaxis: { title: { text: 'N–S (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' }, gridcolor: '#e1e0d9' },
-        zaxis: { title: { text: 'elevation (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' } },
-        camera: { eye: { x: 1.3, y: -1.3, z: 1.7 } },
-      },
-      paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff',
-    }, { displayModeBar: false, responsive: true });
-  });
+    const terrainDiv = document.getElementById(`rptTerrain${i}`);
+    tasks.push(
+      Plotly.newPlot(terrainDiv, [{
+        z, x: axis, y: axis, type: 'surface', showscale: true,
+        colorscale: [[0, '#185FA5'], [0.35, '#1D9E75'], [0.6, '#FAC775'], [0.8, '#D85A30'], [1, '#791F1F']],
+        contours: { z: { show: false } },
+        colorbar: { title: { text: 'elevation (m)', side: 'right', font: { size: 10, color: '#52514e' } }, tickfont: { size: 9, color: '#898781' }, thickness: 12, len: 0.7 },
+      }], {
+        margin: { l: 0, r: 0, t: 0, b: 0 },
+        scene: {
+          xaxis: { title: { text: 'E–W (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' }, gridcolor: '#e1e0d9' },
+          yaxis: { title: { text: 'N–S (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' }, gridcolor: '#e1e0d9' },
+          zaxis: { title: { text: 'elevation (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' } },
+          camera: { eye: { x: 1.3, y: -1.3, z: 1.7 } },
+        },
+        paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff',
+      }, { displayModeBar: false, responsive: false })
+        // html2canvas/印刷はWebGLキャンバスを正しく捕捉できないことがあるため、
+        // Plotly自身の画像書き出しAPIで静止画に変換し、<img>に差し替えて確実にPDFへ焼き込む
+        .then(() => Plotly.toImage(terrainDiv, { format: 'png', width: terrainDiv.clientWidth * 2, height: 230 * 2 }))
+        .then(dataUrl => {
+          const img = document.createElement('img');
+          img.src = dataUrl;
+          img.style.width = '100%';
+          img.style.height = '230px';
+          img.style.display = 'block';
+          terrainDiv.replaceWith(img);
+        })
+    );
+
+    Promise.all(tasks).then(resolveLoc);
+  })));
 }
 
 initMap();
