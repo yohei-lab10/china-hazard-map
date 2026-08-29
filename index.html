@@ -87,6 +87,57 @@
     border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
   .methodology-panel.visible { display: block; }
+
+  /* Report panel (location input) */
+  .report-panel {
+    padding: 12px 16px 14px; background: var(--panel);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .report-loc-row {
+    display: flex; flex-direction: column; gap: 6px; background: #fff;
+    border: 1px solid var(--border-strong); border-radius: 6px; padding: 8px; margin-bottom: 8px;
+  }
+  .report-loc-row-head { display: flex; justify-content: space-between; align-items: center; }
+  .report-loc-row input[type="text"] {
+    font-family: 'Inter', sans-serif; font-size: 12px; padding: 6px 8px;
+    border: 1px solid var(--border-strong); border-radius: 5px; width: 100%; box-sizing: border-box;
+  }
+  .report-loc-row .coords-row { display: flex; gap: 6px; }
+  .report-loc-remove { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); cursor: pointer; background:none; border:none; padding:2px; }
+  .report-add-btn, .report-generate-btn {
+    width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.5px; padding: 9px; border-radius: 6px; margin-top: 4px;
+  }
+  .report-add-btn { background: #fff; color: var(--navy); border: 1px dashed var(--border-strong); }
+  .report-generate-btn { background: var(--navy); color: #fff; border: none; }
+  .report-generate-btn:disabled { opacity: 0.5; }
+  .report-status { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); margin-top: 6px; text-align: center; }
+
+  /* Printable report view (built off-screen, shown only via print) */
+  #reportView { display: none; }
+  @media print {
+    body > *:not(#reportView) { display: none !important; }
+    #reportView { display: block !important; background: #fff; }
+    #reportView .rpt-page { page-break-after: always; padding: 12mm; }
+    #reportView .rpt-page:last-child { page-break-after: auto; }
+  }
+  #reportView { font-family: 'Inter', sans-serif; color: #0b0b0b; background: #fff; }
+  #reportView .rpt-page { max-width: 720px; margin: 0 auto; padding: 24px; }
+  #reportView .rpt-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 0.5px solid #d8d6cf; padding-bottom: 12px; margin-bottom: 14px; }
+  #reportView .rpt-title { font-size: 12px; font-weight: 500; }
+  #reportView .rpt-meta { font-size: 11px; color: #898781; text-align: right; }
+  #reportView .rpt-loc-name { font-size: 14px; font-weight: 500; }
+  #reportView .rpt-loc-coords { font-size: 12px; color: #52514e; margin-bottom: 16px; }
+  #reportView .rpt-section { margin-bottom: 18px; }
+  #reportView .rpt-h { font-size: 12px; font-weight: 500; margin-bottom: 2px; }
+  #reportView .rpt-desc { font-size: 10px; color: #898781; margin-bottom: 8px; }
+  #reportView .rpt-bar-wrap { position: relative; height: 8px; border-radius: 4px; margin-bottom: 10px;
+    background: linear-gradient(to right, #FAC775, #F0997B, #D85A30, #7F77DD, #26215C); }
+  #reportView .rpt-bar-marker { position: absolute; top: -9px; transform: translateX(-50%); font-size: 10px; }
+  #reportView .rpt-badge { font-size: 11px; padding: 3px 9px; border-radius: 6px; display: inline-block; margin-bottom: 6px; }
+  #reportView .rpt-comment { font-size: 11px; color: #52514e; line-height: 1.5; }
+  #reportView .rpt-mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.6; }
+  #reportView .rpt-footer { border-top: 0.5px solid #d8d6cf; padding-top: 10px; margin-top: 10px; font-size: 10px; color: #898781; line-height: 1.5; }
   .method-item { margin-bottom: 10px; }
   .method-item:last-child { margin-bottom: 0; }
   .method-label {
@@ -211,12 +262,19 @@
           <div class="brand-sub">Historical Peril & Hazard Layers</div>
         </div>
       </div>
-      <button class="methodology-btn" id="methodologyBtn">METHODOLOGY</button>
+      <div style="display:flex; gap:6px; flex-shrink:0;">
+        <button class="methodology-btn" id="methodologyBtn">METHODOLOGY</button>
+        <button class="methodology-btn" id="reportsBtn" style="display:flex; align-items:center; gap:5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+          REPORTS
+        </button>
+      </div>
     </div>
     <div class="rule-thin"></div>
   </div>
 
   <div class="methodology-panel" id="methodologyPanel"></div>
+  <div class="report-panel" id="reportPanel" style="display:none;"></div>
 
   <div class="layer-bar" id="layerBar"></div>
 
@@ -1738,6 +1796,355 @@ document.getElementById('searchBtn').addEventListener('click', () => {
   }
   queryPoint(lat, lon);
 });
+
+// ==== 統合レポート(地震・台風・雷・水害を1つのPDFにまとめる、2026年8月実装) ====
+// ヘッダーの「REPORTS」ボタンから、どのハザードタブが選択されていても常に開ける。
+// 既存のqueryPoint()はactiveLayers(選択中のタブ)に応じて表示するバッジを絞り込むが、
+// レポートは常に4種類すべてを計算するため、内部のリスク判定関数(earthquakeRiskInfo等)を
+// 直接呼び出す専用の計算パイプラインをここに用意する(DOM更新やactiveLayersには依存しない)。
+let reportLocations = [{ name: '', lat: '', lon: '' }];
+const TIER_LABELS_RPT = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
+
+const HAZARD_DESCRIPTIONS = {
+  earthquake: 'Historical earthquakes (M5.0+) within 100km, weighted by magnitude and distance.',
+  typhoon: 'Historical typhoon tracks and wind intensity (Saffir-Simpson scale) near this location.',
+  lightning: 'Lightning strike density near this location, based on satellite and ground network detections.',
+  water: 'Composite score from historical rainfall, elevation, and proximity to rivers/coastline.',
+};
+
+function renderReportPanel() {
+  const panel = document.getElementById('reportPanel');
+  panel.innerHTML = `
+    <div style="font-family:'JetBrains Mono', monospace; font-size:10.5px; font-weight:700; letter-spacing:0.5px; color:var(--text-primary); margin-bottom:8px;">INTEGRATED REPORT</div>
+    <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:10px;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-muted);">
+        <input type="radio" name="reportCoordSystem" value="wgs84" checked style="width:14px;height:14px;">WGS84 (OpenStreetMap, GPS)
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-muted);">
+        <input type="radio" name="reportCoordSystem" value="gcj02" style="width:14px;height:14px;">GCJ-02 (Amap / 高德地图)
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-muted);">
+        <input type="radio" name="reportCoordSystem" value="bd09" style="width:14px;height:14px;">BD-09 (Baidu Maps / 百度地图)
+      </label>
+    </div>
+    <div id="reportLocList"></div>
+    <button class="report-add-btn" id="reportAddBtn">+ Add location</button>
+    <button class="report-generate-btn" id="reportGenerateBtn">Generate integrated report</button>
+    <div class="report-status" id="reportStatus"></div>
+  `;
+  renderReportLocList();
+  document.getElementById('reportAddBtn').addEventListener('click', () => {
+    reportLocations.push({ name: '', lat: '', lon: '' });
+    renderReportLocList();
+  });
+  document.getElementById('reportGenerateBtn').addEventListener('click', generateIntegratedReport);
+}
+
+function renderReportLocList() {
+  const el = document.getElementById('reportLocList');
+  el.innerHTML = reportLocations.map((loc, i) => `
+    <div class="report-loc-row">
+      <div class="report-loc-row-head">
+        <span style="font-size:11px; font-weight:600;">Location ${i + 1}</span>
+        ${reportLocations.length > 1 ? `<button class="report-loc-remove" data-idx="${i}">✕</button>` : ''}
+      </div>
+      <input type="text" placeholder="Property name (optional)" data-field="name" data-idx="${i}" value="${escapeHtml(loc.name)}">
+      <div class="coords-row">
+        <input type="text" placeholder="Latitude" inputmode="decimal" data-field="lat" data-idx="${i}" value="${escapeHtml(loc.lat)}">
+        <input type="text" placeholder="Longitude" inputmode="decimal" data-field="lon" data-idx="${i}" value="${escapeHtml(loc.lon)}">
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('input[data-field]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      reportLocations[+inp.dataset.idx][inp.dataset.field] = inp.value;
+    });
+  });
+  el.querySelectorAll('.report-loc-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      reportLocations.splice(+btn.dataset.idx, 1);
+      renderReportLocList();
+    });
+  });
+}
+
+document.getElementById('reportsBtn').addEventListener('click', () => {
+  const panel = document.getElementById('reportPanel');
+  const btn = document.getElementById('reportsBtn');
+  const visible = panel.style.display !== 'none';
+  panel.style.display = visible ? 'none' : 'block';
+  btn.classList.toggle('active', !visible);
+  if (!visible && !panel.innerHTML) renderReportPanel();
+});
+
+// 降雨のGumbelパラメータ(mu, beta)を最寄り地点から取得(rainfallReturnPeriodInfoと同じ検索ロジックだが、
+// グローバルなrainfallSelectedWarmingに依存せず、4シナリオ分を一度に計算するために分離)
+function rainfallGumbelParamsAt(lat, lon) {
+  if (!rainfallGeojsonCacheGlobal) return null;
+  let nearest = null, nearestDist = Infinity;
+  rainfallGeojsonCacheGlobal.features.forEach(f => {
+    const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 150)) return;
+    const d = haversineKm(lat, lon, flat, flon);
+    if (d < nearestDist) { nearestDist = d; nearest = f.properties || {}; }
+  });
+  if (!nearest || typeof nearest.gumbel_mu !== 'number' || typeof nearest.gumbel_beta !== 'number') return null;
+  return { mu: nearest.gumbel_mu, beta: nearest.gumbel_beta, yearsUsed: nearest.years_used };
+}
+
+// 1地点分の4ハザード+降雨曲線+標高地形データをまとめて計算する(activeLayersに依存しない)
+async function computeReportData(lat, lon) {
+  const dLat = metersToDegLat(SEARCH_RADIUS_M);
+  const dLon = metersToDegLon(SEARCH_RADIUS_M, lat);
+  const locations = [{ latitude: lat, longitude: lon }];
+  DIRS.forEach(d => locations.push({ latitude: lat + d.dLat * dLat, longitude: lon + d.dLon * dLon }));
+  const elevations = await fetchElevations(locations);
+  const centerElev = elevations[0];
+  const surrounding = elevations.slice(1).map((elev, i) => ({ name: DIRS[i].name, elev }));
+  const avgSurrounding = surrounding.reduce((s, d) => s + d.elev, 0) / surrounding.length;
+  const diff = avgSurrounding - centerElev;
+  let compareLabel;
+  if (diff >= 1) compareLabel = 'Sits noticeably lower than its surroundings';
+  else if (diff >= 0.5) compareLabel = 'Slightly lower than its surroundings';
+  else if (diff > -0.5) compareLabel = 'About level with its surroundings';
+  else compareLabel = 'Higher than its surroundings — relatively favorable';
+
+  const lakePoints = await fetchNearbyLakePoints(lat, lon, GRID_RADIUS_M + 2000);
+  const elevRiskInfo = elevationToRiskInfo(centerElev);
+  const rainfallRiskHere = rainfallRiskAt(lat, lon);
+  let water;
+  if (rainfallRiskHere === null) {
+    water = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
+  } else {
+    const proximity = waterProximityMultiplier(lat, lon, lakePoints);
+    const baseRisk = Math.max(rainfallRiskHere, elevRiskValueFromLabel(elevRiskInfo) * proximity);
+    const weight = floodWeightAt(lat, lon);
+    const finalRisk = Math.min(1.0, baseRisk * weight);
+    const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
+    water = { label: `${TIER_LABELS_RPT[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk };
+  }
+
+  const eqInfo = earthquakeRiskInfo(lat, lon);
+  const earthquake = eqInfo
+    ? { label: `${TIER_LABELS_RPT[eqInfo.tier]} earthquake hazard (${eqInfo.valueLabel})`, color: eqInfo.color, colors: EARTHQUAKE_TIER_COLORS, ratio: eqInfo.ratio }
+    : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS, ratio: null };
+
+  const tyInfo = typhoonRiskInfo(lat, lon);
+  const tyFreq = typhoonReturnPeriodInfo(lat, lon);
+  const typhoon = tyInfo
+    ? { label: `${TIER_LABELS_RPT[tyInfo.tier]} typhoon hazard (${tyInfo.valueLabel})`, color: tyInfo.color, colors: WARNING_TIER_COLORS, ratio: tyInfo.ratio, freq: tyFreq }
+    : { label: 'No Category 1+ typhoon impact at this point', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null, freq: tyFreq };
+
+  const ltInfo = lightningRiskInfo(lat, lon);
+  const lightning = ltInfo
+    ? { label: `${TIER_LABELS_RPT[ltInfo.tier]} lightning hazard (${ltInfo.valueLabel})`, color: ltInfo.color, colors: WARNING_TIER_COLORS, ratio: ltInfo.ratio }
+    : { label: 'No significant lightning density nearby', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
+
+  // 降雨再現期間: Current/+1.5/+2/+3℃の4シナリオをまとめて計算(グラフ用)
+  const gumbel = rainfallGumbelParamsAt(lat, lon);
+  let rainfallCurves = null;
+  if (gumbel) {
+    rainfallCurves = RAINFALL_WARMING_SCENARIOS.map(w => {
+      const ccFactor = 1 + (RAINFALL_CC_PCT_PER_DEG / 100) * w;
+      return {
+        warming: w,
+        values: RAINFALL_RETURN_PERIODS_YR.map(T => (gumbel.mu - gumbel.beta * Math.log(-Math.log(1 - 1 / T))) * ccFactor),
+      };
+    });
+  }
+
+  return { centerElev, surrounding, diff, compareLabel, water, earthquake, typhoon, lightning, rainfallCurves, yearsUsed: gumbel ? gumbel.yearsUsed : null };
+}
+
+function rptLegendBar(colors, ratio) {
+  const useColors = colors || WARNING_TIER_COLORS;
+  const grad = useColors.map((c, i) => `${c} ${(i / (useColors.length - 1) * 100).toFixed(0)}%`).join(', ');
+  const hasMarker = typeof ratio === 'number' && !isNaN(ratio);
+  const pct = hasMarker ? Math.min(99, Math.max(1, ratio * 100)) : 0;
+  return `<div class="rpt-bar-wrap" style="background:linear-gradient(to right, ${grad});">
+    ${hasMarker ? `<div class="rpt-bar-marker" style="left:${pct.toFixed(1)}%;">▽</div>` : ''}
+  </div>`;
+}
+
+function rptBadgeColors(hexColor) {
+  // バッジの背景はハザード色の薄いトーン、文字は同系統の濃い色にする(簡易変換)
+  return { bg: hexColor + '22', text: hexColor };
+}
+
+async function loadScriptOnce(src) {
+  if (document.querySelector(`script[src="${src}"]`)) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function generateIntegratedReport() {
+  const btn = document.getElementById('reportGenerateBtn');
+  const status = document.getElementById('reportStatus');
+  const validLocs = reportLocations.filter(l => l.lat !== '' && l.lon !== '');
+  if (validLocs.length === 0) { status.textContent = 'Enter at least one location.'; return; }
+  btn.disabled = true;
+  status.textContent = 'Computing hazard data…';
+
+  const system = document.querySelector('input[name="reportCoordSystem"]:checked').value;
+
+  try {
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js');
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js');
+
+    const results = [];
+    for (const loc of validLocs) {
+      let lat = parseFloat(loc.lat), lon = parseFloat(loc.lon);
+      if (isNaN(lat) || isNaN(lon)) continue;
+      if ((lat < -90 || lat > 90) && lon >= -90 && lon <= 90) [lat, lon] = [lon, lat];
+      if (system === 'gcj02') { const c = gcj02ToWgs84(lat, lon); lat = c.lat; lon = c.lon; }
+      else if (system === 'bd09') { const c = bd09ToWgs84(lat, lon); lat = c.lat; lon = c.lon; }
+      const data = await computeReportData(lat, lon);
+      results.push({ name: loc.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`, lat, lon, data });
+    }
+
+    if (results.length === 0) { status.textContent = 'No valid coordinates entered.'; btn.disabled = false; return; }
+
+    status.textContent = 'Rendering report…';
+    renderReportView(results);
+    // Chart.js/Plotly はDOM挿入後に描画する必要があるため、次フレームまで待ってから印刷
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      status.textContent = 'Opening print dialog…';
+      window.print();
+      btn.disabled = false;
+      status.textContent = '';
+    }));
+  } catch (e) {
+    status.textContent = 'Failed to generate report. Please try again.';
+    btn.disabled = false;
+  }
+}
+
+function renderReportView(results) {
+  let view = document.getElementById('reportView');
+  if (!view) {
+    view = document.createElement('div');
+    view.id = 'reportView';
+    document.body.appendChild(view);
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  view.innerHTML = results.map((r, i) => `
+    <div class="rpt-page">
+      <div class="rpt-head">
+        <div style="width:64px;height:20px;background:#f5f5f3;border-radius:4px;font-size:10px;color:#898781;display:flex;align-items:center;justify-content:center;">LOGO</div>
+        <div>
+          <div class="rpt-title">Natural catastrophe risk report</div>
+          <div class="rpt-meta">Generated ${today} · WGS84</div>
+        </div>
+      </div>
+      <div class="rpt-loc-name">${escapeHtml(r.name)}</div>
+      <div class="rpt-loc-coords">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
+
+      <div class="rpt-section">
+        <div class="rpt-h">Earthquake</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.earthquake}</div>
+        ${rptLegendBar(r.data.earthquake.colors, r.data.earthquake.ratio)}
+        <span class="rpt-badge" style="background:${rptBadgeColors(r.data.earthquake.color).bg}; color:${rptBadgeColors(r.data.earthquake.color).text};">${r.data.earthquake.label}</span>
+      </div>
+
+      <div class="rpt-section">
+        <div class="rpt-h">Typhoon</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.typhoon}</div>
+        ${rptLegendBar(r.data.typhoon.colors, r.data.typhoon.ratio)}
+        <span class="rpt-badge" style="background:${rptBadgeColors(r.data.typhoon.color).bg}; color:${rptBadgeColors(r.data.typhoon.color).text};">${r.data.typhoon.label}</span>
+        <div class="rpt-comment">${r.data.typhoon.freq && r.data.typhoon.freq.observed ? `Category 1+ frequency: ~${r.data.typhoon.freq.returnPeriod.toFixed(1)}yr return period (based on ${r.data.typhoon.freq.totalYears}yrs of data).` : ''}</div>
+      </div>
+
+      <div class="rpt-section">
+        <div class="rpt-h">Lightning</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.lightning}</div>
+        ${rptLegendBar(r.data.lightning.colors, r.data.lightning.ratio)}
+        <span class="rpt-badge" style="background:${rptBadgeColors(r.data.lightning.color).bg}; color:${rptBadgeColors(r.data.lightning.color).text};">${r.data.lightning.label}</span>
+      </div>
+
+      <div class="rpt-section">
+        <div class="rpt-h">Water hazard</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.water}</div>
+        ${rptLegendBar(r.data.water.colors, r.data.water.ratio)}
+        <span class="rpt-badge" style="background:${rptBadgeColors(r.data.water.color).bg}; color:${rptBadgeColors(r.data.water.color).text};">${r.data.water.label}</span>
+
+        ${r.data.rainfallCurves ? `
+        <div style="margin-top:14px;">
+          <div class="rpt-h" style="font-size:11px;">Rainfall return period</div>
+          <div class="rpt-desc">24h rainfall expected to be exceeded on average once every N years, from ${r.data.yearsUsed || '—'} years of CHIRPS data fit to a Gumbel distribution. Reference only.</div>
+          <div class="rpt-mono">${RAINFALL_RETURN_PERIODS_YR.map((T, ti) => `${T}yr: ~${r.data.rainfallCurves[0].values[ti].toFixed(0)}mm`).join(' / ')} (${r.data.yearsUsed || '—'}yrs data)</div>
+          <div style="position:relative; height:130px; margin:8px 0 4px;"><canvas id="rptChart${i}"></canvas></div>
+          <div style="display:flex; flex-wrap:wrap; gap:10px; font-size:10px; color:#52514e;">
+            <span><span style="display:inline-block;width:8px;height:8px;background:#378ADD;border-radius:2px;margin-right:4px;"></span>Current</span>
+            <span><span style="display:inline-block;width:8px;height:8px;background:#1D9E75;border-radius:2px;margin-right:4px;"></span>+1.5°C</span>
+            <span><span style="display:inline-block;width:8px;height:8px;background:#EF9F27;border-radius:2px;margin-right:4px;"></span>+2°C</span>
+            <span><span style="display:inline-block;width:8px;height:8px;background:#D85A30;border-radius:2px;margin-right:4px;"></span>+3°C</span>
+          </div>
+        </div>` : ''}
+
+        <div style="margin-top:14px;">
+          <div class="rpt-h" style="font-size:11px;">Elevation vs. surroundings</div>
+          <div class="rpt-desc">Center point vs. 8 surrounding directions within 100m. Color and height both represent elevation (m). Reference only.</div>
+          <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
+        </div>
+      </div>
+
+      <div class="rpt-footer">This report is for reference only and is not a guarantee or sole basis for insurance underwriting decisions. Rainfall return period and elevation comparison are reference values not used in the Water Hazard score.</div>
+    </div>
+  `).join('');
+
+  results.forEach((r, i) => {
+    if (r.data.rainfallCurves) {
+      const canvas = document.getElementById(`rptChart${i}`);
+      const colors = ['#378ADD', '#1D9E75', '#EF9F27', '#D85A30'];
+      new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: RAINFALL_RETURN_PERIODS_YR.map(T => `${T}yr`),
+          datasets: r.data.rainfallCurves.map((c, ci) => ({
+            data: c.values, borderColor: colors[ci], backgroundColor: 'transparent', tension: 0.35, pointRadius: 2,
+          })),
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: {
+            y: { title: { display: true, text: 'mm', color: '#898781', font: { size: 10 } }, ticks: { color: '#898781', font: { size: 10 } }, grid: { color: '#e1e0d9' } },
+            x: { title: { display: true, text: 'return period', color: '#898781', font: { size: 10 } }, ticks: { color: '#898781', font: { size: 10 } }, grid: { display: false } },
+          },
+        },
+      });
+    }
+
+    // 標高地形: 中心+周囲8方向(実測9点)を3x3グリッドとしてプロット(補間はしない)
+    const order = ['NW', 'N', 'NE', 'W', null, 'E', 'SW', 'S', 'SE'];
+    const elevByName = { C: r.data.centerElev };
+    r.data.surrounding.forEach(s => { elevByName[s.name] = s.elev; });
+    const z = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    order.forEach((name, idx) => {
+      const row = Math.floor(idx / 3), col = idx % 3;
+      z[row][col] = name === null ? elevByName.C : elevByName[name];
+    });
+    const axis = [-100, 0, 100];
+    Plotly.newPlot(`rptTerrain${i}`, [{
+      z, x: axis, y: axis, type: 'surface', showscale: true,
+      colorscale: [[0, '#185FA5'], [0.35, '#1D9E75'], [0.6, '#FAC775'], [0.8, '#D85A30'], [1, '#791F1F']],
+      contours: { z: { show: false } },
+      colorbar: { title: { text: 'elevation (m)', side: 'right', font: { size: 10, color: '#52514e' } }, tickfont: { size: 9, color: '#898781' }, thickness: 12, len: 0.7 },
+    }], {
+      margin: { l: 0, r: 0, t: 0, b: 0 },
+      scene: {
+        xaxis: { title: { text: 'E–W (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' }, gridcolor: '#e1e0d9' },
+        yaxis: { title: { text: 'N–S (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' }, gridcolor: '#e1e0d9' },
+        zaxis: { title: { text: 'elevation (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' } },
+        camera: { eye: { x: 1.3, y: -1.3, z: 1.7 } },
+      },
+      paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff',
+    }, { displayModeBar: false, responsive: true });
+  });
+}
 
 initMap();
 renderLayerBar();
