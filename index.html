@@ -1633,7 +1633,7 @@ async function queryPoint(lat, lon) {
         `).join('<div style="height:5px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
           <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
-          <div class="result-elev" style="margin-top:2px; opacity:0.75;">Reference only, not part of the Water Hazard score.</div>
+          <div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; opacity:0.75;">Reference only, not part of the Water Hazard score.</div>
         ` : ''}
       `;
     } else {
