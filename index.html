@@ -1548,6 +1548,7 @@ async function queryPoint(lat, lon) {
   const aqueductWrapEl = document.getElementById('aqueductResultWrap');
   const aqueductResultEl = document.getElementById('aqueductResult');
   lastQueriedLatLon = { lat, lon };
+  syncReportLocationFromSearch(lat, lon);
   if (activeLayers.has('aqueductFloods')) {
     aqueductWrapEl.className = 'search-result visible';
     aqueductResultEl.innerHTML = aqueductResultHtml(null, aqueductSelectedRP);
@@ -1836,6 +1837,21 @@ const HAZARD_DESCRIPTIONS = {
   water: 'Composite score from historical rainfall, elevation, and proximity to rivers/coastline.',
 };
 
+// 地点検索(queryPoint)の結果、またはREPORTSパネルを開いたタイミングで呼ばれる。
+// レポートのLocation 1が「1件だけ・まだ未入力」の場合に限り、検索済みの座標を
+// そのままコピーする(ユーザーが既に入力・編集した内容は上書きしない)。
+// パネルが表示中であれば、その場でリストを再描画して反映する。
+function syncReportLocationFromSearch(lat, lon) {
+  if (reportLocations.length !== 1) return;
+  if (reportLocations[0].lat !== '' || reportLocations[0].lon !== '') return;
+  reportLocations[0].lat = String(lat);
+  reportLocations[0].lon = String(lon);
+  const panel = document.getElementById('reportPanel');
+  if (panel && panel.style.display !== 'none' && panel.innerHTML) {
+    renderReportLocList();
+  }
+}
+
 function renderReportPanel() {
   const panel = document.getElementById('reportPanel');
   panel.innerHTML = `
@@ -1898,7 +1914,10 @@ document.getElementById('reportsBtn').addEventListener('click', () => {
   const visible = panel.style.display !== 'none';
   panel.style.display = visible ? 'none' : 'block';
   btn.classList.toggle('active', !visible);
-  if (!visible && !panel.innerHTML) renderReportPanel();
+  if (!visible) {
+    if (!panel.innerHTML) renderReportPanel();
+    if (lastQueriedLatLon) syncReportLocationFromSearch(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
+  }
 });
 
 // 降雨のGumbelパラメータ(mu, beta)を最寄り地点から取得(rainfallReturnPeriodInfoと同じ検索ロジックだが、
