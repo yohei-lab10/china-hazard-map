@@ -87,12 +87,6 @@
     border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
   .methodology-panel.visible { display: block; }
-  .lang-tab {
-    font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.3px;
-    padding: 6px 8px; background: var(--panel); color: var(--text-muted); border: none; cursor: pointer;
-  }
-  .lang-tab + .lang-tab { border-left: 1px solid var(--border-strong); }
-  .lang-tab.active { background: var(--navy); color: #fff; }
 
   /* Report panel (location input) */
   .report-panel {
@@ -260,16 +254,15 @@
     <div class="masthead-top">
       <div class="brand">
         <div class="brand-text">
-          <div class="brand-title" id="brandTitle">China Natural Catastrophe Risk Map</div>
-          <div class="brand-sub" id="brandSub">Historical Peril & Hazard Layers</div>
+          <div class="brand-title">China Natural Catastrophe Risk Map</div>
+          <div class="brand-sub">Historical Peril & Hazard Layers</div>
         </div>
       </div>
-      <div style="display:flex; gap:6px; flex-shrink:0; align-items:center;">
-        <div id="langSwitcher" style="display:flex; gap:2px; border:1px solid var(--border-strong); border-radius:6px; overflow:hidden; margin-right:2px;"></div>
+      <div style="display:flex; gap:6px; flex-shrink:0;">
         <button class="methodology-btn" id="methodologyBtn">METHODOLOGY</button>
         <button class="methodology-btn" id="reportsBtn" style="display:flex; align-items:center; gap:5px;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
-          <span id="reportsBtnText">REPORTS</span>
+          REPORTS
         </button>
       </div>
     </div>
@@ -290,15 +283,15 @@
     <div style="display:flex;flex-direction:column;gap:4px;">
       <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
         <input type="radio" name="coordSystem" id="coordWgs84" value="wgs84" checked style="width:14px;height:14px;">
-        <span id="coordWgs84Label">WGS84 (OpenStreetMap, GPS) — no conversion needed</span>
+        WGS84 (OpenStreetMap, GPS) — no conversion needed
       </label>
       <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
         <input type="radio" name="coordSystem" id="coordGcj02" value="gcj02" style="width:14px;height:14px;">
-        <span id="coordGcj02Label">GCJ-02 (Amap / 高德地图) — converts automatically</span>
+        GCJ-02 (Amap / 高德地图) — converts automatically
       </label>
       <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
         <input type="radio" name="coordSystem" id="coordBd09" value="bd09" style="width:14px;height:14px;">
-        <span id="coordBd09Label">BD-09 (Baidu Maps / 百度地图) — converts automatically</span>
+        BD-09 (Baidu Maps / 百度地图) — converts automatically
       </label>
     </div>
   </div>
@@ -319,196 +312,6 @@
 <!-- Aqueduct Floods地点検索用: 中国域に切り出したGeoTIFF(COG)から、その場でピクセル値(浸水深)を読み取る -->
 <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
 <script>
-// ==== 多言語対応(2026年8月実装: English / 日本語 / 简体中文) ====
-// サイトUIとPDFレポートは言語を連動させる(ヘッダーのタブで一括切替)。
-let currentLang = localStorage.getItem('chinaHazardMapLang') || 'en';
-
-const I18N = {
-  en: {
-    brandTitle: 'China Natural Catastrophe Risk Map', brandSub: 'Historical Peril & Hazard Layers',
-    methodologyBtn: 'METHODOLOGY', reportsBtn: 'REPORTS',
-    layerEarthquake: 'Earthquakes', layerLightning: 'Lightning', layerTyphoon: 'Typhoon Hazard',
-    layerWater: 'Water Hazard', layerAqueduct: 'Aqueduct Floods', layerPointLookup: 'Point Lookup',
-    layerNoteEarthquake: 'Earthquakes: historical M5.0+ events across China, based on USGS earthquake catalog data. Marker size scales with magnitude.',
-    layerNoteLightning: 'Lightning: historical stroke density (2010–2023 multi-year mean) from the WWLLN Global Lightning Climatology. A climatological average, not real-time data.',
-    layerNoteTyphoon: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.',
-    layerNoteWater: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live, not shown on the map-wide layer). Areas with no rainfall data show no color on the map (see the point-search panel for a "No data" label).',
-    layerNoteAqueduct: 'Aqueduct Floods: simulated flood depth (WRI) shown both as a map heatmap and at the searched point, for the selected return period (10-year / 100-year, switchable via radio buttons).',
-    coordWgs84: 'WGS84 (OpenStreetMap, GPS) — no conversion needed',
-    coordGcj02: 'GCJ-02 (Amap / 高德地图) — converts automatically',
-    coordBd09: 'BD-09 (Baidu Maps / 百度地图) — converts automatically',
-    latPlaceholder: 'Latitude, e.g. 31.23', lonPlaceholder: 'Longitude, e.g. 121.47', locateBtn: 'Locate',
-    statusLoading: 'Loading…', statusFetchingEarthquakes: 'Fetching earthquakes…',
-    statusDataRange: (a, b) => `Data range: ${a}–${b}`, statusEarthquakeCount: (n) => `${n} earthquakes (M5.0+)`,
-    statusLiveFeed: 'Live feed (last 30 days) — backfill not yet generated',
-    statusEarthquakeCount30d: (n) => `${n} earthquakes (30d, M3.5+)`, statusFailed: 'Failed to load earthquake data',
-    fetching: 'Fetching…', selectLayerPrompt: 'Select a layer above to see it on the map.',
-    showMore: 'Show more', showLess: 'Show less',
-    tierLow: 'Low', tierModerate: 'Moderate', tierHigh: 'High', tierSevere: 'Severe', tierExtreme: 'Extreme',
-    badgeWaterHazard: (tier, val) => `${tier} water hazard (${val})`, badgeNoRainfall: 'No rainfall data (outside CHIRPS coverage)',
-    badgeEarthquake: (tier, val) => `${tier} earthquake hazard (${val})`, badgeNoEarthquake: 'No M5.0+ earthquake within 100km',
-    badgeTyphoon: (tier, val) => `${tier} typhoon hazard (${val})`, badgeNoTyphoon: 'No Category 1+ typhoon impact at this point',
-    badgeLightning: (tier, val) => `${tier} lightning hazard (${val})`, badgeNoLightning: 'No significant lightning density nearby',
-    compareLowerNotable: 'Sits noticeably lower than its surroundings', compareLowerSlight: 'Slightly lower than its surroundings',
-    compareLevel: 'About level with its surroundings', compareHigher: 'Higher than its surroundings — relatively favorable',
-    elevationLabel: (m, cmp, diff) => `Elevation: ${m}m — ${cmp} (avg. surrounding diff: ${diff})`,
-    referenceOnlyWater: 'Reference only — rainfall return period and elevation comparison above are not used in the Water Hazard score.',
-    rainfallCurrent: 'Current', rainfallScenario: (w, pct) => `+${w}°C scenario (IPCC AR6, ~${pct}%/°C)`,
-    rainfallYearsData: (n) => `(${n}yrs data)`,
-    aqueductNoData: 'No data (outside coverage)', aqueductDepthLabel: (d) => `Simulated flood depth: ${d}m`,
-    aqueductNote: (rp) => `WRI Aqueduct Floods (riverine, historical baseline, ${rp}-year return period)`,
-    methodology: [
-      { label: 'Earthquakes', desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
-      { label: 'Lightning', desc: 'Source: WWLLN Global Lightning Climatology (WGLC), 2010–2023 multi-year mean stroke density. Colored by relative density within China (not an official risk classification). A historical average, not a real-time warning.' },
-      { label: 'Typhoon Hazard', desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
-      { label: 'Water Hazard', desc: 'Created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live at search time; the map-wide layer does not include lakes). A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
-      { label: 'Aqueduct Floods', desc: 'Source: WRI Aqueduct Floods hydrodynamic river-flood simulation data (not an observed historical event — a statistical return-period estimate). Shown as both a map heatmap and a point-search value, for the 10-year or 100-year return period.' },
-      { label: 'Point Lookup', desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
-    ],
-    reportTitle: 'INTEGRATED REPORT', reportAddLocation: '+ Add location', reportGenerate: 'Generate integrated report',
-    reportLocationN: (n) => `Location ${n}`, reportPropertyPlaceholder: 'Property name (optional)',
-    reportLatPlaceholder: 'Latitude', reportLonPlaceholder: 'Longitude',
-    reportStatusEnterLocation: 'Enter at least one location.', reportStatusComputing: 'Computing hazard data…',
-    reportStatusRendering: 'Rendering charts…', reportStatusBuilding: 'Building PDF…', reportStatusDone: 'PDF downloaded.',
-    reportStatusFailed: 'Failed to generate report. Please try again.', reportStatusNoValid: 'No valid coordinates entered.',
-    reportDocTitle: 'Natural catastrophe risk report', reportGenerated: (date, sys) => `Generated ${date} · ${sys}`,
-    reportDescEarthquake: 'Historical earthquakes (M5.0+) within 100km, weighted by magnitude and distance.',
-    reportDescTyphoon: 'Historical typhoon tracks and wind intensity (Saffir-Simpson scale) near this location.',
-    reportDescLightning: 'Lightning strike density near this location, based on satellite and ground network detections.',
-    reportDescWater: 'Composite score from historical rainfall, elevation, and proximity to rivers/coastline.',
-    reportTyphoonFreq: (n, yrs) => `Category 1+ frequency: ~${n}yr return period (based on ${yrs}yrs of data).`,
-    reportRainfallTitle: 'Rainfall return period',
-    reportRainfallDesc: (yrs) => `24h rainfall expected to be exceeded on average once every N years, from ${yrs} years of CHIRPS data fit to a Gumbel distribution. Reference only.`,
-    reportElevationTitle: 'Elevation vs. surroundings',
-    reportElevationDesc: 'Center point vs. 8 surrounding directions within 100m. Color and height both represent elevation (m). Reference only.',
-    reportDisclaimer: 'This report is for reference only and is not a guarantee or sole basis for insurance underwriting decisions. Rainfall return period and elevation comparison are reference values not used in the Water Hazard score.',
-  },
-  ja: {
-    brandTitle: '中国自然災害リスクマップ', brandSub: '過去の災害・ハザードレイヤー',
-    methodologyBtn: 'METHODOLOGY', reportsBtn: 'REPORTS',
-    layerEarthquake: '地震', layerLightning: '雷', layerTyphoon: '台風ハザード',
-    layerWater: '水害ハザード', layerAqueduct: 'Aqueductフラッド', layerPointLookup: '地点検索',
-    layerNoteEarthquake: '地震: USGS地震カタログに基づく、中国全域のM5.0以上の過去の地震。マーカーの大きさはマグニチュードに応じる。',
-    layerNoteLightning: '雷: WWLLN Global Lightning Climatologyによる過去の落雷密度(2010〜2023年の多年平均)。気候学的な平均値であり、リアルタイムデータではない。',
-    layerNoteTyphoon: '台風ハザード: 過去の台風経路・風速データに基づき作成。過去の実績を反映したものであり、予報ではない。',
-    layerNoteWater: '水害ハザード: 過去の降雨・標高・河川/海岸線への近接度・過去の洪水記録データに基づき作成。地点検索の結果は近隣の湖もその場で反映する(地図全体表示には湖は含まれない)。降雨データが無い地域は地図上に色が付かない(「No data」の表示は地点検索パネル側)。',
-    layerNoteAqueduct: 'Aqueductフラッド: WRIによるシミュレーション浸水深を、地図のヒートマップと地点検索の両方で表示(10年/100年の再現期間をラジオボタンで切替可能)。',
-    coordWgs84: 'WGS84(OpenStreetMap、GPS) — 変換不要',
-    coordGcj02: 'GCJ-02(高徳地図) — 自動変換',
-    coordBd09: 'BD-09(百度地図) — 自動変換',
-    latPlaceholder: '緯度 例: 31.23', lonPlaceholder: '経度 例: 121.47', locateBtn: '検索',
-    statusLoading: '読込中…', statusFetchingEarthquakes: '地震データ取得中…',
-    statusDataRange: (a, b) => `データ範囲: ${a}〜${b}`, statusEarthquakeCount: (n) => `地震 ${n}件(M5.0以上)`,
-    statusLiveFeed: 'ライブフィード(直近30日) — バックフィル未生成',
-    statusEarthquakeCount30d: (n) => `地震 ${n}件(30日間、M3.5以上)`, statusFailed: '地震データの読込に失敗しました',
-    fetching: '取得中…', selectLayerPrompt: '上のレイヤーを選択すると地図に表示されます。',
-    showMore: 'もっと見る', showLess: '閉じる',
-    tierLow: 'Low', tierModerate: 'Moderate', tierHigh: 'High', tierSevere: 'Severe', tierExtreme: 'Extreme',
-    badgeWaterHazard: (tier, val) => `${tier} water hazard (${val})`, badgeNoRainfall: '降雨データなし(CHIRPS対象範囲外)',
-    badgeEarthquake: (tier, val) => `${tier} earthquake hazard (${val})`, badgeNoEarthquake: '半径100km以内にM5.0以上の地震なし',
-    badgeTyphoon: (tier, val) => `${tier} typhoon hazard (${val})`, badgeNoTyphoon: 'この地点にCategory1以上の台風影響なし',
-    badgeLightning: (tier, val) => `${tier} lightning hazard (${val})`, badgeNoLightning: '有意な落雷密度なし',
-    compareLowerNotable: '周辺より明らかに低い', compareLowerSlight: '周辺よりやや低い',
-    compareLevel: '周辺とほぼ同じ高さ', compareHigher: '周辺より高い — 比較的良好',
-    elevationLabel: (m, cmp, diff) => `標高: ${m}m — ${cmp}(周辺平均との差: ${diff})`,
-    referenceOnlyWater: '参考値 — 上記の降雨再現期間・標高比較は水害ハザードスコアの計算には使われていません。',
-    rainfallCurrent: 'Current', rainfallScenario: (w, pct) => `+${w}°C シナリオ(IPCC AR6, 約${pct}%/°C)`,
-    rainfallYearsData: (n) => `(${n}年分のデータ)`,
-    aqueductNoData: 'データなし(対象範囲外)', aqueductDepthLabel: (d) => `シミュレーション浸水深: ${d}m`,
-    aqueductNote: (rp) => `WRI Aqueduct Floods(河川氾濫、過去実績ベース、再現期間${rp}年)`,
-    methodology: [
-      { label: '地震', desc: '出典: USGS地震カタログ。中国全域のM5.0以上の過去の地震、定期更新。' },
-      { label: '雷', desc: '出典: WWLLN Global Lightning Climatology(WGLC)、2010〜2023年の多年平均落雷密度。中国国内での相対密度で色分け(公式なリスク分類ではない)。過去の平均値であり、リアルタイムの警報ではない。' },
-      { label: '台風ハザード', desc: '出典: IBTrACSの過去の台風経路データ。中国沿岸部における過去の台風実績を反映したものであり、予報ではない。' },
-      { label: '水害ハザード', desc: '過去の降雨・標高・河川/海岸線への近接度・過去の洪水記録データに基づき作成。地点検索の結果は検索時にその場で近隣の湖も加味する(地図全体表示のレイヤーには湖は含まない)。簡易的な参考指標であり、水理シミュレーションではない。データが無い地域は地図上で空白にし、灰色や低リスクとしては扱わない。' },
-      { label: 'Aqueductフラッド', desc: '出典: WRI Aqueduct Floodsの水理シミュレーションによる河川氾濫データ(観測された実際の災害ではなく、統計的な再現期間の推定値)。10年または100年の再現期間について、地図のヒートマップと地点検索の両方で値を表示。' },
-      { label: '地点検索', desc: 'タップした地点とその周辺の標高をその場で取得し、有効な各レイヤーに応じた近隣ハザードデータを網掛け表示する。リスクバッジと比較グリッドは水害ハザードのチップが有効な間のみ表示される。' },
-    ],
-    reportTitle: '統合レポート', reportAddLocation: '+ 拠点を追加', reportGenerate: '統合レポートを生成',
-    reportLocationN: (n) => `拠点 ${n}`, reportPropertyPlaceholder: '物件名(任意)',
-    reportLatPlaceholder: '緯度', reportLonPlaceholder: '経度',
-    reportStatusEnterLocation: '少なくとも1つの拠点を入力してください。', reportStatusComputing: 'ハザードデータを計算中…',
-    reportStatusRendering: 'グラフを描画中…', reportStatusBuilding: 'PDFを生成中…', reportStatusDone: 'PDFをダウンロードしました。',
-    reportStatusFailed: 'レポートの生成に失敗しました。もう一度お試しください。', reportStatusNoValid: '有効な座標が入力されていません。',
-    reportDocTitle: '自然災害リスクレポート', reportGenerated: (date, sys) => `生成日: ${date} · ${sys}`,
-    reportDescEarthquake: '半径100km以内の過去の地震(M5.0以上)を、マグニチュードと距離で重み付け。',
-    reportDescTyphoon: 'この地点付近における過去の台風経路と風の強さ(サファ・シンプソン・スケール)。',
-    reportDescLightning: '衛星・地上観測網による検知データに基づく、この地点付近の落雷密度。',
-    reportDescWater: '過去の降雨・標高・河川/海岸線への近接度による複合スコア。',
-    reportTyphoonFreq: (n, yrs) => `Category1以上の発生頻度: 再現期間 約${n}年(${yrs}年分のデータに基づく)。`,
-    reportRainfallTitle: '降雨再現期間',
-    reportRainfallDesc: (yrs) => `24時間降水量が平均何年に1度超過するかの目安。CHIRPSの${yrs}年分のデータをGumbel分布にフィットして算出。参考値。`,
-    reportElevationTitle: '標高(周辺との比較)',
-    reportElevationDesc: '中心点と、半径100m圏内の周囲8方向との比較。色・高さともに標高(m)を表す。参考値。',
-    reportDisclaimer: '本レポートは参考情報であり、保証または保険引受の唯一の根拠として使用しないでください。降雨再現期間・標高比較は参考値であり、水害ハザードスコアの計算には使用していません。',
-  },
-  zh: {
-    brandTitle: '中国自然灾害风险地图', brandSub: '历史灾害与危险图层',
-    methodologyBtn: 'METHODOLOGY', reportsBtn: 'REPORTS',
-    layerEarthquake: '地震', layerLightning: '闪电', layerTyphoon: '台风灾害',
-    layerWater: '水灾灾害', layerAqueduct: 'Aqueduct洪水', layerPointLookup: '地点查询',
-    layerNoteEarthquake: '地震: 基于USGS地震目录数据的中国全境M5.0以上历史地震。标记大小与震级成正比。',
-    layerNoteLightning: '闪电: 来自WWLLN全球闪电气候学的历史闪电密度(2010–2023年多年平均)。为气候学平均值,非实时数据。',
-    layerNoteTyphoon: '台风灾害: 基于历史台风路径和风速数据生成,反映过去的活动情况,并非预报。',
-    layerNoteWater: '水灾灾害: 基于历史降雨、海拔、与河流/海岸线的距离以及历史洪水记录数据生成。地点查询结果还会实时纳入附近湖泊数据(地图整体图层不含湖泊)。无降雨数据的区域在地图上不显示颜色(详见地点查询面板中的"No data"标签)。',
-    layerNoteAqueduct: 'Aqueduct洪水: 显示WRI的模拟淹水深度,同时以地图热力图和地点查询数值两种方式呈现,可通过单选按钮切换10年/100年重现期。',
-    coordWgs84: 'WGS84(OpenStreetMap、GPS)— 无需转换',
-    coordGcj02: 'GCJ-02(高德地图)— 自动转换',
-    coordBd09: 'BD-09(百度地图)— 自动转换',
-    latPlaceholder: '纬度,例如 31.23', lonPlaceholder: '经度,例如 121.47', locateBtn: '定位',
-    statusLoading: '加载中…', statusFetchingEarthquakes: '正在获取地震数据…',
-    statusDataRange: (a, b) => `数据范围: ${a}–${b}`, statusEarthquakeCount: (n) => `地震 ${n} 次(M5.0以上)`,
-    statusLiveFeed: '实时数据(最近30天)— 历史回填尚未生成',
-    statusEarthquakeCount30d: (n) => `地震 ${n} 次(30天内,M3.5以上)`, statusFailed: '地震数据加载失败',
-    fetching: '获取中…', selectLayerPrompt: '请在上方选择图层以在地图上显示。',
-    showMore: '展开', showLess: '收起',
-    tierLow: 'Low', tierModerate: 'Moderate', tierHigh: 'High', tierSevere: 'Severe', tierExtreme: 'Extreme',
-    badgeWaterHazard: (tier, val) => `${tier} water hazard (${val})`, badgeNoRainfall: '无降雨数据(超出CHIRPS覆盖范围)',
-    badgeEarthquake: (tier, val) => `${tier} earthquake hazard (${val})`, badgeNoEarthquake: '100公里范围内无M5.0以上地震',
-    badgeTyphoon: (tier, val) => `${tier} typhoon hazard (${val})`, badgeNoTyphoon: '该地点无Category1以上台风影响',
-    badgeLightning: (tier, val) => `${tier} lightning hazard (${val})`, badgeNoLightning: '附近无显著闪电密度',
-    compareLowerNotable: '明显低于周边地形', compareLowerSlight: '略低于周边地形',
-    compareLevel: '与周边地形基本持平', compareHigher: '高于周边地形 — 相对有利',
-    elevationLabel: (m, cmp, diff) => `海拔: ${m}m — ${cmp}(与周边平均差: ${diff})`,
-    referenceOnlyWater: '仅供参考 — 以上降雨重现期与海拔比较均未用于水灾灾害评分的计算。',
-    rainfallCurrent: 'Current', rainfallScenario: (w, pct) => `+${w}°C 情景(IPCC AR6,约${pct}%/°C)`,
-    rainfallYearsData: (n) => `(${n}年数据)`,
-    aqueductNoData: '无数据(超出覆盖范围)', aqueductDepthLabel: (d) => `模拟淹水深度: ${d}m`,
-    aqueductNote: (rp) => `WRI Aqueduct Floods(河流型,基于历史基线,重现期${rp}年)`,
-    methodology: [
-      { label: '地震', desc: '数据来源: USGS地震目录。中国全境M5.0以上历史地震,定期更新。' },
-      { label: '闪电', desc: '数据来源: WWLLN全球闪电气候学(WGLC),2010–2023年多年平均闪电密度。按中国境内相对密度着色(非官方风险分级),为历史平均值而非实时预警。' },
-      { label: '台风灾害', desc: '数据来源: IBTrACS历史台风路径数据。反映中国沿海地区过去的台风活动情况,并非预报。' },
-      { label: '水灾灾害', desc: '基于历史降雨、海拔、与河流/海岸线的距离以及历史洪水记录数据生成。地点查询结果会在查询时实时纳入附近湖泊(地图整体图层不含湖泊)。为简化的参考指标,并非水动力洪水模拟。无数据地区在地图上留白,不会以灰色或低风险处理。' },
-      { label: 'Aqueduct洪水', desc: '数据来源: WRI Aqueduct Floods水动力河流洪水模拟数据(并非观测到的历史事件,而是统计学上的重现期估计值)。针对10年或100年重现期,以地图热力图和地点查询数值两种方式显示。' },
-      { label: '地点查询', desc: '实时获取点击位置及周边的海拔数据,并为每个已启用的图层显示相应的邻近灾害网格。风险徽章与比较网格仅在启用水灾灾害图层时显示。' },
-    ],
-    reportTitle: '综合报告', reportAddLocation: '+ 添加地点', reportGenerate: '生成综合报告',
-    reportLocationN: (n) => `地点 ${n}`, reportPropertyPlaceholder: '物业名称(可选)',
-    reportLatPlaceholder: '纬度', reportLonPlaceholder: '经度',
-    reportStatusEnterLocation: '请至少输入一个地点。', reportStatusComputing: '正在计算灾害数据…',
-    reportStatusRendering: '正在绘制图表…', reportStatusBuilding: '正在生成PDF…', reportStatusDone: 'PDF已下载。',
-    reportStatusFailed: '报告生成失败,请重试。', reportStatusNoValid: '未输入有效坐标。',
-    reportDocTitle: '自然灾害风险报告', reportGenerated: (date, sys) => `生成日期: ${date} · ${sys}`,
-    reportDescEarthquake: '按震级和距离加权的100公里范围内历史地震(M5.0以上)。',
-    reportDescTyphoon: '该地点附近的历史台风路径与风力强度(萨菲尔-辛普森等级)。',
-    reportDescLightning: '基于卫星与地面网络探测数据的该地点附近闪电密度。',
-    reportDescWater: '基于历史降雨、海拔以及与河流/海岸线距离的综合评分。',
-    reportTyphoonFreq: (n, yrs) => `Category1以上台风发生频率: 重现期约${n}年(基于${yrs}年数据)。`,
-    reportRainfallTitle: '降雨重现期',
-    reportRainfallDesc: (yrs) => `基于${yrs}年CHIRPS数据拟合Gumbel分布得出的24小时降雨量平均重现频率。仅供参考。`,
-    reportElevationTitle: '海拔(与周边比较)',
-    reportElevationDesc: '中心点与100米范围内周边8个方向的比较。颜色与高度均代表海拔(米)。仅供参考。',
-    reportDisclaimer: '本报告仅供参考,不构成保证,也不应作为保险承保决策的唯一依据。降雨重现期与海拔比较均为参考值,未用于水灾灾害评分的计算。',
-  },
-};
-
-function t(key, ...args) {
-  const entry = (I18N[currentLang] && I18N[currentLang][key] !== undefined) ? I18N[currentLang][key] : I18N.en[key];
-  return typeof entry === 'function' ? entry(...args) : entry;
-}
-function tierLabel(idx) { return [t('tierLow'), t('tierModerate'), t('tierHigh'), t('tierSevere'), t('tierExtreme')][idx]; }
-
 // Peril identity colors (used for chip dots / markers — distinguishes hazard TYPE)
 const COLORS = {
   earthquake: '#C13A2E',
@@ -556,24 +359,37 @@ function isOnLand(lat, lon) {
   return inside;
 }
 
-function getLayers() {
-  return [
-    { key: 'earthquake', label: t('layerEarthquake'), color: COLORS.earthquake, note: t('layerNoteEarthquake') },
-    { key: 'lightning', label: t('layerLightning'), color: COLORS.lightning, note: t('layerNoteLightning') },
-    { key: 'typhoonHazard', label: t('layerTyphoon'), color: COLORS.typhoonHazard, note: t('layerNoteTyphoon') },
-    { key: 'waterHazard', label: t('layerWater'), color: COLORS.waterHazard, note: t('layerNoteWater') },
-    { key: 'aqueductFloods', label: t('layerAqueduct'), color: COLORS.aqueductFloods, note: t('layerNoteAqueduct') },
-  ];
-}
+const LAYERS = [
+  { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
+    note: 'Earthquakes: historical M5.0+ events across China, based on USGS earthquake catalog data. Marker size scales with magnitude.' },
+  { key: 'lightning', label: 'Lightning', color: COLORS.lightning,
+    note: 'Lightning: historical stroke density (2010–2023 multi-year mean) from the WWLLN Global Lightning Climatology. A climatological average, not real-time data.' },
+  { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
+    note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
+  { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
+    note: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live, not shown on the map-wide layer). Areas with no rainfall data show no color on the map (see the point-search panel for a "No data" label).' },
+  { key: 'aqueductFloods', label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
+    note: 'Aqueduct Floods: simulated flood depth (WRI) shown both as a map heatmap and at the searched point, for the selected return period (10-year / 100-year, switchable via radio buttons).' },
+];
 
 // 地点検索で「評価バッジ+リスク凡例」を表示する4レイヤー(Aqueduct Floodsは浸水深mの
 // 実数値表示のため対象外)
 const BADGE_LAYER_KEYS = ['earthquake', 'typhoonHazard', 'lightning', 'waterHazard'];
 
-const METHODOLOGY_COLORS = [COLORS.earthquake, COLORS.lightning, COLORS.typhoonHazard, COLORS.waterHazard, COLORS.aqueductFloods, '#5C6675'];
-function getMethodology() {
-  return t('methodology').map((m, i) => ({ label: m.label, desc: m.desc, color: METHODOLOGY_COLORS[i] }));
-}
+const METHODOLOGY = [
+  { label: 'Earthquakes', color: COLORS.earthquake,
+    desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
+  { label: 'Lightning', color: COLORS.lightning,
+    desc: 'Source: WWLLN Global Lightning Climatology (WGLC), 2010–2023 multi-year mean stroke density. Colored by relative density within China (not an official risk classification). A historical average, not a real-time warning.' },
+  { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
+    desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
+  { label: 'Water Hazard', color: COLORS.waterHazard,
+    desc: 'Created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live at search time; the map-wide layer does not include lakes). A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
+  { label: 'Aqueduct Floods', color: COLORS.aqueductFloods,
+    desc: 'Source: WRI Aqueduct Floods hydrodynamic river-flood simulation data (not an observed historical event — a statistical return-period estimate). Shown as both a map heatmap and a point-search value, for the 10-year or 100-year return period.' },
+  { label: 'Point Lookup', color: '#5C6675',
+    desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
+];
 
 const TYPHOON_SAMPLE = [
   { points: [[20.5,128.0],[22.5,122.0],[24.0,120.0],[24.82,118.57]] },
@@ -626,7 +442,7 @@ function initMap() {
 
 function renderLayerBar() {
   const bar = document.getElementById('layerBar');
-  bar.innerHTML = getLayers().map(l => {
+  bar.innerHTML = LAYERS.map(l => {
     const active = activeLayers.has(l.key);
     return `<button class="layer-chip${active ? ' active' : ''}" style="${active ? `background:${l.color};border-color:${l.color};` : ''}" data-key="${l.key}">
       <span class="dot" style="background:${active ? '#fff' : l.color};"></span>${l.label}
@@ -680,9 +496,9 @@ let dataRanges = { typhoonHazard: null };
 
 function updateLegend() {
   const container = document.getElementById('legendNote');
-  const active = getLayers().filter(l => activeLayers.has(l.key));
+  const active = LAYERS.filter(l => activeLayers.has(l.key));
   if (active.length === 0) {
-    container.innerHTML = t('selectLayerPrompt');
+    container.innerHTML = 'Select a layer above to see it on the map.';
     return;
   }
   container.innerHTML = active.map(l => {
@@ -694,7 +510,7 @@ function updateLegend() {
     return `<div style="margin-bottom:6px;">
       <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${summary}
       ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
-      <span class="legend-toggle" data-key="${l.key}">${expanded ? t('showLess') : t('showMore')}</span>` : ''}
+      <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
     </div>`;
   }).join('');
 
@@ -709,7 +525,7 @@ function updateLegend() {
 
 function renderMethodology() {
   const panel = document.getElementById('methodologyPanel');
-  panel.innerHTML = getMethodology().map(m => `
+  panel.innerHTML = METHODOLOGY.map(m => `
     <div class="method-item">
       <div class="method-label"><span class="dot" style="background:${m.color};"></span>${m.label}</div>
       <div class="method-desc">${m.desc}</div>
@@ -734,7 +550,7 @@ let typhoonGeojsonCacheGlobal = null;
 let floodGeojsonCacheGlobal = null;
 
 async function loadEarthquakes() {
-  document.getElementById('statusLabel').textContent = t('statusFetchingEarthquakes');
+  document.getElementById('statusLabel').textContent = 'Fetching earthquakes…';
 
   // Prefer the pre-generated, backfilled dataset (scripts/fetch_earthquakes.py)
   const geojson = await fetchGeojsonSafe('data/earthquakes.geojson');
@@ -769,8 +585,8 @@ async function loadEarthquakes() {
     });
     const minYear = isFinite(minTime) ? new Date(minTime).getFullYear() : '—';
     const maxYear = isFinite(maxTime) ? new Date(maxTime).getFullYear() : '—';
-    document.getElementById('statusLabel').textContent = t('statusDataRange', minYear, maxYear);
-    document.getElementById('countLabel').textContent = t('statusEarthquakeCount', count);
+    document.getElementById('statusLabel').textContent = `Data range: ${minYear}–${maxYear}`;
+    document.getElementById('countLabel').textContent = `${count} earthquakes (M5.0+)`;
     return;
   }
 
@@ -803,10 +619,10 @@ async function loadEarthquakes() {
       marker.addTo(layerGroups.earthquake);
       count++;
     });
-    document.getElementById('statusLabel').textContent = t('statusLiveFeed');
-    document.getElementById('countLabel').textContent = t('statusEarthquakeCount30d', count);
+    document.getElementById('statusLabel').textContent = 'Live feed (last 30 days) — backfill not yet generated';
+    document.getElementById('countLabel').textContent = `${count} earthquakes (30d, M3.5+)`;
   } catch (e) {
-    document.getElementById('statusLabel').textContent = t('statusFailed');
+    document.getElementById('statusLabel').textContent = 'Failed to load earthquake data';
   }
 }
 
@@ -1288,13 +1104,13 @@ function aqueductResultHtml(depth, rp) {
     </label>
   `).join('');
   const valueHtml = depth === null
-    ? `<div class="aqueduct-depth-value" style="color:var(--text-faint);">${t('aqueductNoData')}</div>`
-    : `<div class="aqueduct-depth-value">${t('aqueductDepthLabel', depth.toFixed(2))}</div>`;
+    ? `<div class="aqueduct-depth-value" style="color:var(--text-faint);">No data (outside coverage)</div>`
+    : `<div class="aqueduct-depth-value">Simulated flood depth: ${depth.toFixed(2)}m</div>`;
   return `
     <div class="aqueduct-result">
       <div class="aqueduct-rp-group">${rpOptions}</div>
       ${valueHtml}
-      <div class="aqueduct-depth-note">${t('aqueductNote', rp)}</div>
+      <div class="aqueduct-depth-note">WRI Aqueduct Floods (riverine, historical baseline, ${rp}-year return period)</div>
     </div>
   `;
 }
@@ -1648,17 +1464,17 @@ function rainfallFreqHtml(freq) {
   const scenarioOptions = RAINFALL_WARMING_SCENARIOS.map(w => `
     <label>
       <input type="radio" name="rainfallWarming" value="${w}" ${w === freq.warming ? 'checked' : ''} onchange="onRainfallWarmingChange(this.value)">
-      ${w === 0 ? t('rainfallCurrent') : `+${w}°C`}
+      ${w === 0 ? 'Current' : `+${w}°C`}
     </label>
   `).join('');
   // +1.5/+2/+3°C選択時のみ、IPCC根拠の説明を表示(Current時は観測値そのものなので説明不要)
   const scenarioNote = freq.warming === 0
     ? ''
-    : `<br>${t('rainfallScenario', freq.warming, RAINFALL_CC_PCT_PER_DEG)}`;
+    : `<br>+${freq.warming}°C scenario (IPCC AR6, ~${RAINFALL_CC_PCT_PER_DEG}%/°C)`;
 
   return `<div class="result-freq" id="rainfallFreq">
     <div class="aqueduct-rp-group" style="margin-bottom:3px;">${scenarioOptions}</div>
-    ${rows} ${t('rainfallYearsData', freq.yearsUsed)}${scenarioNote}
+    ${rows} (${freq.yearsUsed}yrs data)${scenarioNote}
   </div>`;
 }
 
@@ -1699,7 +1515,7 @@ async function queryPoint(lat, lon) {
   const resultEl = document.getElementById('searchResult');
   if (BADGE_LAYER_KEYS.some(k => activeLayers.has(k))) {
     resultEl.className = 'search-result visible';
-    resultEl.innerHTML = `<div class="result-elev">${t('fetching')}</div>`;
+    resultEl.innerHTML = '<div class="result-elev">Fetching…</div>';
   }
 
   // Aqueduct Floods: 標高・降雨などの取得と並行して、その場でGeoTIFFのピクセルを読みに行く
@@ -1750,10 +1566,10 @@ async function queryPoint(lat, lon) {
     const diff = avgSurrounding - centerElev;
 
     let compareLabel;
-    if (diff >= 1) compareLabel = t('compareLowerNotable');
-    else if (diff >= 0.5) compareLabel = t('compareLowerSlight');
-    else if (diff > -0.5) compareLabel = t('compareLevel');
-    else compareLabel = t('compareHigher');
+    if (diff >= 1) compareLabel = 'Sits noticeably lower than its surroundings';
+    else if (diff >= 0.5) compareLabel = 'Slightly lower than its surroundings';
+    else if (diff > -0.5) compareLabel = 'About level with its surroundings';
+    else compareLabel = 'Higher than its surroundings — relatively favorable';
 
     // バッジは「水害ハザード」の統合値(降雨×標高の高い方 × 洪水実績の重み)で判定する。
     // 方角グリッド・標高差テキストは、引き続き標高そのものを参考情報として表示する。
@@ -1766,10 +1582,10 @@ async function queryPoint(lat, lon) {
     const elevRiskInfo = elevationToRiskInfo(centerElev);
     const rainfallRiskHere = rainfallRiskAt(lat, lon);
     const noRainDataHere = rainfallRiskHere === null;
-    const tierLabels = [t('tierLow'), t('tierModerate'), t('tierHigh'), t('tierSevere'), t('tierExtreme')];
+    const tierLabels = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
     let waterBadge;
     if (noRainDataHere) {
-      waterBadge = { label: t('badgeNoRainfall'), color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS };
+      waterBadge = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS };
     } else {
       const proximity = waterProximityMultiplier(lat, lon, lakePoints);
       const baseRisk = Math.max(rainfallRiskHere, elevRiskValueFromLabel(elevRiskInfo) * proximity);
@@ -1777,7 +1593,7 @@ async function queryPoint(lat, lon) {
       const finalRisk = Math.min(1.0, baseRisk * weight);
       const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
       const rainfallFreq = rainfallReturnPeriodInfo(lat, lon);
-      waterBadge = { label: t('badgeWaterHazard', tierLabels[tier], finalRisk.toFixed(2)), color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk, freqInfo: rainfallFreq, freqHtmlFn: rainfallFreqHtml };
+      waterBadge = { label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk, freqInfo: rainfallFreq, freqHtmlFn: rainfallFreqHtml };
     }
 
     // 地震・台風・雷は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)が、
@@ -1786,24 +1602,24 @@ async function queryPoint(lat, lon) {
     if (activeLayers.has('earthquake')) {
       const info = earthquakeRiskInfo(lat, lon);
       badges.push(info
-        ? { label: t('badgeEarthquake', tierLabels[info.tier], info.valueLabel), color: info.color, colors: EARTHQUAKE_TIER_COLORS, ratio: info.ratio }
-        : { label: t('badgeNoEarthquake'), color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS });
+        ? { label: `${tierLabels[info.tier]} earthquake hazard (${info.valueLabel})`, color: info.color, colors: EARTHQUAKE_TIER_COLORS, ratio: info.ratio }
+        : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS });
     }
     if (activeLayers.has('typhoonHazard')) {
       const info = typhoonRiskInfo(lat, lon);
       const freq = typhoonReturnPeriodInfo(lat, lon);
       badges.push({
         ...(info
-          ? { label: t('badgeTyphoon', tierLabels[info.tier], info.valueLabel), color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
-          : { label: t('badgeNoTyphoon'), color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS }),
+          ? { label: `${tierLabels[info.tier]} typhoon hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
+          : { label: 'No Category 1+ typhoon impact at this point', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS }),
         freqInfo: freq, freqHtmlFn: typhoonFreqHtml,
       });
     }
     if (activeLayers.has('lightning')) {
       const info = lightningRiskInfo(lat, lon);
       badges.push(info
-        ? { label: t('badgeLightning', tierLabels[info.tier], info.valueLabel), color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
-        : { label: t('badgeNoLightning'), color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
+        ? { label: `${tierLabels[info.tier]} lightning hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
+        : { label: 'No significant lightning density nearby', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
     }
     if (activeLayers.has('waterHazard')) badges.push(waterBadge);
 
@@ -1816,8 +1632,8 @@ async function queryPoint(lat, lon) {
           ${b.freqInfo && b.freqHtmlFn ? b.freqHtmlFn(b.freqInfo) : ''}
         `).join('<div style="height:8px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
-          <div class="result-elev" style="margin-top:9px;">${t('elevationLabel', centerElev.toFixed(1), compareLabel, (diff >= 0 ? '+' : '') + diff.toFixed(1) + 'm')}</div>
-          <div class="result-elev" style="margin-top:3px; opacity:0.75;">${t('referenceOnlyWater')}</div>
+          <div class="result-elev" style="margin-top:9px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
+          <div class="result-elev" style="margin-top:3px; opacity:0.75;">Reference only, not part of the Water Hazard score.</div>
         ` : ''}
       `;
     } else {
@@ -1984,24 +1800,31 @@ document.getElementById('searchBtn').addEventListener('click', () => {
 // 直接呼び出す専用の計算パイプラインをここに用意する(DOM更新やactiveLayersには依存しない)。
 let reportLocations = [{ name: '', lat: '', lon: '' }];
 
+const HAZARD_DESCRIPTIONS = {
+  earthquake: 'Historical earthquakes (M5.0+) within 100km, weighted by magnitude and distance.',
+  typhoon: 'Historical typhoon tracks and wind intensity (Saffir-Simpson scale) near this location.',
+  lightning: 'Lightning strike density near this location, based on satellite and ground network detections.',
+  water: 'Composite score from historical rainfall, elevation, and proximity to rivers/coastline.',
+};
+
 function renderReportPanel() {
   const panel = document.getElementById('reportPanel');
   panel.innerHTML = `
-    <div style="font-family:'JetBrains Mono', monospace; font-size:10.5px; font-weight:700; letter-spacing:0.5px; color:var(--text-primary); margin-bottom:8px;">${t('reportTitle')}</div>
+    <div style="font-family:'JetBrains Mono', monospace; font-size:10.5px; font-weight:700; letter-spacing:0.5px; color:var(--text-primary); margin-bottom:8px;">INTEGRATED REPORT</div>
     <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:10px;">
       <label style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-muted);">
-        <input type="radio" name="reportCoordSystem" value="wgs84" checked style="width:14px;height:14px;">${t('coordWgs84')}
+        <input type="radio" name="reportCoordSystem" value="wgs84" checked style="width:14px;height:14px;">WGS84 (OpenStreetMap, GPS)
       </label>
       <label style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-muted);">
-        <input type="radio" name="reportCoordSystem" value="gcj02" style="width:14px;height:14px;">${t('coordGcj02')}
+        <input type="radio" name="reportCoordSystem" value="gcj02" style="width:14px;height:14px;">GCJ-02 (Amap / 高德地图)
       </label>
       <label style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-muted);">
-        <input type="radio" name="reportCoordSystem" value="bd09" style="width:14px;height:14px;">${t('coordBd09')}
+        <input type="radio" name="reportCoordSystem" value="bd09" style="width:14px;height:14px;">BD-09 (Baidu Maps / 百度地图)
       </label>
     </div>
     <div id="reportLocList"></div>
-    <button class="report-add-btn" id="reportAddBtn">${t('reportAddLocation')}</button>
-    <button class="report-generate-btn" id="reportGenerateBtn">${t('reportGenerate')}</button>
+    <button class="report-add-btn" id="reportAddBtn">+ Add location</button>
+    <button class="report-generate-btn" id="reportGenerateBtn">Generate integrated report</button>
     <div class="report-status" id="reportStatus"></div>
   `;
   renderReportLocList();
@@ -2017,13 +1840,13 @@ function renderReportLocList() {
   el.innerHTML = reportLocations.map((loc, i) => `
     <div class="report-loc-row">
       <div class="report-loc-row-head">
-        <span style="font-size:11px; font-weight:600;">${t('reportLocationN', i + 1)}</span>
+        <span style="font-size:11px; font-weight:600;">Location ${i + 1}</span>
         ${reportLocations.length > 1 ? `<button class="report-loc-remove" data-idx="${i}">✕</button>` : ''}
       </div>
-      <input type="text" placeholder="${t('reportPropertyPlaceholder')}" data-field="name" data-idx="${i}" value="${escapeHtml(loc.name)}">
+      <input type="text" placeholder="Property name (optional)" data-field="name" data-idx="${i}" value="${escapeHtml(loc.name)}">
       <div class="coords-row">
-        <input type="text" placeholder="${t('reportLatPlaceholder')}" inputmode="decimal" data-field="lat" data-idx="${i}" value="${escapeHtml(loc.lat)}">
-        <input type="text" placeholder="${t('reportLonPlaceholder')}" inputmode="decimal" data-field="lon" data-idx="${i}" value="${escapeHtml(loc.lon)}">
+        <input type="text" placeholder="Latitude" inputmode="decimal" data-field="lat" data-idx="${i}" value="${escapeHtml(loc.lat)}">
+        <input type="text" placeholder="Longitude" inputmode="decimal" data-field="lon" data-idx="${i}" value="${escapeHtml(loc.lon)}">
       </div>
     </div>
   `).join('');
@@ -2064,6 +1887,8 @@ function rainfallGumbelParamsAt(lat, lon) {
   return { mu: nearest.gumbel_mu, beta: nearest.gumbel_beta, yearsUsed: nearest.years_used };
 }
 
+const TIER_LABELS_RPT = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
+
 // 1地点分の4ハザード+降雨曲線+標高地形データをまとめて計算する(activeLayersに依存しない)
 async function computeReportData(lat, lon) {
   const dLat = metersToDegLat(SEARCH_RADIUS_M);
@@ -2076,41 +1901,41 @@ async function computeReportData(lat, lon) {
   const avgSurrounding = surrounding.reduce((s, d) => s + d.elev, 0) / surrounding.length;
   const diff = avgSurrounding - centerElev;
   let compareLabel;
-  if (diff >= 1) compareLabel = t('compareLowerNotable');
-  else if (diff >= 0.5) compareLabel = t('compareLowerSlight');
-  else if (diff > -0.5) compareLabel = t('compareLevel');
-  else compareLabel = t('compareHigher');
+  if (diff >= 1) compareLabel = 'Sits noticeably lower than its surroundings';
+  else if (diff >= 0.5) compareLabel = 'Slightly lower than its surroundings';
+  else if (diff > -0.5) compareLabel = 'About level with its surroundings';
+  else compareLabel = 'Higher than its surroundings — relatively favorable';
 
   const lakePoints = await fetchNearbyLakePoints(lat, lon, GRID_RADIUS_M + 2000);
   const elevRiskInfo = elevationToRiskInfo(centerElev);
   const rainfallRiskHere = rainfallRiskAt(lat, lon);
   let water;
   if (rainfallRiskHere === null) {
-    water = { label: t('badgeNoRainfall'), color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
+    water = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
   } else {
     const proximity = waterProximityMultiplier(lat, lon, lakePoints);
     const baseRisk = Math.max(rainfallRiskHere, elevRiskValueFromLabel(elevRiskInfo) * proximity);
     const weight = floodWeightAt(lat, lon);
     const finalRisk = Math.min(1.0, baseRisk * weight);
     const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
-    water = { label: t('badgeWaterHazard', tierLabel(tier), finalRisk.toFixed(2)), color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk };
+    water = { label: `${TIER_LABELS_RPT[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk };
   }
 
   const eqInfo = earthquakeRiskInfo(lat, lon);
   const earthquake = eqInfo
-    ? { label: t('badgeEarthquake', tierLabel(eqInfo.tier), eqInfo.valueLabel), color: eqInfo.color, colors: EARTHQUAKE_TIER_COLORS, ratio: eqInfo.ratio }
-    : { label: t('badgeNoEarthquake'), color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS, ratio: null };
+    ? { label: `${TIER_LABELS_RPT[eqInfo.tier]} earthquake hazard (${eqInfo.valueLabel})`, color: eqInfo.color, colors: EARTHQUAKE_TIER_COLORS, ratio: eqInfo.ratio }
+    : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS, ratio: null };
 
   const tyInfo = typhoonRiskInfo(lat, lon);
   const tyFreq = typhoonReturnPeriodInfo(lat, lon);
   const typhoon = tyInfo
-    ? { label: t('badgeTyphoon', tierLabel(tyInfo.tier), tyInfo.valueLabel), color: tyInfo.color, colors: WARNING_TIER_COLORS, ratio: tyInfo.ratio, freq: tyFreq }
-    : { label: t('badgeNoTyphoon'), color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null, freq: tyFreq };
+    ? { label: `${TIER_LABELS_RPT[tyInfo.tier]} typhoon hazard (${tyInfo.valueLabel})`, color: tyInfo.color, colors: WARNING_TIER_COLORS, ratio: tyInfo.ratio, freq: tyFreq }
+    : { label: 'No Category 1+ typhoon impact at this point', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null, freq: tyFreq };
 
   const ltInfo = lightningRiskInfo(lat, lon);
   const lightning = ltInfo
-    ? { label: t('badgeLightning', tierLabel(ltInfo.tier), ltInfo.valueLabel), color: ltInfo.color, colors: WARNING_TIER_COLORS, ratio: ltInfo.ratio }
-    : { label: t('badgeNoLightning'), color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
+    ? { label: `${TIER_LABELS_RPT[ltInfo.tier]} lightning hazard (${ltInfo.valueLabel})`, color: ltInfo.color, colors: WARNING_TIER_COLORS, ratio: ltInfo.ratio }
+    : { label: 'No significant lightning density nearby', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
 
   // 降雨再現期間: Current/+1.5/+2/+3℃の4シナリオをまとめて計算(グラフ用)
   const gumbel = rainfallGumbelParamsAt(lat, lon);
@@ -2156,9 +1981,9 @@ async function generateIntegratedReport() {
   const btn = document.getElementById('reportGenerateBtn');
   const status = document.getElementById('reportStatus');
   const validLocs = reportLocations.filter(l => l.lat !== '' && l.lon !== '');
-  if (validLocs.length === 0) { status.textContent = t('reportStatusEnterLocation'); return; }
+  if (validLocs.length === 0) { status.textContent = 'Enter at least one location.'; return; }
   btn.disabled = true;
-  status.textContent = t('reportStatusComputing');
+  status.textContent = 'Computing hazard data…';
 
   const system = document.querySelector('input[name="reportCoordSystem"]:checked').value;
 
@@ -2179,13 +2004,12 @@ async function generateIntegratedReport() {
       results.push({ name: loc.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`, lat, lon, data });
     }
 
-    if (results.length === 0) { status.textContent = t('reportStatusNoValid'); btn.disabled = false; return; }
+    if (results.length === 0) { status.textContent = 'No valid coordinates entered.'; btn.disabled = false; return; }
 
-    status.textContent = t('reportStatusRendering');
-    const systemLabel = system === 'gcj02' ? 'GCJ-02' : system === 'bd09' ? 'BD-09' : 'WGS84';
-    await renderReportView(results, systemLabel);
+    status.textContent = 'Rendering charts…';
+    await renderReportView(results);
 
-    status.textContent = t('reportStatusBuilding');
+    status.textContent = 'Building PDF…';
     const { jsPDF } = window.jspdf;
     let pdf = null;
     const pages = document.querySelectorAll('#reportView .rpt-page');
@@ -2205,16 +2029,16 @@ async function generateIntegratedReport() {
     pdf.save(`hazard-report-${new Date().toISOString().slice(0, 10)}.pdf`);
 
     document.getElementById('reportView').innerHTML = '';
-    status.textContent = t('reportStatusDone');
+    status.textContent = 'PDF downloaded.';
     btn.disabled = false;
   } catch (e) {
     console.error(e);
-    status.textContent = t('reportStatusFailed');
+    status.textContent = 'Failed to generate report. Please try again.';
     btn.disabled = false;
   }
 }
 
-async function renderReportView(results, systemLabel) {
+async function renderReportView(results) {
   let view = document.getElementById('reportView');
   if (!view) {
     view = document.createElement('div');
@@ -2227,49 +2051,49 @@ async function renderReportView(results, systemLabel) {
       <div class="rpt-head">
         <div style="width:64px;height:20px;background:#f5f5f3;border-radius:4px;font-size:10px;color:#898781;display:flex;align-items:center;justify-content:center;">LOGO</div>
         <div>
-          <div class="rpt-title">${t('reportDocTitle')}</div>
-          <div class="rpt-meta">${t('reportGenerated', today, systemLabel)}</div>
+          <div class="rpt-title">Natural catastrophe risk report</div>
+          <div class="rpt-meta">Generated ${today} · WGS84</div>
         </div>
       </div>
       <div class="rpt-loc-name">${escapeHtml(r.name)}</div>
       <div class="rpt-loc-coords">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
 
       <div class="rpt-section">
-        <div class="rpt-h">${t('layerEarthquake')}</div>
-        <div class="rpt-desc">${t('reportDescEarthquake')}</div>
+        <div class="rpt-h">Earthquake</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.earthquake}</div>
         ${rptLegendBar(r.data.earthquake.colors, r.data.earthquake.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.earthquake.color).bg}; color:${rptBadgeColors(r.data.earthquake.color).text};">${r.data.earthquake.label}</span>
       </div>
 
       <div class="rpt-section">
-        <div class="rpt-h">${t('layerTyphoon').replace(/ Hazard$| ?ハザード$| ?灾害$/, '')}</div>
-        <div class="rpt-desc">${t('reportDescTyphoon')}</div>
+        <div class="rpt-h">Typhoon</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.typhoon}</div>
         ${rptLegendBar(r.data.typhoon.colors, r.data.typhoon.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.typhoon.color).bg}; color:${rptBadgeColors(r.data.typhoon.color).text};">${r.data.typhoon.label}</span>
-        <div class="rpt-comment">${r.data.typhoon.freq && r.data.typhoon.freq.observed ? t('reportTyphoonFreq', r.data.typhoon.freq.returnPeriod.toFixed(1), r.data.typhoon.freq.totalYears) : ''}</div>
+        <div class="rpt-comment">${r.data.typhoon.freq && r.data.typhoon.freq.observed ? `Category 1+ frequency: ~${r.data.typhoon.freq.returnPeriod.toFixed(1)}yr return period (based on ${r.data.typhoon.freq.totalYears}yrs of data).` : ''}</div>
       </div>
 
       <div class="rpt-section">
-        <div class="rpt-h">${t('layerLightning')}</div>
-        <div class="rpt-desc">${t('reportDescLightning')}</div>
+        <div class="rpt-h">Lightning</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.lightning}</div>
         ${rptLegendBar(r.data.lightning.colors, r.data.lightning.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.lightning.color).bg}; color:${rptBadgeColors(r.data.lightning.color).text};">${r.data.lightning.label}</span>
       </div>
 
       <div class="rpt-section">
-        <div class="rpt-h">${t('layerWater')}</div>
-        <div class="rpt-desc">${t('reportDescWater')}</div>
+        <div class="rpt-h">Water hazard</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.water}</div>
         ${rptLegendBar(r.data.water.colors, r.data.water.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.water.color).bg}; color:${rptBadgeColors(r.data.water.color).text};">${r.data.water.label}</span>
 
         ${r.data.rainfallCurves ? `
         <div style="margin-top:14px;">
-          <div class="rpt-h" style="font-size:11px;">${t('reportRainfallTitle')}</div>
-          <div class="rpt-desc">${t('reportRainfallDesc', r.data.yearsUsed || '—')}</div>
-          <div class="rpt-mono">${RAINFALL_RETURN_PERIODS_YR.map((T, ti) => `${T}yr: ~${r.data.rainfallCurves[0].values[ti].toFixed(0)}mm`).join(' / ')} ${t('rainfallYearsData', r.data.yearsUsed || '—')}</div>
+          <div class="rpt-h" style="font-size:11px;">Rainfall return period</div>
+          <div class="rpt-desc">24h rainfall expected to be exceeded on average once every N years, from ${r.data.yearsUsed || '—'} years of CHIRPS data fit to a Gumbel distribution. Reference only.</div>
+          <div class="rpt-mono">${RAINFALL_RETURN_PERIODS_YR.map((T, ti) => `${T}yr: ~${r.data.rainfallCurves[0].values[ti].toFixed(0)}mm`).join(' / ')} (${r.data.yearsUsed || '—'}yrs data)</div>
           <div style="margin:8px 0 4px;"><canvas id="rptChart${i}" width="640" height="220"></canvas></div>
           <div style="display:flex; flex-wrap:wrap; gap:10px; font-size:10px; color:#52514e;">
-            <span><span style="display:inline-block;width:8px;height:8px;background:#378ADD;border-radius:2px;margin-right:4px;"></span>${t('rainfallCurrent')}</span>
+            <span><span style="display:inline-block;width:8px;height:8px;background:#378ADD;border-radius:2px;margin-right:4px;"></span>Current</span>
             <span><span style="display:inline-block;width:8px;height:8px;background:#1D9E75;border-radius:2px;margin-right:4px;"></span>+1.5°C</span>
             <span><span style="display:inline-block;width:8px;height:8px;background:#EF9F27;border-radius:2px;margin-right:4px;"></span>+2°C</span>
             <span><span style="display:inline-block;width:8px;height:8px;background:#D85A30;border-radius:2px;margin-right:4px;"></span>+3°C</span>
@@ -2277,13 +2101,13 @@ async function renderReportView(results, systemLabel) {
         </div>` : ''}
 
         <div style="margin-top:14px;">
-          <div class="rpt-h" style="font-size:11px;">${t('reportElevationTitle')}</div>
-          <div class="rpt-desc">${t('reportElevationDesc')}</div>
+          <div class="rpt-h" style="font-size:11px;">Elevation vs. surroundings</div>
+          <div class="rpt-desc">Center point vs. 8 surrounding directions within 100m. Color and height both represent elevation (m). Reference only.</div>
           <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
         </div>
       </div>
 
-      <div class="rpt-footer">${t('reportDisclaimer')}</div>
+      <div class="rpt-footer">This report is for reference only and is not a guarantee or sole basis for insurance underwriting decisions. Rainfall return period and elevation comparison are reference values not used in the Water Hazard score.</div>
     </div>
   `).join('');
 
@@ -2357,56 +2181,6 @@ async function renderReportView(results, systemLabel) {
   })));
 }
 
-function renderLangSwitcher() {
-  const el = document.getElementById('langSwitcher');
-  const tabs = [{ code: 'en', label: 'EN' }, { code: 'ja', label: 'JA' }, { code: 'zh', label: 'ZH' }];
-  el.innerHTML = tabs.map(tb => `<button class="lang-tab${currentLang === tb.code ? ' active' : ''}" data-lang="${tb.code}">${tb.label}</button>`).join('');
-  el.querySelectorAll('.lang-tab').forEach(btn => {
-    btn.addEventListener('click', () => setLang(btn.dataset.lang));
-  });
-}
-
-// ヘッダー・検索バーなど、動的な再描画関数を持たない静的要素のテキストをまとめて更新する
-function applyStaticI18n() {
-  document.getElementById('brandTitle').textContent = t('brandTitle');
-  document.getElementById('brandSub').textContent = t('brandSub');
-  document.getElementById('methodologyBtn').textContent = t('methodologyBtn');
-  document.getElementById('reportsBtnText').textContent = t('reportsBtn');
-  document.getElementById('searchLat').placeholder = t('latPlaceholder');
-  document.getElementById('searchLon').placeholder = t('lonPlaceholder');
-  document.getElementById('searchBtn').textContent = t('locateBtn');
-  document.getElementById('coordWgs84Label').textContent = t('coordWgs84');
-  document.getElementById('coordGcj02Label').textContent = t('coordGcj02');
-  document.getElementById('coordBd09Label').textContent = t('coordBd09');
-  const statusEl = document.getElementById('statusLabel');
-  if (statusEl.textContent === 'Loading…' || ['Loading…', '読込中…', '加载中…'].includes(statusEl.textContent)) {
-    statusEl.textContent = t('statusLoading');
-  }
-}
-
-function setLang(lang) {
-  if (!I18N[lang]) return;
-  currentLang = lang;
-  localStorage.setItem('chinaHazardMapLang', lang);
-  renderLangSwitcher();
-  applyStaticI18n();
-  renderLayerBar();
-  updateLegend();
-  renderMethodology();
-  if (document.getElementById('reportPanel').style.display !== 'none') renderReportPanel();
-  if (lastQueriedLatLon && BADGE_LAYER_KEYS.some(k => activeLayers.has(k))) {
-    queryPoint(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
-  }
-  if (lastQueriedLatLon && activeLayers.has('aqueductFloods')) {
-    const aqueductResultEl = document.getElementById('aqueductResult');
-    aqueductDepthAt(lastQueriedLatLon.lat, lastQueriedLatLon.lon, aqueductSelectedRP).then(depth => {
-      aqueductResultEl.innerHTML = aqueductResultHtml(depth, aqueductSelectedRP);
-    });
-  }
-}
-
-renderLangSwitcher();
-applyStaticI18n();
 initMap();
 renderLayerBar();
 renderMethodology();
