@@ -54,10 +54,10 @@
 
   /* Header */
   .masthead-top {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 16px 12px; background: var(--panel);
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 16px 16px 12px; background: var(--panel); gap: 10px;
   }
-  .brand { display: flex; align-items: center; gap: 11px; }
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; }
   .seal-logo {
     width: 32px; height: 32px; border-radius: 6px; background: var(--navy);
     display: flex; align-items: center; justify-content: center;
@@ -66,12 +66,12 @@
   }
   .brand-text { display: flex; flex-direction: column; gap: 1px; }
   .brand-title {
-    font-family: 'Inter', sans-serif; font-weight: 800; font-size: 14.5px;
-    color: var(--text-primary); letter-spacing: -0.2px; line-height: 1.2;
+    font-family: 'Inter', sans-serif; font-weight: 800; font-size: 17px;
+    color: var(--text-primary); letter-spacing: -0.3px; line-height: 1.22;
   }
   .brand-sub {
-    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 1.1px;
-    color: var(--text-faint); text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.8px;
+    color: var(--text-faint); text-transform: uppercase; white-space: nowrap;
   }
   .methodology-btn {
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.5px;
@@ -79,7 +79,29 @@
     border-radius: 5px; padding: 7px 10px; flex-shrink: 0;
   }
   .methodology-btn.active { color: #fff; background: var(--navy); border-color: var(--navy); }
+  .header-actions {
+    display: flex; flex-direction: column; gap: 5px; flex-shrink: 0;
+  }
+  .header-actions .methodology-btn {
+    border: none; border-radius: 6px; text-align: left; width: 98px;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    color: #fff; padding: 6px 9px;
+    transition: filter 0.15s ease, transform 0.1s ease;
+    box-shadow: 0 1px 2px rgba(26,33,48,0.15);
+  }
+  .header-actions .methodology-btn svg { flex-shrink: 0; opacity: 0.9; }
+  .header-actions .methodology-btn:active { transform: scale(0.97); }
+  #methodologyBtn { background: linear-gradient(135deg, var(--navy-soft), var(--navy)); }
+  #methodologyBtn.active { filter: brightness(1.12); }
+  #reportsBtn { background: linear-gradient(135deg, #4CA377, var(--risk-low)); }
+  #reportsBtn:hover, #methodologyBtn:hover { filter: brightness(1.08); }
   .rule-thin { height: 1px; background: var(--border); }
+
+  /* PC(横幅にゆとりがある画面): ボタンを縦積みではなく横並びにしてバランスを取る */
+  @media (min-width: 640px) {
+    .header-actions { flex-direction: row; gap: 8px; }
+    .header-actions .methodology-btn { width: auto; padding: 8px 14px; justify-content: center; }
+  }
 
   /* Methodology panel */
   .methodology-panel {
@@ -255,12 +277,15 @@
       <div class="brand">
         <div class="brand-text">
           <div class="brand-title">China Natural Catastrophe Risk Map</div>
-          <div class="brand-sub">Historical Peril & Hazard Layers</div>
+          <div class="brand-sub">Historical Peril &amp; Hazard Layers</div>
         </div>
       </div>
-      <div style="display:flex; gap:6px; flex-shrink:0;">
-        <button class="methodology-btn" id="methodologyBtn">METHODOLOGY</button>
-        <button class="methodology-btn" id="reportsBtn" style="display:flex; align-items:center; gap:5px;">
+      <div class="header-actions">
+        <button class="methodology-btn" id="methodologyBtn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg>
+          METHODOLOGY
+        </button>
+        <button class="methodology-btn" id="reportsBtn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
           REPORTS
         </button>
@@ -1633,7 +1658,7 @@ async function queryPoint(lat, lon) {
         `).join('<div style="height:5px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
           <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
-          <div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; opacity:0.75;">Reference only, not part of the Water Hazard score.</div>
+          <div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9.5px; opacity:0.75;">※ Reference only, not part of the Water Hazard score.</div>
         ` : ''}
       `;
     } else {
@@ -1717,6 +1742,10 @@ async function queryPoint(lat, lon) {
       }),
     }).addTo(map);
 
+    // 検索結果パネル(バッジ・標高情報等)の表示でmap要素の高さが変わるため、
+    // Leafletが内部キャッシュしている古いサイズのままcenterがズレないよう、
+    // setViewの直前に再計算させる
+    map.invalidateSize();
     map.setView([lat, lon], Math.max(map.getZoom(), 13));
   } catch (e) {
     resultEl.innerHTML = '<div class="result-elev">Could not fetch elevation data. Please try again shortly.</div>';
