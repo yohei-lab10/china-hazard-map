@@ -2149,7 +2149,7 @@ async function renderReportView(results) {
 
         <div style="margin-top:14px;">
           <div class="rpt-h" style="font-size:11px;">Elevation vs. surroundings</div>
-          <div class="rpt-desc">Center point vs. 8 surrounding directions within 100m. Color and height both represent elevation (m). Reference only.</div>
+          <div class="rpt-desc">Center point vs. 8 surrounding directions within 100m. The black marker shows the searched location. Color and height both represent elevation (m). Reference only.</div>
           <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
         </div>
       </div>
@@ -2195,12 +2195,20 @@ async function renderReportView(results) {
     });
     const axis = [-100, 0, 100];
     const terrainDiv = document.getElementById(`rptTerrain${i}`);
+    // 検索地点(中心=0,0)がどこかひと目でわかるよう、地表面より少し浮かせたマーカーを重ねる
+    const centerMarkerZ = elevByName.C + Math.max(1, (Math.max(...Object.values(elevByName)) - Math.min(...Object.values(elevByName))) * 0.15);
     tasks.push(
       Plotly.newPlot(terrainDiv, [{
         z, x: axis, y: axis, type: 'surface', showscale: true,
         colorscale: [[0, '#185FA5'], [0.35, '#1D9E75'], [0.6, '#FAC775'], [0.8, '#D85A30'], [1, '#791F1F']],
         contours: { z: { show: false } },
         colorbar: { title: { text: 'elevation (m)', side: 'right', font: { size: 10, color: '#52514e' } }, tickfont: { size: 9, color: '#898781' }, thickness: 12, len: 0.7 },
+      }, {
+        type: 'scatter3d', mode: 'markers+text', x: [0], y: [0], z: [centerMarkerZ],
+        text: ['Search point'], textposition: 'top center',
+        textfont: { size: 10, color: '#0b0b0b' },
+        marker: { size: 6, color: '#0b0b0b', symbol: 'diamond', line: { color: '#ffffff', width: 1.5 } },
+        showlegend: false, hoverinfo: 'skip',
       }], {
         margin: { l: 0, r: 0, t: 0, b: 0 },
         scene: {
