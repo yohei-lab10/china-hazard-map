@@ -273,7 +273,7 @@
 <div id="app">
   <div>
     <div class="masthead-top">
-      <div class="brand" id="brandHome" style="cursor:pointer;" title="Return to home">
+      <div class="brand">
         <div class="brand-text">
           <div class="brand-title">China Natural Catastrophe Risk Map</div>
           <div class="brand-sub">Historical Peril &amp; Hazard Layers</div>
@@ -304,16 +304,16 @@
       <input type="text" id="searchLon" placeholder="Longitude, e.g. 121.47" inputmode="decimal">
       <button id="searchBtn">Locate</button>
     </div>
-    <div style="display:flex;flex-direction:row;flex-wrap:wrap;column-gap:20px;row-gap:4px;">
-      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);white-space:nowrap;">
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
         <input type="radio" name="coordSystem" id="coordWgs84" value="wgs84" checked style="width:14px;height:14px;">
         WGS84 (OpenStreetMap, GPS) — no conversion needed
       </label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);white-space:nowrap;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
         <input type="radio" name="coordSystem" id="coordGcj02" value="gcj02" style="width:14px;height:14px;">
         GCJ-02 (Amap / 高德地图) — converts automatically
       </label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);white-space:nowrap;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);">
         <input type="radio" name="coordSystem" id="coordBd09" value="bd09" style="width:14px;height:14px;">
         BD-09 (Baidu Maps / 百度地图) — converts automatically
       </label>
@@ -562,14 +562,6 @@ document.getElementById('methodologyBtn').addEventListener('click', () => {
   const btn = document.getElementById('methodologyBtn');
   panel.classList.toggle('visible');
   btn.classList.toggle('active');
-});
-
-// ヘッダーのタイトル(ロゴ相当)をクリックするとホーム画面(初期表示状態)に戻る。
-// レイヤー選択・検索結果・METHODOLOGY/REPORTSパネルなど、JS側の状態が複数箇所に
-// またがっているため、個別にリセットするより確実な「ページ再読込」方式を採用する。
-// クエリパラメータ(?v=3など)は保持せずベースURLに戻す。
-document.getElementById('brandHome').addEventListener('click', () => {
-  window.location.href = window.location.pathname;
 });
 
 function escapeHtml(s) {
@@ -1022,7 +1014,7 @@ function waterProximityMultiplier(lat, lon, lakePoints) {
 
 async function buildWaterHazard() {
   const [rainfallGeojson, elevationGeojson, riversGeojson] = await Promise.all([
-    fetchGeojsonSafe('data/rainfall_risk_fixed.geojson'),
+    fetchGeojsonSafe('data/rainfall_risk.geojson'),
     fetchGeojsonSafe('data/elevation_risk.geojson'),
     fetchGeojsonSafe('data/rivers.geojson'),
   ]);
@@ -1420,7 +1412,7 @@ function elevRiskValueFromLabel(info) {
   }
 }
 
-// 事前生成された降雨強度グリッド(data/rainfall_risk_fixed.geojson)から、最寄りの値を参照する。
+// 事前生成された降雨強度グリッド(data/rainfall_risk.geojson)から、最寄りの値を参照する。
 // データが存在しない(CHIRPS対象外・未生成)場合は null を返す。
 function rainfallRiskAt(lat, lon) {
   if (!rainfallGeojsonCacheGlobal) return null;
