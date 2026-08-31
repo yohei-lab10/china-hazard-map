@@ -1022,7 +1022,7 @@ function waterProximityMultiplier(lat, lon, lakePoints) {
 
 async function buildWaterHazard() {
   const [rainfallGeojson, elevationGeojson, riversGeojson] = await Promise.all([
-    fetchGeojsonSafe('data/rainfall_risk.geojson'),
+    fetchGeojsonSafe('data/rainfall_risk_fixed.geojson'),
     fetchGeojsonSafe('data/elevation_risk.geojson'),
     fetchGeojsonSafe('data/rivers.geojson'),
   ]);
@@ -1420,7 +1420,7 @@ function elevRiskValueFromLabel(info) {
   }
 }
 
-// 事前生成された降雨強度グリッド(data/rainfall_risk.geojson)から、最寄りの値を参照する。
+// 事前生成された降雨強度グリッド(data/rainfall_risk_fixed.geojson)から、最寄りの値を参照する。
 // データが存在しない(CHIRPS対象外・未生成)場合は null を返す。
 function rainfallRiskAt(lat, lon) {
   if (!rainfallGeojsonCacheGlobal) return null;
