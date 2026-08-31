@@ -104,7 +104,8 @@ MAX_CONSECUTIVE_FAILURES = 50
 
 
 def rainfall_to_risk(mm):
-    """中国気象局の暴雨分類基準(24時間降水量)に基づくリスク変換(表示用、従来通り)"""
+    """中国気象局の暴雨分類基準(24時間降水量)に基づくリスク変換。
+    入力mmは呼び出し側で決める(2026年8月改訂: 10年分の年最大値の平均を渡す)。"""
     if mm is None:
         return None
     if mm < 50:
@@ -393,11 +394,13 @@ def main():
             continue
 
         fit = fit_gumbel(maxima)
-        # 直近の年最大値を「現在のリスク表示」用に引き続き使う(旧版との互換性維持)。
-        # ここも完全に取得できた年のみを対象にする(部分的な年だと過小評価になるため)。
-        latest_year = max(complete_years) if complete_years else None
-        latest_mm = yearly.get(str(latest_year)) if latest_year else None
-        risk = rainfall_to_risk(latest_mm)
+        # 2026年8月改訂: 以前は「直近1年の年最大値」だけでriskを決めていたが、
+        # これだと単年のブレ(たまたま雨が少ない/多い年)がそのまま地図の色に出てしまい、
+        # gumbel_mu/betaが10年分の統計であるのと整合しない状態だった。
+        # 「10年分の年最大値の平均」をCMA基準で分類する方式に変更し、
+        # 年ごとのノイズを均した典型値として扱う。
+        mean_mm = float(np.mean(maxima))
+        risk = rainfall_to_risk(mean_mm)
 
         props = {
             "risk": risk,
