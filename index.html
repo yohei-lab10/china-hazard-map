@@ -1239,8 +1239,12 @@ function degBboxFilter(lat, lon, flat, flon, radiusKm) {
 // 危険度が最大のものを判定に使う。以前は「100km以内の最大マグニチュード」を二値判定
 // (圏内/圏外)していたため、5km先のM6.0も95km先のM6.0も同じ扱いになっていた。
 // lightningと同じ考え方で、震源距離に応じて線形減衰させる(100kmでゼロ)ようにした。
-// マグニチュード側はM5.0=0.0、M7.5以上=1.0となるよう線形正規化しており、震源距離ゼロの
-// 場合に旧来の固定閾値(M5.5/6.0/6.5/7.0で1段階ずつ)とちょうど一致するよう調整してある。
+// マグニチュード側はM5.0=0.05(下限)、M7.5以上=1.0となるよう2乗カーブで正規化している。
+// 【2026年8月改訂】以前は単純な線形正規化(M5.0=0.0)だったため、震源距離が0kmでも
+// M5.0ちょうどの地震は必ずeffective=0(距離減衰も無意味化)になり、「M5.0+」を謳う
+// バッジ文言と矛盾していた。2乗カーブへの変更は副作用として、M6.5以上の高マグニチュード
+// 帯の刻みをより強調する効果もある(地震のエネルギーは指数的に増えるため、線形正規化だと
+// 低マグニチュード側の刻みが相対的に粗く感じられる問題があった)。
 function earthquakeRiskInfo(lat, lon) {
   if (!earthquakeGeojsonCache) return null;
   let best = null; // { mag, dist, effective }
@@ -1252,7 +1256,8 @@ function earthquakeRiskInfo(lat, lon) {
     const dist = haversineKm(lat, lon, flat, flon);
     if (dist > 100) return;
     const falloff = Math.max(0, 1 - dist / 100);
-    const magRatio = Math.min(1, Math.max(0, (mag - 5.0) / 2.5));
+    const magRatioLinear = Math.min(1, Math.max(0, (mag - 5.0) / 2.5));
+    const magRatio = Math.max(0.05, Math.pow(magRatioLinear, 2));
     const effective = magRatio * falloff;
     if (!best || effective > best.effective) best = { mag, dist, effective };
   });
