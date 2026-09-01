@@ -755,6 +755,26 @@ const TYPHOON_PREFILTER_RADIUS_KM = 600; // 安価な絞り込み用(実デー�
 // 台風の観測点は6時間おきで、その間は移動速度によって100〜300km離れることもあり、
 // 線分の"途中"では風速判定が行われていなかった(2026年8月改訂で対応)。
 // 緯度経度を局所的に平面近似(観測点間隔は最大でも数百km程度のため、この近似で十分な精度)。
+// 2点間の方位(度、真北=0、時計回り)を求める
+function bearingDeg(lat1, lon1, lat2, lon2) {
+  const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// 起点(lat,lon)から方位bearingDeg方向にdistKmだけ進んだ地点の緯度経度を求める(大圏航路)
+function destinationPoint(lat, lon, bearingDegVal, distKm) {
+  const R = 6371;
+  const δ = distKm / R;
+  const θ = bearingDegVal * Math.PI / 180;
+  const φ1 = lat * Math.PI / 180, λ1 = lon * Math.PI / 180;
+  const φ2 = Math.asin(Math.sin(φ1) * Math.cos(δ) + Math.cos(φ1) * Math.sin(δ) * Math.cos(θ));
+  const λ2 = λ1 + Math.atan2(Math.sin(θ) * Math.sin(δ) * Math.cos(φ1), Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2));
+  return [φ2 * 180 / Math.PI, λ2 * 180 / Math.PI]; // [lat, lon]
+}
+
 function closestPointOnSegmentKm(lat, lon, lat1, lon1, lat2, lon2) {
   const latRad = (lat1 + lat2) / 2 * Math.PI / 180;
   const kx = 111.32 * Math.cos(latRad); // 経度1度あたりの距離(km、この緯度での近似)
@@ -862,10 +882,13 @@ function typhoonWindToTierRatio(windKt) {
   return { tier, ratio: (tier + within) / 5 };
 }
 
-function collectTyphoonSegments(coords, windsKt, fallbackTierRatio, segments) {
+function collectTyphoonSegments(coords, windsKt, r34Km, fallbackTierRatio, segments) {
   const items = coords.map(([lon, lat], i) => ({
     lat, lon,
     wind: (windsKt && typeof windsKt[i] === 'number') ? windsKt[i] : null,
+    // r34欠損時は、地点検索(estimateStormWindAt)と同じフォールバック半径を使い、
+    // 表示と判定の基準を一致させる
+    r34: (r34Km && typeof r34Km[i] === 'number' && r34Km[i] > 0) ? r34Km[i] : TYPHOON_FALLBACK_RADIUS_KM,
   }));
   const runs = splitContiguousRuns(items, item => inLandBbox(item.lat, item.lon));
   runs.forEach(run => {
@@ -897,7 +920,7 @@ async function buildTyphoonHazard() {
       // 台風全体の最大風速から一律のtier/ratioを計算してフォールバックに使う。
       // 最大風速でもCategory1(64kt)未満の台風は、そもそも描画対象にしない。
       const fallbackTierRatio = typhoonWindToTierRatio(maxWind);
-      collectTyphoonSegments(f.geometry.coordinates, f.properties?.winds_kt, fallbackTierRatio, segments);
+      collectTyphoonSegments(f.geometry.coordinates, f.properties?.winds_kt, f.properties?.r34_km, fallbackTierRatio, segments);
       const st = f.properties?.start_time, et = f.properties?.end_time;
       if (st) minTime = Math.min(minTime, new Date(st).getTime());
       if (et) maxTime = Math.max(maxTime, new Date(et).getTime());
@@ -909,16 +932,29 @@ async function buildTyphoonHazard() {
   } else {
     TYPHOON_SAMPLE.forEach(t => {
       const lonLatCoords = t.points.map(([lat, lon]) => [lon, lat]);
-      collectTyphoonSegments(lonLatCoords, null, { tier: 2, ratio: 0.5 }, segments);
+      collectTyphoonSegments(lonLatCoords, null, null, { tier: 2, ratio: 0.5 }, segments);
     });
   }
 
   // 弱い区間から先に描画し、強い区間を最後(最前面)に描くことで、重なった場所では
-  // 常に最も強い台風の色が見えるようにする(不透明opacity:1のため加算ブレンドされない)
+  // 常に最も強い台風の色が見えるようにする
+  // 【2026年8月改訂・その3】以前は太さ固定(weight:5)の単純な線で描画しており、見た目の
+  // 太さが実際の暴風域(r34、11〜581kmと大きく幅がある)と無関係だったため、
+  // 「線に近ければ危険」という誤解を招きやすかった。区間ごとにr34を反映した幅の帯
+  // (ポリゴン)として描画するよう変更し、実際の暴風域の広さの違いが見た目にも
+  // 表れるようにした。帯同士が重なっても地図が見えなくなりすぎないよう、
+  // 透過度を上げて(fillOpacity 0.28)半透明にしてある。
   segments.sort((s1, s2) => s1.ratio - s2.ratio);
   segments.forEach(seg => {
-    L.polyline([[seg.a.lat, seg.a.lon], [seg.b.lat, seg.b.lon]], {
-      color: colorForWeight(seg.ratio), weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round',
+    const brg = bearingDeg(seg.a.lat, seg.a.lon, seg.b.lat, seg.b.lon);
+    const perpL = brg - 90, perpR = brg + 90;
+    const aL = destinationPoint(seg.a.lat, seg.a.lon, perpL, seg.a.r34);
+    const aR = destinationPoint(seg.a.lat, seg.a.lon, perpR, seg.a.r34);
+    const bL = destinationPoint(seg.b.lat, seg.b.lon, perpL, seg.b.r34);
+    const bR = destinationPoint(seg.b.lat, seg.b.lon, perpR, seg.b.r34);
+    L.polygon([aL, bL, bR, aR], {
+      color: colorForWeight(seg.ratio), weight: 1, opacity: 0.35,
+      fillColor: colorForWeight(seg.ratio), fillOpacity: 0.28,
     }).addTo(layerGroups.typhoonHazard);
   });
 }
