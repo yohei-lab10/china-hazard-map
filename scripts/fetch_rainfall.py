@@ -275,7 +275,7 @@ def build_grid_points(bbox, grid_deg):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--years", type=int, default=20, help="年最大値を集計する年数(既定20年)")
+    parser.add_argument("--years", type=int, default=20, help="初回実行時、何年前まで遡って取得するか(既定20年)。2回目以降はSTART_YEARで固定されるため実質無視される")
     parser.add_argument("--grid-deg", type=float, default=1.0, help="グリッドの間隔(度、既定1.0)")
     parser.add_argument("--out", type=str, default="data/rainfall_risk.geojson", help="出力GeoJSONパス")
     parser.add_argument(
@@ -285,11 +285,18 @@ def main():
     args = parser.parse_args()
 
     today = date.today()
-    target_years = list(range(today.year - args.years, today.year))  # 直近の完全な年、今年は速報値として別途扱う
+    # 【2026年8月改訂・その9】以前は「直近N年」のローリングウィンドウで、再実行のたびに
+    # 古い年が対象から外れ、Gumbel計算にも使われなくなっていた(キャッシュファイルには
+    # 残るが、宙に浮いた未使用データになる問題があった)。
+    # 観測期間が長いほど再現期間(50年・100年など)の外挿倍率が改善する(WMO推奨は20〜30年)
+    # という統計的な利点もあるため、開始年を固定し、実行のたびに対象年数が増えていく方式に
+    # 変更した。古いデータも消さず、常にGumbel計算に含める。
+    START_YEAR = 2016  # このデータセットの取得を開始した年。変更しない。
+    target_years = list(range(START_YEAR, today.year))  # 直近の完全な年、今年は速報値として別途扱う
 
     grid_points = build_grid_points(CHINA_BBOX, args.grid_deg)
     print(f"グリッド点数: {len(grid_points)}(間隔{args.grid_deg}度)")
-    print(f"対象年: {target_years[0]}〜{target_years[-1]}({len(target_years)}年分)")
+    print(f"対象年: {target_years[0]}〜{target_years[-1]}({len(target_years)}年分、START_YEAR={START_YEAR}固定)")
 
     cache = load_cache(args.cache)
     # cache構造: { "lat,lon": { "2006": 88.4, "2007": 120.1, ... } }
