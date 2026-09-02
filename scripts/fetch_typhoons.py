@@ -79,11 +79,10 @@ def fetch_raw_csv() -> pd.DataFrame:
     return df
 
 
-def filter_china_typhoons(df: pd.DataFrame, years: int) -> pd.DataFrame:
+def filter_china_typhoons(df: pd.DataFrame, start_date: datetime) -> pd.DataFrame:
     df["ISO_TIME"] = pd.to_datetime(df["ISO_TIME"], errors="coerce")
-    cutoff = datetime.now() - pd.DateOffset(years=years)
-    df = df[df["ISO_TIME"] >= cutoff]
-    print(f"[fetch_typhoons] 直近{years}年でフィルタ後: {len(df)}行", flush=True)
+    df = df[df["ISO_TIME"] >= start_date]
+    print(f"[fetch_typhoons] {start_date.date()}以降でフィルタ後: {len(df)}行", flush=True)
 
     df["LAT"] = pd.to_numeric(df["LAT"], errors="coerce")
     df["LON"] = pd.to_numeric(df["LON"], errors="coerce")
@@ -149,13 +148,24 @@ def to_geojson(df: pd.DataFrame) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--years", type=int, default=10, help="過去何年分を取得するか")
+    ap.add_argument("--years", type=int, default=None,
+                     help="[非推奨・後方互換用] 指定した場合のみ、今日からの相対年数(ローリングウィンドウ)で"
+                          "フィルタする旧動作に戻る。通常は指定不要(START_DATE固定を使う)。")
     ap.add_argument("--out", type=str, default="../data/typhoons.geojson")
     args = ap.parse_args()
 
+    # 【2026年8月改訂・その9】以前は「今日からN年前」のローリングウィンドウでフィルタしており、
+    # かつ既存ファイルとのマージも行わず毎回--outを丸ごと上書きしていたため、再実行のたびに
+    # 最も古い1年分の台風が地図から完全に消えていた(降雨で見つかった問題と同種だが、
+    # こちらは「消えずに残るが計算に使われない」ではなく「本当に削除される」、より実害の大きい
+    # 状態だった)。降雨と同じ考え方で、開始年を固定(START_DATE)し、実行のたびに
+    # 対象期間が伸びていく方式に変更した。
+    START_DATE = datetime(2016, 1, 1)  # このデータセットの取得を開始した年。変更しない。
+    start_date = datetime.now() - pd.DateOffset(years=args.years) if args.years else START_DATE
+
     try:
         df = fetch_raw_csv()
-        df = filter_china_typhoons(df, args.years)
+        df = filter_china_typhoons(df, start_date)
         geojson = to_geojson(df)
 
         with open(args.out, "w", encoding="utf-8") as f:
