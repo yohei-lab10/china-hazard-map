@@ -1361,11 +1361,53 @@ function earthquakeTileColor(lat, lon) {
 
 // 台風: 指定地点での推定風速(r34_kmがあれば線形補間、無ければ固定半径フォールバック)を、
 // 米国のSaffir-Simpson階級(Category 1〜5)で判定する。Category1未満(tropical storm)は対象外。
+// 周辺200km以内で、過去のデータ期間全体におけるCategory1+の発生回数を年ごとに数える
+// 共通ヘルパー(頻度重み・再現期間の両方で使う)。r34_kmがあれば線形補間、無ければ
+// 固定半径フォールバックで判定する(estimateStormWindAtと同じ基準)。
+function typhoonCategory1PlusEvents(lat, lon) {
+  if (!typhoonGeojsonCacheGlobal) return null;
+  const years = typhoonGeojsonCacheGlobal.features
+    .map(f => f.properties?.start_time ? new Date(f.properties.start_time).getFullYear() : null)
+    .filter(y => y !== null);
+  if (years.length === 0) return null;
+  const minYear = Math.min(...years), maxYear = Math.max(...years);
+  const totalYears = maxYear - minYear + 1;
+  const countByYear = {};
+  for (let y = minYear; y <= maxYear; y++) countByYear[y] = 0;
+  typhoonGeojsonCacheGlobal.features.forEach(f => {
+    const estWind = estimateStormWindAt(f, lat, lon);
+    if (estWind === null || estWind < TYPHOON_CATEGORY_BOUNDS_KT[0]) return; // Category1未満は対象外
+    const y = f.properties?.start_time ? new Date(f.properties.start_time).getFullYear() : null;
+    if (y !== null && countByYear[y] !== undefined) countByYear[y]++;
+  });
+  const counts = Object.values(countByYear);
+  const totalEvents = counts.reduce((s, c) => s + c, 0);
+  return { totalYears, countByYear, counts, totalEvents };
+}
+
+// 台風の発生頻度による重み(水害の洪水実績重みと同じ設計思想: 1.0〜1.5倍、下限1.0固定)。
+// 「1回だけ強烈なCategory5」と「Category1が繰り返し何度も来る」地点を区別するため、
+// 過去の発生回数が多いほど単発最大強度のratioを底上げする。
+// 【2026年8月実装】N=5(データ期間内でCategory1+が5回以上なら頭打ち)は、水害の
+// 80km・0.5係数と同様、公式基準ではなく経験則的な調整値。まずはN=5で試験導入し、
+// 実データでの発生回数の分布を見ながら調整する想定。
+const TYPHOON_FREQ_WEIGHT_N = 5;
+function typhoonFrequencyWeightAt(lat, lon) {
+  const ev = typhoonCategory1PlusEvents(lat, lon);
+  if (!ev || ev.totalEvents === 0) return { weight: 1.0, totalEvents: 0, totalYears: ev ? ev.totalYears : null };
+  const relative = Math.min(1, ev.totalEvents / TYPHOON_FREQ_WEIGHT_N);
+  return { weight: 1 + 0.5 * relative, totalEvents: ev.totalEvents, totalYears: ev.totalYears };
+}
+
 function typhoonRiskInfo(lat, lon) {
   const estWind = typhoonWindEstimateAt(lat, lon);
   const tr = typhoonWindToTierRatio(estWind);
   if (!tr) return null;
-  return { tier: tr.tier, ratio: tr.ratio, color: WARNING_TIER_COLORS[tr.tier], valueLabel: `Category ${tr.tier + 1}, ~${Math.round(estWind)}kt at this point` };
+  const freq = typhoonFrequencyWeightAt(lat, lon);
+  const adjustedRatio = Math.min(1, tr.ratio * freq.weight);
+  const tier = Math.min(4, Math.floor(adjustedRatio * 5));
+  const freqSuffix = freq.totalEvents > 1 ? ` (×${freq.totalEvents} in ${freq.totalYears}yrs)` : '';
+  return { tier, ratio: adjustedRatio, color: WARNING_TIER_COLORS[tier], valueLabel: `Category ${tr.tier + 1}, ~${Math.round(estWind)}kt at this point${freqSuffix}` };
 }
 function typhoonTileColor(lat, lon) {
   const info = typhoonRiskInfo(lat, lon);
@@ -1380,25 +1422,9 @@ function typhoonTileColor(lat, lon) {
 // (11年程度の少ないデータに由来する)推定の不確実性を90%区間として示す。
 // 対数正規分布などの連続分布は「0回の年」を表現できないため採用していない(過去の検討より)。
 function typhoonReturnPeriodInfo(lat, lon) {
-  if (!typhoonGeojsonCacheGlobal) return null;
-  const years = typhoonGeojsonCacheGlobal.features
-    .map(f => f.properties?.start_time ? new Date(f.properties.start_time).getFullYear() : null)
-    .filter(y => y !== null);
-  if (years.length === 0) return null;
-  const minYear = Math.min(...years), maxYear = Math.max(...years);
-  const totalYears = maxYear - minYear + 1;
-
-  // 年ごとにCategory1+の発生回数をカウント(r34_kmがあれば線形補間、無ければ固定半径フォールバック)
-  const countByYear = {};
-  for (let y = minYear; y <= maxYear; y++) countByYear[y] = 0;
-  typhoonGeojsonCacheGlobal.features.forEach(f => {
-    const estWind = estimateStormWindAt(f, lat, lon);
-    if (estWind === null || estWind < TYPHOON_CATEGORY_BOUNDS_KT[0]) return; // Category1未満は対象外
-    const y = f.properties?.start_time ? new Date(f.properties.start_time).getFullYear() : null;
-    if (y !== null && countByYear[y] !== undefined) countByYear[y]++;
-  });
-  const counts = Object.values(countByYear);
-  const totalEvents = counts.reduce((s, c) => s + c, 0);
+  const ev = typhoonCategory1PlusEvents(lat, lon);
+  if (!ev) return null;
+  const { totalYears, counts, totalEvents } = ev;
 
   if (totalEvents === 0) return { totalYears, observed: false };
 
