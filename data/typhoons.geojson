@@ -43971,6 +43971,67 @@
           null
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            110.2,
+            19.5
+          ],
+          [
+            110.8,
+            19.4
+          ],
+          [
+            111.3,
+            19.3
+          ],
+          [
+            111.7,
+            19.2
+          ],
+          [
+            112.0,
+            19.2
+          ],
+          [
+            112.4,
+            19.3
+          ],
+          [
+            112.9,
+            19.5
+          ]
+        ]
+      },
+      "properties": {
+        "sid": "2026243N20110",
+        "name": "SAUDEL",
+        "start_time": "2026-08-31 06:00:00",
+        "end_time": "2026-09-01 00:00:00",
+        "max_wind_kt": null,
+        "winds_kt": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "r34_km": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      }
     }
   ]
 }
