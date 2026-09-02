@@ -882,14 +882,29 @@ function typhoonWindToTierRatio(windKt) {
   return { tier, ratio: (tier + within) / 5 };
 }
 
+// r34_km(34kt=トロピカルストーム相当が届く範囲)をそのまま帯の幅に使うと、
+// 実際にはCategory1未満(34〜63kt)の外側のエリアまでCategory1+の色で塗ってしまう
+// (r34の端は定義上34ktであり、64kt以上とは限らないため)。
+// 【2026年8月改訂・その5】estimateStormWindAtと同じ減衰式(中心=w、r34地点=34kt、
+// 線形補間)を逆算し、「実際に64kt(Category1)に達する距離」を求めてから帯の幅に使う。
+// r34欠損時(フォールバック)は距離減衰が無い(200km以内は一律w)前提のため、
+// w>=64ktなら200km、それ未満なら0という単純な二値になる。
+function category1RadiusKm(w, r34, hasR34) {
+  const CAT1_KT = TYPHOON_CATEGORY_BOUNDS_KT[0]; // 64
+  if (typeof w !== 'number') return 0;
+  if (!hasR34) return w >= CAT1_KT ? TYPHOON_FALLBACK_RADIUS_KM : 0;
+  if (w <= 34) return 0; // 中心ですら34kt以下なら、r34内のどこにも64ktは存在しない
+  const d = r34 * (1 - (CAT1_KT - 34) / (w - 34));
+  return Math.max(0, Math.min(r34, d));
+}
+
 function collectTyphoonSegments(coords, windsKt, r34Km, fallbackTierRatio, segments) {
-  const items = coords.map(([lon, lat], i) => ({
-    lat, lon,
-    wind: (windsKt && typeof windsKt[i] === 'number') ? windsKt[i] : null,
-    // r34欠損時は、地点検索(estimateStormWindAt)と同じフォールバック半径を使い、
-    // 表示と判定の基準を一致させる
-    r34: (r34Km && typeof r34Km[i] === 'number' && r34Km[i] > 0) ? r34Km[i] : TYPHOON_FALLBACK_RADIUS_KM,
-  }));
+  const items = coords.map(([lon, lat], i) => {
+    const wind = (windsKt && typeof windsKt[i] === 'number') ? windsKt[i] : null;
+    const hasR34 = !!(r34Km && typeof r34Km[i] === 'number' && r34Km[i] > 0);
+    const r34 = hasR34 ? r34Km[i] : TYPHOON_FALLBACK_RADIUS_KM;
+    return { lat, lon, wind, catRadius: category1RadiusKm(wind, r34, hasR34) };
+  });
   const runs = splitContiguousRuns(items, item => inLandBbox(item.lat, item.lon));
   runs.forEach(run => {
     for (let i = 0; i < run.length - 1; i++) {
@@ -948,10 +963,10 @@ async function buildTyphoonHazard() {
   segments.forEach(seg => {
     const brg = bearingDeg(seg.a.lat, seg.a.lon, seg.b.lat, seg.b.lon);
     const perpL = brg - 90, perpR = brg + 90;
-    const aL = destinationPoint(seg.a.lat, seg.a.lon, perpL, seg.a.r34);
-    const aR = destinationPoint(seg.a.lat, seg.a.lon, perpR, seg.a.r34);
-    const bL = destinationPoint(seg.b.lat, seg.b.lon, perpL, seg.b.r34);
-    const bR = destinationPoint(seg.b.lat, seg.b.lon, perpR, seg.b.r34);
+    const aL = destinationPoint(seg.a.lat, seg.a.lon, perpL, seg.a.catRadius);
+    const aR = destinationPoint(seg.a.lat, seg.a.lon, perpR, seg.a.catRadius);
+    const bL = destinationPoint(seg.b.lat, seg.b.lon, perpL, seg.b.catRadius);
+    const bR = destinationPoint(seg.b.lat, seg.b.lon, perpR, seg.b.catRadius);
     L.polygon([aL, bL, bR, aR], {
       color: colorForWeight(seg.ratio), weight: 1, opacity: 0.35,
       fillColor: colorForWeight(seg.ratio), fillOpacity: 0.28,
