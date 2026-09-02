@@ -795,8 +795,12 @@ function closestPointOnSegmentKm(lat, lon, lat1, lon1, lat2, lon2) {
 // 描画される観測点間の直線(区間)上では一切評価されていなかった。観測点間隔が広い台風では、
 // 地図上は線に近い/線上にあるのに「リスクなし」と判定される矛盾が生じていたため、
 // 区間(2点間)も線分として扱い、区間上の最近接点までの距離で判定するよう拡張した。
-// 風速・r34は区間の両端で線形補間してから、同じ「中心=補間後の風速、r34地点=34kt」の
-// 減衰を適用する。
+// 【2026年8月改訂・その7】さらに、以前は地点検索側だけ「距離に応じて連続的に減衰」する
+// モデルを使っており、レンダリング側(collectTyphoonSegments)の「区間ごとに一定の帯」
+// というモデルと、そもそも前提が異なっていた。これでは両者が完全一致することは原理的に
+// なく、細かな不一致(片方の観測点の欠損の扱いなど)が起きるたびに個別修正が必要になって
+// いた。地点検索側も category1RadiusKm() による「帯の中にいるかどうか」の判定に統一し、
+// 地図の帯とロジックレベルで完全に同じ計算を使うようにした。
 function estimateStormWindAt(feature, lat, lon) {
   const coords = feature.geometry.coordinates;
   const windsKt = feature.properties?.winds_kt;
@@ -805,46 +809,39 @@ function estimateStormWindAt(feature, lat, lon) {
   let best = null;
   let anyPointWind = false;
 
-  // (1) 観測点そのものでの評価(従来通り)
-  coords.forEach(([flon, flat], i) => {
-    if (!degBboxFilter(lat, lon, flat, flon, TYPHOON_PREFILTER_RADIUS_KM)) return;
+  // 各観測点のCategory1到達半径(レンダリングのcatRadiusと完全に同じ計算)
+  const catRadii = coords.map(([, ], i) => {
     const w = windsKt && typeof windsKt[i] === 'number' ? windsKt[i] : null;
-    if (w === null) return;
-    anyPointWind = true;
-    const dist = haversineKm(lat, lon, flat, flon);
-    const r34 = r34Km && typeof r34Km[i] === 'number' ? r34Km[i] : null;
-    let est = null;
-    if (r34 !== null && r34 > 0) {
-      if (dist <= r34) est = 34 + (w - 34) * (1 - dist / r34); // 中心=w、境界(r34)=34ktで線形補間
-    } else if (dist <= TYPHOON_FALLBACK_RADIUS_KM) {
-      est = w; // r34不明な地点は、固定半径内なら距離を考慮せずその時刻の風速をそのまま使う
-    }
-    if (est !== null && (best === null || est > best)) best = est;
+    if (w !== null) anyPointWind = true;
+    const hasR34 = !!(r34Km && typeof r34Km[i] === 'number' && r34Km[i] > 0);
+    const r34raw = hasR34 ? r34Km[i] : TYPHOON_FALLBACK_RADIUS_KM;
+    return { w, catR: category1RadiusKm(w, r34raw, hasR34) };
   });
 
-  // (2) 観測点"間"(区間)での評価。両端に有効なwinds_ktがある区間のみ対象。
-  if (windsKt) {
-    for (let i = 0; i < coords.length - 1; i++) {
-      const [flon1, flat1] = coords[i], [flon2, flat2] = coords[i + 1];
-      // どちらかの端点がプレフィルタ範囲内なら、区間上の最近接点も範囲内の可能性があるため計算する
-      if (!degBboxFilter(lat, lon, flat1, flon1, TYPHOON_PREFILTER_RADIUS_KM) &&
-          !degBboxFilter(lat, lon, flat2, flon2, TYPHOON_PREFILTER_RADIUS_KM)) continue;
-      const w1 = typeof windsKt[i] === 'number' ? windsKt[i] : null;
-      const w2 = typeof windsKt[i + 1] === 'number' ? windsKt[i + 1] : null;
-      if (w1 === null || w2 === null) continue;
-      const { t, distKm } = closestPointOnSegmentKm(lat, lon, flat1, flon1, flat2, flon2);
-      const wT = w1 + t * (w2 - w1); // 区間内、位置tでの風速を線形補間
-      const r341 = r34Km && typeof r34Km[i] === 'number' ? r34Km[i] : null;
-      const r342 = r34Km && typeof r34Km[i + 1] === 'number' ? r34Km[i + 1] : null;
-      let est = null;
-      if (r341 !== null && r341 > 0 && r342 !== null && r342 > 0) {
-        const r34T = r341 + t * (r342 - r341);
-        if (distKm <= r34T) est = 34 + (wT - 34) * (1 - distKm / r34T);
-      } else if (distKm <= TYPHOON_FALLBACK_RADIUS_KM) {
-        est = wT;
-      }
-      if (est !== null && (best === null || est > best)) best = est;
-    }
+  // (1) 観測点そのもの: 距離が観測点自身のcatRadius以内なら、その観測点の風速を採用
+  coords.forEach(([flon, flat], i) => {
+    if (!degBboxFilter(lat, lon, flat, flon, TYPHOON_PREFILTER_RADIUS_KM)) return;
+    const { w, catR } = catRadii[i];
+    if (w === null || catR <= 0) return;
+    const dist = haversineKm(lat, lon, flat, flon);
+    if (dist <= catR && (best === null || w > best)) best = w;
+  });
+
+  // (2) 観測点"間"(区間): レンダリングと同じく、区間の両端のcatRadiusを線形補間した
+  // 「帯の幅」の中に入っているかどうかで判定する。風速側も同様に、両端の値が
+  // 揃っていれば線形補間、片方だけならその値を区間全体の一定値として使う
+  // (レンダリングのsegWindフォールバックと同じ規則)。
+  for (let i = 0; i < coords.length - 1; i++) {
+    const [flon1, flat1] = coords[i], [flon2, flat2] = coords[i + 1];
+    if (!degBboxFilter(lat, lon, flat1, flon1, TYPHOON_PREFILTER_RADIUS_KM) &&
+        !degBboxFilter(lat, lon, flat2, flon2, TYPHOON_PREFILTER_RADIUS_KM)) continue;
+    const p1 = catRadii[i], p2 = catRadii[i + 1];
+    if (p1.w === null && p2.w === null) continue; // 両方欠損なら評価不能
+    const { t, distKm } = closestPointOnSegmentKm(lat, lon, flat1, flon1, flat2, flon2);
+    const catT = p1.catR + t * (p2.catR - p1.catR); // 帯の幅をtで線形補間(レンダリングと同一)
+    if (distKm > catT) continue; // 帯の外
+    const wT = (p1.w !== null && p2.w !== null) ? p1.w + t * (p2.w - p1.w) : (p1.w !== null ? p1.w : p2.w);
+    if (wT !== null && (best === null || wT > best)) best = wT;
   }
 
   // winds_kt自体が無い古い形式のデータ(台風全体で1つの最大風速のみ)は、固定半径のみで判定
