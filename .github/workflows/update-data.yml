@@ -63,7 +63,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
       - name: Fetch typhoons
-        run: python scripts/fetch_typhoons.py --years 10 --out data/typhoons.geojson
+        run: python scripts/fetch_typhoons.py --out data/typhoons.geojson
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
@@ -126,6 +126,9 @@ jobs:
     # timeoutは10年分の見込み(1.6時間)に余裕を持たせて300分に設定。
     # なおスクリプト側が年ごとにキャッシュをcommit・pushするため、途中でtimeoutに
     # 達しても完了済みの年はリポジトリに残り、次回はその続きから再開できる。
+    # 【2026年8月改訂・その9】fetch_rainfall.py側がSTART_YEAR(2016)固定方式に
+    # 変更されたため、--years引数は削除した(渡しても無視される仕様になったが、
+    # 混乱を避けるため呼び出し側からも削除)。
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
@@ -142,7 +145,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       - name: Fetch rainfall risk grid
-        run: python scripts/fetch_rainfall.py --years 10 --grid-deg 1.0 --out data/rainfall_risk.geojson --cache data/rainfall_annual_max_cache.json
+        run: python scripts/fetch_rainfall.py --grid-deg 1.0 --out data/rainfall_risk.geojson --cache data/rainfall_annual_max_cache.json
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
