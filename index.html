@@ -453,12 +453,17 @@ function initMap() {
   // 透かしタイルが返るようになった。無料キー取得(要登録)の目処が立たなかったため、
   // 登録不要で使えるEsri World Light Gray Base(明るく地味な配色、ラベル別レイヤーの
   // 構成もCARTO Positronと似ている)に切り替えた。
+  // 【2026年8月改訂・追記】切り替え後に動作が遅くなったとの報告があり見直した。
+  // このサービスの実データは中国域だとズームレベル13程度までしか無いと見られるため、
+  // maxNativeZoomを設定せずmaxZoom:16のままだと、14〜16では毎回実データが無いタイルを
+  // リクエストし続けて失敗・遅延を招いていた可能性が高い。maxNativeZoomを設定し、
+  // それ以上のズームはLeaflet側でクライアント拡大(タイル取得なし)に切り替えた。
   L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
     attribution: '&copy; Esri &copy; OpenStreetMap contributors',
-    maxZoom: 16,
+    maxZoom: 16, maxNativeZoom: 13,
   }).addTo(map);
   L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 16,
+    maxZoom: 16, maxNativeZoom: 13,
   }).addTo(map);
 
   layerGroups.earthquake = L.layerGroup();
