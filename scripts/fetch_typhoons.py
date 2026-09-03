@@ -33,6 +33,7 @@ properties.r34_km(coordinatesと同じ並び順の配列、欠測はnull)とし�
 import argparse
 import json
 import io
+import os
 import sys
 import requests
 import pandas as pd
@@ -149,10 +150,14 @@ def to_geojson(df: pd.DataFrame) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", type=int, default=None,
-                     help="[非推奨・後方互換用] 指定した場合のみ、今日からの相対年数(ローリングウィンドウ)で"
-                          "フィルタする旧動作に戻る。通常は指定不要(START_DATE固定を使う)。")
+                     help="[非推奨・後方互換用] argparseの互換性のためだけに残してあり、値を渡しても"
+                          "一切使用しない(START_DATE固定を常に使う)。ワークフロー(update-data.yml)側に"
+                          "まだ--years 10が残っていても安全なよう、意図的にこの引数を無視する設計にした。")
     ap.add_argument("--out", type=str, default="../data/typhoons.geojson")
     args = ap.parse_args()
+    if args.years is not None:
+        print(f"[fetch_typhoons] 警告: --years {args.years} が指定されましたが、この引数は無視されます"
+              f"(2026年8月改訂・その9でSTART_DATE固定に変更済み。ワークフロー側の--years指定は削除推奨)", flush=True)
 
     # 【2026年8月改訂・その9】以前は「今日からN年前」のローリングウィンドウでフィルタしており、
     # かつ既存ファイルとのマージも行わず毎回--outを丸ごと上書きしていたため、再実行のたびに
@@ -160,21 +165,30 @@ def main():
     # こちらは「消えずに残るが計算に使われない」ではなく「本当に削除される」、より実害の大きい
     # 状態だった)。降雨と同じ考え方で、開始年を固定(START_DATE)し、実行のたびに
     # 対象期間が伸びていく方式に変更した。
+    # 【重要】最初の実装では--years引数が渡されると条件分岐でこの固定日付を上書きして
+    # しまう作りだったが、実際のワークフロー(update-data.yml)側にまだ「--years 10」が
+    # 残っていたため、この修正が発動しないまま旧ローリング挙動に戻ってしまうバグがあった。
+    # 降雨(--years自体をtarget_years計算に使わない設計)と同じ堅牢さに揃え、
+    # --years の値に関わらず常にSTART_DATEを使うようにした。
     START_DATE = datetime(2016, 1, 1)  # このデータセットの取得を開始した年。変更しない。
-    start_date = datetime.now() - pd.DateOffset(years=args.years) if args.years else START_DATE
 
     try:
         df = fetch_raw_csv()
-        df = filter_china_typhoons(df, start_date)
+        df = filter_china_typhoons(df, START_DATE)
         geojson = to_geojson(df)
 
-        with open(args.out, "w", encoding="utf-8") as f:
+        # 【安全策】取得やパースの途中で失敗した場合に本番ファイルを壊さないよう、
+        # 一時ファイルに書き切ってから最後にリネームする(この直前で例外が起きれば
+        # 本番ファイルには一切触れないため、前回の正常なファイルがそのまま残る)。
+        tmp_path = args.out + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(geojson, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, args.out)
 
         print(f"[fetch_typhoons] {len(geojson['features'])}件の台風トラックを {args.out} に保存しました", flush=True)
     except Exception:
         import traceback
-        print("[fetch_typhoons] エラーが発生しました:", flush=True)
+        print("[fetch_typhoons] エラーが発生しました(前回の正常なファイルはそのまま残っています):", flush=True)
         traceback.print_exc()
         sys.exit(1)
 
