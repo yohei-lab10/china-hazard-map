@@ -86670,6 +86670,60 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tcht"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tdv4",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.33,
+          31.3618
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "115 km NE of Joshīmath, India",
+        "time": 1788423396417,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tdv4"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tdw6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.5066,
+          31.8458
+        ]
+      },
+      "properties": {
+        "mag": 5.4,
+        "place": "21 km WNW of Jiangyou, China",
+        "time": 1788435581981,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tdw6"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000te21",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.4671,
+          37.7963
+        ]
+      },
+      "properties": {
+        "mag": 5.2,
+        "place": "271 km SSE of Dunhuang, China",
+        "time": 1788455080769,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000te21"
+      }
     }
   ]
 }
