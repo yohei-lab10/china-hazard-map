@@ -700,3 +700,49 @@ os.replace(tmp_path, args.out)
 セットで確認しないと、修正が「見た目上は完了しているが実際には発動していない」
 状態になりうる**、という教訓が今回得られた。今後、スクリプトの引数仕様を変える
 修正を行う際は、呼び出し元(update-data.yml)も必ず一緒に確認する。
+
+## 地図タイルの切り替え(2026年8月修正: CartoDB→Esri)
+
+### 問題
+
+CartoDB(`basemaps.cartocdn.com`)が2026年8月からAPIキー必須の方針に変更し、
+キー無しのリクエストには「API KEY REQUIRED」の透かしタイルが返るようになった。
+無料キー取得(要登録)の目処が立たなかったため、登録不要な代替サービスに切り替えた。
+
+### 修正: Esri World Light Gray Base に切り替え
+
+```javascript
+L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  attribution: '&copy; Esri &copy; OpenStreetMap contributors',
+  maxZoom: 16,
+}).addTo(map);
+L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 16,
+}).addTo(map);
+```
+
+CARTO Positronと同様、背景(Base)とラベル(Reference)が別レイヤーに分かれた構成のため、
+デザインの近い代替として選定した。ArcGIS REST APIのタイルURL形式は`{z}/{y}/{x}`の順
+(CARTOの`{z}/{x}/{y}`とは順序が異なる)である点に注意。
+
+**確認事項**: 2014年〜2025年1月時点の複数の外部資料で、このレガシーサービスが
+APIキー不要で提供され続けていることを確認した。ただしEsriは将来的に新しい
+ベクタータイル方式(`basemapstyles-api.arcgis.com`、こちらはBearerトークン必須)
+への移行を推奨しており、このレガシーサービスも将来廃止される可能性はゼロではない。
+その場合は改めて代替を検討する必要がある。
+
+### 追記: 切り替え後に動作が遅くなった件(maxNativeZoom未設定が原因)
+
+Esriへの切り替え後、「動作が遅くなった」との報告があった。原因は`maxNativeZoom`を
+設定していなかったこと。
+
+```javascript
+maxZoom: 16, maxNativeZoom: 13,
+```
+
+このサービスの実データは、世界的にはズームレベル13程度まで(北米など一部地域のみ
+16まで)しか無い。`maxNativeZoom`を設定しないと、Leafletはズーム14〜16でも
+毎回実データの無いタイルをサーバーにリクエストし続け、失敗・再試行のたびに
+遅延が発生していたと考えられる。`maxNativeZoom: 13`を設定することで、それ以上の
+ズームはサーバーへの再リクエストなしに、レベル13のタイルをブラウザ側で拡大表示する
+方式に切り替えた。
