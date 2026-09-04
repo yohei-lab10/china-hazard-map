@@ -448,22 +448,18 @@ function initMap() {
   // デスクトップでウィンドウ幅を変えた時など、#appのサイズが変わってもLeafletが
   // 内部キャッシュしたサイズのままだとタイルが崩れるため、リサイズのたびに再計算する
   window.addEventListener('resize', () => map.invalidateSize());
-  // 【2026年8月改訂】以前はCartoDB Positron(basemaps.cartocdn.com)を使っていたが、
-  // CARTOが2026年8月からAPIキー必須に方針変更し、キー無しだと「API KEY REQUIRED」の
-  // 透かしタイルが返るようになった。無料キー取得(要登録)の目処が立たなかったため、
-  // 登録不要で使えるEsri World Light Gray Base(明るく地味な配色、ラベル別レイヤーの
-  // 構成もCARTO Positronと似ている)に切り替えた。
-  // 【2026年8月改訂・追記】切り替え後に動作が遅くなったとの報告があり見直した。
-  // このサービスの実データは中国域だとズームレベル13程度までしか無いと見られるため、
-  // maxNativeZoomを設定せずmaxZoom:16のままだと、14〜16では毎回実データが無いタイルを
-  // リクエストし続けて失敗・遅延を招いていた可能性が高い。maxNativeZoomを設定し、
-  // それ以上のズームはLeaflet側でクライアント拡大(タイル取得なし)に切り替えた。
-  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-    attribution: '&copy; Esri &copy; OpenStreetMap contributors',
-    maxZoom: 16, maxNativeZoom: 13,
+  // Light, professional cartographic base (CartoDB Positron)
+  // 【2026年8月】CARTOがAPIキー必須化→Esriに切り替え→Esriが遅いとの報告により、
+  // CARTOに戻した。CARTOのAPIキー問題(無料枠だが登録要)は解消していない可能性が
+  // あるため、再度「API KEY REQUIRED」の透かしタイルが表示される場合は、
+  // https://carto.com/basemaps/apikey/ で無料キーを取得し、下記URLの末尾に
+  // ?key=あなたのキー を付与する必要がある。
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd', maxZoom: 19,
   }).addTo(map);
-  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 16, maxNativeZoom: 13,
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 19,
   }).addTo(map);
 
   layerGroups.earthquake = L.layerGroup();
