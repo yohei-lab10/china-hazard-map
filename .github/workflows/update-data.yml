@@ -20,10 +20,6 @@ name: Update Hazard Data
         description: "Run CHIRPS rainfall risk grid update"
         type: boolean
         default: false
-      run_aqueduct:
-        description: "Run WRI Aqueduct Floods depth fetch (10yr & 100yr return period — powers both the map heatmap and point search)"
-        type: boolean
-        default: false
       run_lightning:
         description: "Run WGLC lightning climatology update (downloads ~27MB NetCDF, climate data — rarely needs to change)"
         type: boolean
@@ -152,28 +148,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/rainfall_risk.geojson data/rainfall_annual_max_cache.json
           git diff --staged --quiet || git commit -m "chore: update rainfall_risk.geojson [auto]"
-          git pull --rebase origin main
-          git push
-
-  update-aqueduct:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_aqueduct == 'true'
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: pip install rasterio requests numpy
-      - name: Fetch Aqueduct Floods depth (COG for point search + gridded GeoJSON for heatmap, 10-year & 100-year)
-        run: python scripts/fetch_aqueduct.py --scenario historical --model 000000000WATCH --year 1980 --rp 10 100 --out-dir data
-      - name: Commit and push if changed
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/aqueduct_depth_rp10.tif data/aqueduct_depth_rp100.tif data/aqueduct_floods_rp10.geojson data/aqueduct_floods_rp100.geojson
-          git diff --staged --quiet || git commit -m "chore: update Aqueduct Floods depth data [auto]"
           git pull --rebase origin main
           git push
 
