@@ -383,7 +383,7 @@ const LAYERS = [
   { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
-    note: 'Water Hazard: created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live, not shown on the map-wide layer). Areas with no rainfall data show no color on the map (see the point-search panel for a "No data" label).' },
+    note: 'Water Hazard: evaluates three flood mechanisms separately — river flooding, surface water flooding, and coastal storm surge — and reports the most severe of the three, adjusted by past flood records. Point-search results use 150m elevation tiles; the map-wide layer is an approximation. Areas with no rainfall data show no color on the map (see the point-search panel for a "No data" label).' },
 ];
 
 // 地点検索で「評価バッジ+リスク凡例」を表示する4レイヤー
@@ -397,7 +397,7 @@ const METHODOLOGY = [
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
   { label: 'Water Hazard', color: COLORS.waterHazard,
-    desc: 'Created based on historical rainfall, elevation, proximity to rivers/coastline, and past flood record data. Point-search results also factor in nearby lakes (queried live at search time; the map-wide layer does not include lakes). A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
+    desc: 'Three flood mechanisms are evaluated separately and the most severe one is reported: river flooding (distance to river, river scale, height above the river), surface water flooding (extreme rainfall intensity combined with how low-lying the site is relative to its surroundings), and coastal storm surge (elevation against a surge level that decays inland). Past flood records adjust the result upward by at most 20%. The point search reads 150m elevation tiles directly; the map-wide layer is an approximation that omits the local terrain terms. A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
   { label: 'Point Lookup', color: '#5C6675',
     desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
 ];
@@ -964,6 +964,21 @@ async function buildTyphoonHazard() {
 // 過去の洪水実績(DFO)で最大1.5倍まで底上げする。データ欠損セルは灰色で明示する。
 let rainfallGeojsonCacheGlobal = null;
 let elevationGeojsonCacheGlobal = null;
+// 降雨グリッドは1度間隔の整数座標のため、"lat_lon" をキーにした Map で直接引ける。
+// 平滑化では周囲5x5格子まで参照するので、毎回の線形探索を避ける。
+let rainfallGridIndex = new Map();
+
+function buildRainfallGridIndex(geojson) {
+  const index = new Map();
+  if (!geojson) return index;
+  geojson.features.forEach(f => {
+    const [lon, lat] = f.geometry.coordinates;
+    const props = f.properties || {};
+    if (props.no_data) return;
+    index.set(`${Math.round(lat)}_${Math.round(lon)}`, props);
+  });
+  return index;
+}
 
 function floodWeightAt(lat, lon) {
   if (!floodGeojsonCacheGlobal) return 1.0;
@@ -983,7 +998,11 @@ function floodWeightAt(lat, lon) {
   });
   if (nearestArea === null) return 1.0;
   const relative = Math.min(1, nearestArea / maxArea);
-  return 1 + 0.5 * relative; // 1.0〜1.5、1を下回らない
+  // 2026年9月改訂: 1.0〜1.5から1.0〜1.2に縮小。DFOの代表点は洪水イベントの影響範囲の
+  // 重心で、面積の中央値が約73,000km²(270km四方)と粗く、地点ごとの差を表せていない。
+  // また記録の8割超が豪雨起因で、内水氾濫(降雨×窪み)と原因が重複している。
+  // 実績は「モデルが捉えきれなかった分の補正」に留める。
+  return 1 + FLOOD_WEIGHT_MAX_UPLIFT * relative;
 }
 
 // ==== 水域近接倍率(河川・湖・海への近さで標高リスクを底上げする) ====
@@ -1070,85 +1089,382 @@ function pointToLineDistanceKm(lat, lon, coords) {
   return minDist;
 }
 
-// 距離(m)を5段階の倍率(1.0〜1.5)に変換する
-function distanceToProximityMultiplier(distanceM) {
-  if (distanceM <= 500) return 1.5;
-  if (distanceM <= 1000) return 1.35;
-  if (distanceM <= 1500) return 1.2;
-  if (distanceM <= 2000) return 1.1;
-  return 1.0;
+// ==== 標高タイル(AW3D30 150m)の読み込み ====
+// data/elevation_tiles/N034E113.tif = 北緯34〜35度・東経113〜114度の1度タイル。
+// 720x720のint16 GeoTIFF(1画素 = 1/720度 ≒ 150m)、行0がタイル北端。
+// geotiff.jsのHTTPレンジリクエストで、必要な範囲の画素だけを部分読み込みする。
+const ELEV_TILE_PX = 720;
+const ELEV_TILE_DIR = 'data/elevation_tiles/';
+const elevTileCache = new Map(); // "N034E113" -> Promise<GeoTIFFImage>
+
+function elevTileKey(latFloor, lonFloor) {
+  const la = String(latFloor).padStart(3, '0');
+  const lo = String(lonFloor).padStart(3, '0');
+  return `N${la}E${lo}`;
 }
 
-// 河川・湖(Overpassでその場取得したポイント)・海のうち最も近いものまでの距離を求め、倍率に変換する
-function waterProximityMultiplier(lat, lon, lakePoints) {
-  let minDistKm = Infinity;
+function loadElevTile(latFloor, lonFloor) {
+  const key = elevTileKey(latFloor, lonFloor);
+  if (!elevTileCache.has(key)) {
+    elevTileCache.set(key, (async () => {
+      const tiff = await GeoTIFF.fromUrl(`${ELEV_TILE_DIR}${key}.tif`);
+      return await tiff.getImage();
+    })().catch(() => null));
+  }
+  return elevTileCache.get(key);
+}
 
-  // 空間インデックスから、周辺の格子(約6.6km四方)に該当する河川候補だけを取り出して判定する
-  // (全件スキャンではなく、近隣候補のみに絞ることで検索のたびの計算量を大幅に削減)
+// 緯度経度 → 全球通しの画素番号(北極が行0、経度0度が列0)
+function elevGlobalPixel(lat, lon) {
+  return {
+    gx: Math.floor(lon * ELEV_TILE_PX),
+    gy: Math.floor((90 - lat) * ELEV_TILE_PX),
+  };
+}
+
+// 中心地点の周囲 (2*halfPx+1) 画素四方を読み、その場で引ける標高ブロックを返す。
+// タイル境界をまたぐ場合は、必要なタイルを個別に読んで貼り合わせる。
+// タイルが存在しない範囲(パミール高原など)の画素は null のままになる。
+async function loadElevationBlock(lat, lon, halfPx) {
+  const c = elevGlobalPixel(lat, lon);
+  const x0 = c.gx - halfPx, y0 = c.gy - halfPx;
+  const size = halfPx * 2 + 1;
+  const values = new Array(size * size).fill(null);
+
+  // 必要な画素を、所属タイルごとにまとめる
+  const tiles = new Map();
+  for (let ty = Math.floor(y0 / ELEV_TILE_PX); ty <= Math.floor((y0 + size - 1) / ELEV_TILE_PX); ty++) {
+    for (let tx = Math.floor(x0 / ELEV_TILE_PX); tx <= Math.floor((x0 + size - 1) / ELEV_TILE_PX); tx++) {
+      tiles.set(`${ty}_${tx}`, { ty, tx });
+    }
+  }
+
+  await Promise.all(Array.from(tiles.values()).map(async ({ ty, tx }) => {
+    const latFloor = 89 - ty;
+    const lonFloor = tx;
+    if (latFloor < 0 || lonFloor < 0) return;
+    const image = await loadElevTile(latFloor, lonFloor);
+    if (!image) return;
+    // このタイル内で必要な範囲(タイルローカル座標)
+    const left = Math.max(x0, tx * ELEV_TILE_PX) - tx * ELEV_TILE_PX;
+    const right = Math.min(x0 + size - 1, tx * ELEV_TILE_PX + ELEV_TILE_PX - 1) - tx * ELEV_TILE_PX;
+    const top = Math.max(y0, ty * ELEV_TILE_PX) - ty * ELEV_TILE_PX;
+    const bottom = Math.min(y0 + size - 1, ty * ELEV_TILE_PX + ELEV_TILE_PX - 1) - ty * ELEV_TILE_PX;
+    let raster;
+    try {
+      raster = await image.readRasters({ window: [left, top, right + 1, bottom + 1] });
+    } catch (e) {
+      return;
+    }
+    const band = raster[0];
+    const w = right - left + 1;
+    for (let r = top; r <= bottom; r++) {
+      for (let cx = left; cx <= right; cx++) {
+        const gyy = ty * ELEV_TILE_PX + r;
+        const gxx = tx * ELEV_TILE_PX + cx;
+        const bi = (gyy - y0) * size + (gxx - x0);
+        if (bi < 0 || bi >= values.length) continue;
+        values[bi] = band[(r - top) * w + (cx - left)];
+      }
+    }
+  }));
+
+  const get = (qLat, qLon) => {
+    const p = elevGlobalPixel(qLat, qLon);
+    const ix = p.gx - x0, iy = p.gy - y0;
+    if (ix < 0 || iy < 0 || ix >= size || iy >= size) return null;
+    return values[iy * size + ix];
+  };
+  const center = get(lat, lon);
+  return { get, values, size, center, ok: center !== null };
+}
+
+// ==== 降雨: 周辺格子の距離加重平均(IDW)でGumbelパラメータを平滑化する ====
+// 1度格子の中心1画素だけをCHIRPSから読んでいるため、対流性豪雨に当たった格子が
+// 突出する。周囲を距離で重み付けして均すことで、隣接格子との連続性を確保する。
+// 半径1.0度で参照点が見つからない場合(沿岸部など)のみ2.0度に広げる。
+const RAIN_SMOOTH_R1 = 1.0;
+const RAIN_SMOOTH_R2 = 2.0;
+const RAIN_SMOOTH_EPS = 0.35;
+
+function smoothedGumbelAt(lat, lon) {
+  if (!rainfallGeojsonCacheGlobal) return null;
+  const tryRadius = (R) => {
+    let numMu = 0, numBeta = 0, den = 0;
+    const span = Math.ceil(R);
+    const cosLat = Math.cos(lat * Math.PI / 180);
+    for (let dLat = -span; dLat <= span; dLat++) {
+      for (let dLon = -span; dLon <= span; dLon++) {
+        const gLat = Math.floor(lat) + dLat;
+        const gLon = Math.floor(lon) + dLon;
+        const p = rainfallGridIndex.get(`${gLat}_${gLon}`);
+        if (!p || typeof p.gumbel_mu !== 'number' || typeof p.gumbel_beta !== 'number') continue;
+        const d = Math.hypot((gLon - lon) * cosLat, gLat - lat);
+        if (d > R) continue;
+        const w = 1 / Math.pow(d + RAIN_SMOOTH_EPS, 2);
+        numMu += w * p.gumbel_mu;
+        numBeta += w * p.gumbel_beta;
+        den += w;
+      }
+    }
+    return den > 0 ? { mu: numMu / den, beta: numBeta / den } : null;
+  };
+  return tryRadius(RAIN_SMOOTH_R1) || tryRadius(RAIN_SMOOTH_R2);
+}
+
+// 降雨強度スコア(0〜1): 50年確率の24時間降水量を全国分布で正規化する。
+// 下端16mm/上端218mmは、平滑化後の全国1,661地点の5%点・95%点(実測)。
+const RAIN_X50_K = 3.9019; // -ln(-ln(1 - 1/50))
+const RAIN_NORM_LO = 16;
+const RAIN_NORM_HI = 218;
+
+function rainfallIntensityScore(lat, lon) {
+  const g = smoothedGumbelAt(lat, lon);
+  if (!g) return null;
+  const x50 = g.mu + g.beta * RAIN_X50_K;
+  return Math.max(0, Math.min(1, (x50 - RAIN_NORM_LO) / (RAIN_NORM_HI - RAIN_NORM_LO)));
+}
+
+// ==== 機構2: 内水氾濫の窪み係数(0.6〜1.3の倍率) ====
+// 21x21グリッド(約3.15km四方)の標高から、周囲に対してどれだけ低いかを見る。
+// 最小値ではなく下位10%分位を使うのは、1画素の誤差やノイズに引きずられないため。
+// 起伏(rng)が2m未満の一様な平野は「窪地かどうか判定できない」ため中立(1.0)に倒す。
+function percentileOf(sortedVals, q) {
+  if (sortedVals.length === 0) return null;
+  const i = Math.max(0, Math.min(sortedVals.length - 1, Math.floor(q * sortedVals.length)));
+  return sortedVals[i];
+}
+
+function depressionFactor(centerElev, neighborhoodVals) {
+  const vals = neighborhoodVals.filter(v => typeof v === 'number').sort((a, b) => a - b);
+  if (vals.length < 20 || centerElev === null) return { factor: 1.0, rel: null, rng: null };
+  const p10 = percentileOf(vals, 0.10);
+  const p90 = percentileOf(vals, 0.90);
+  const rng = p90 - p10;
+  const rel = centerElev - p10;
+  if (rng < 2) return { factor: 1.0, rel, rng };
+  let factor;
+  if (rel <= 0.5) factor = 1.3;
+  else if (rel <= 2) factor = 1.15;
+  else if (rel <= 5) factor = 1.0;
+  else if (rel <= 10) factor = 0.8;
+  else factor = 0.6;
+  return { factor, rel, rng };
+}
+
+// ==== 機構1: 外水氾濫(河川の氾濫) ====
+// 半径2km以内の河川を1本ずつ評価し、最大値を採る。
+// 最寄りが小河川でも、少し遠い大河川のほうが危険なことがあるため。
+function riverProximityScore(distanceM) {
+  if (distanceM <= 500) return 1.0;
+  if (distanceM <= 1000) return 0.7;
+  if (distanceM <= 1500) return 0.4;
+  if (distanceM <= 2000) return 0.2;
+  return 0;
+}
+
+// Strahler次数(order)を河川規模の代理指標として使う。流量属性はHydroRIVERSの
+// 配布データに含まれていないため、次数で代用している(乾燥地帯の涸れ川と
+// 湿潤地帯の同次数河川が同格になる限界がある)。
+function riverOrderFactor(order) {
+  if (typeof order !== 'number') return 0.3;
+  if (order >= 9) return 1.0;
+  if (order >= 8) return 0.85;
+  if (order >= 7) return 0.7;
+  if (order >= 6) return 0.55;
+  if (order >= 5) return 0.4;
+  return 0.3;
+}
+
+// 川面からの高さ(比高)。考え方はHAND(Height Above Nearest Drainage)に基づくが、
+// 流向解析を行わず最寄りの河川線を使う簡易版のため、分水嶺を挟んだ反対側の川を
+// 拾う場合がある。
+function riverReliefFactor(reliefM) {
+  if (reliefM === null) return 1.0; // 標高が取れない場合は比高で減点しない
+  if (reliefM <= 2) return 1.0;
+  if (reliefM <= 5) return 0.6;
+  if (reliefM <= 10) return 0.25;
+  return 0.05;
+}
+
+// 河川の頂点のうち最寄りのものを返す(距離kmと座標)
+function nearestVertexOnRiver(lat, lon, coords) {
+  let best = null, bestD = Infinity;
+  coords.forEach(([clon, clat]) => {
+    const d = haversineKm(lat, lon, clat, clon);
+    if (d < bestD) { bestD = d; best = { lat: clat, lon: clon }; }
+  });
+  return best ? { distKm: bestD, lat: best.lat, lon: best.lon } : null;
+}
+
+function fluvialScoreAt(lat, lon, elevGet, centerElev) {
+  let best = 0;
   nearbyRiverFeatures(lat, lon).forEach(f => {
     const coords = f.geometry?.coordinates;
     if (!coords) return;
-    const d = pointToLineDistanceKm(lat, lon, coords);
-    if (d < minDistKm) minDistKm = d;
+    const nv = nearestVertexOnRiver(lat, lon, coords);
+    if (!nv || nv.distKm > 2) return;
+    const prox = riverProximityScore(nv.distKm * 1000);
+    if (prox === 0) return;
+    const scale = riverOrderFactor(f.properties?.order);
+    let relief = null;
+    if (elevGet && centerElev !== null) {
+      const riverElev = elevGet(nv.lat, nv.lon);
+      if (typeof riverElev === 'number') relief = centerElev - riverElev;
+    }
+    const score = prox * scale * riverReliefFactor(relief);
+    if (score > best) best = score;
   });
+  return best;
+}
 
-  if (lakePoints && lakePoints.length > 0) {
-    lakePoints.forEach(([plat, plon]) => {
-      const d = haversineKm(lat, lon, plat, plon);
-      if (d < minDistKm) minDistKm = d;
-    });
+// ==== 機構3: 高潮・海岸浸水 ====
+// 内陸に進むほど地表摩擦で水位が減衰する(中国沿岸の高潮研究で用いられる
+// -0.1〜-0.3 m/km の中央値 0.2 m/km を採用)。海岸線上では、従来の
+// 海抜3m/5m/10m基準と完全に一致する。
+const SURGE_BASE_LEVEL_M = 3.0;
+const SURGE_DECAY_M_PER_KM = 0.2;
+
+// 海岸線までの距離。
+// CHINA_COASTLINE_POLYGON は陸/海の大雑把な判定(isOnLand)用に置かれた30頂点の
+// 多角形で、渤海湾や杭州湾を横切っている。これで距離を測ると天津が「海岸から329km」
+// になり、高潮の判定(15km以内)が全国どこでも成立しなくなる。
+// そのため距離用には、150m標高タイルから抽出した海岸線の点群
+// (data/coastline_points.json、約1.85km間隔・11,339点)を使う。
+// 主要都市で検証済み: 上海18km / 天津45km / 深圳5km / 青島1km / 大連4km。
+let coastlinePointsIndex = null; // Map<"latCell_lonCell", [[lon,lat],...]>
+const COAST_INDEX_CELL_DEG = 0.25;
+
+function buildCoastlineIndex(points) {
+  const index = new Map();
+  if (!points) return index;
+  points.forEach(([lon, lat]) => {
+    const key = `${Math.floor(lat / COAST_INDEX_CELL_DEG)}_${Math.floor(lon / COAST_INDEX_CELL_DEG)}`;
+    if (!index.has(key)) index.set(key, []);
+    index.get(key).push([lon, lat]);
+  });
+  return index;
+}
+
+function coastDistanceKm(lat, lon) {
+  if (!coastlinePointsIndex) return Infinity;
+  // 高潮が成立するのは15km以内なので、±1セル(約28km四方)だけ調べれば足りる
+  const baseLat = Math.floor(lat / COAST_INDEX_CELL_DEG);
+  const baseLon = Math.floor(lon / COAST_INDEX_CELL_DEG);
+  let minD = Infinity;
+  for (let dLat = -1; dLat <= 1; dLat++) {
+    for (let dLon = -1; dLon <= 1; dLon++) {
+      const bucket = coastlinePointsIndex.get(`${baseLat + dLat}_${baseLon + dLon}`);
+      if (!bucket) continue;
+      bucket.forEach(([clon, clat]) => {
+        const d = haversineKm(lat, lon, clat, clon);
+        if (d < minD) minD = d;
+      });
+    }
   }
+  return minD;
+}
 
-  // 海(既存の海岸線ポリゴンの頂点との距離で近似)
-  CHINA_COASTLINE_POLYGON.forEach(([clon, clat]) => {
-    const d = haversineKm(lat, lon, clat, clon);
-    if (d < minDistKm) minDistKm = d;
-  });
+function surgeScoreAt(lat, lon, elev) {
+  if (elev === null) return 0;
+  const d = coastDistanceKm(lat, lon);
+  const reach = SURGE_BASE_LEVEL_M - SURGE_DECAY_M_PER_KM * d;
+  if (reach <= 0) return 0; // 15km以上内陸では対象外
+  const margin = elev - reach;
+  if (margin <= 0) return 1.0;
+  if (margin <= 2) return 0.6;
+  if (margin <= 7) return 0.25;
+  return 0;
+}
 
-  if (!isFinite(minDistKm)) return 1.0;
-  return distanceToProximityMultiplier(minDistKm * 1000);
+// data/elevation_risk.geojson は1度グリッドの平均標高を3m/5m/10mの閾値で
+// リスク値(1.0/0.75/0.4/0.1)に変換したものしか持たない。全国ヒートマップの
+// 高潮判定にはメートル値が要るため、各段階の代表標高に読み戻す。
+// あくまで概算で、正確な標高は地点検索側で150mタイルから直接読む。
+function elevFromGridProps(props) {
+  if (!props) return null;
+  if (typeof props.mean_elev_m === 'number') return props.mean_elev_m;
+  const r = props.risk;
+  if (typeof r !== 'number') return null;
+  if (r >= 1.0) return 2;
+  if (r >= 0.75) return 4;
+  if (r >= 0.4) return 7;
+  return 50;
+}
+
+// ==== 統合 ====
+// 3機構のスコアは確率ではなく正規化した指標のため、足し合わせず最大値を採る。
+// 洪水実績(DFO)は「モデルが捉えきれなかった分の補正」として1.0〜1.2倍に留める
+// (記録の代表点は影響範囲の重心で、面積の中央値が約73,000km²=270km四方と粗いため)。
+const FLOOD_WEIGHT_MAX_UPLIFT = 0.2;
+
+function combineWaterHazard(fluvial, pluvial, surge) {
+  const parts = [
+    { key: 'fluvial', label: 'River flooding', value: fluvial },
+    { key: 'pluvial', label: 'Surface water flooding', value: pluvial },
+    { key: 'surge', label: 'Coastal storm surge', value: surge },
+  ].filter(p => typeof p.value === 'number');
+  if (parts.length === 0) return null;
+  let top = parts[0];
+  parts.forEach(p => { if (p.value > top.value) top = p; });
+  return { base: top.value, dominant: top.label, dominantKey: top.key };
 }
 
 async function buildWaterHazard() {
-  const [rainfallGeojson, elevationGeojson, riversGeojson] = await Promise.all([
+  const [rainfallGeojson, elevationGeojson, riversGeojson, coastline] = await Promise.all([
     fetchGeojsonSafe('data/rainfall_risk.geojson'),
     fetchGeojsonSafe('data/elevation_risk.geojson'),
     fetchGeojsonSafe('data/rivers.geojson'),
+    fetchGeojsonSafe('data/coastline_points.json'),
   ]);
   rainfallGeojsonCacheGlobal = rainfallGeojson;
   elevationGeojsonCacheGlobal = elevationGeojson;
   riversGeojsonCacheGlobal = riversGeojson;
   riverSpatialIndex = buildRiverSpatialIndex(riversGeojson);
+  coastlinePointsIndex = buildCoastlineIndex(coastline && coastline.points);
 
   if (!floodGeojsonCacheGlobal) {
     floodGeojsonCacheGlobal = await fetchGeojsonSafe('data/floods.geojson');
   }
 
+  rainfallGridIndex = buildRainfallGridIndex(rainfallGeojson);
+
   const riskPoints = [];
 
+  // 全国俯瞰の色分けは「概算」である点に注意。
+  // 窪み係数と河川比高は150m標高タイルの読み込みが必要で、全国1,661格子ぶんを
+  // 起動時に取得するのは非現実的なため、地図側では両方とも中立(1.0)として扱う。
+  // 正確な3機構評価は地点検索側(21x21グリッド)で行う。
   if (rainfallGeojson) {
     rainfallGeojson.features.forEach(f => {
       const [lon, lat] = f.geometry.coordinates;
-      const p = f.properties || {};
-      if (p.no_data) return; // データなしは地図上には何も描かない(「No data」はテキストバッジ側に一本化)
-      const rainfallRisk = typeof p.risk === 'number' ? p.risk : 0;
-      // 同じ格子点付近の標高リスクも参照し、高い方を基礎リスクとする
-      let elevRisk = 0;
+      const props = f.properties || {};
+      if (props.no_data) return; // データなしは地図上には何も描かない
+
+      // 機構2: 内水氾濫(窪み係数は地図側では中立)
+      const pluvial = rainfallIntensityScore(lat, lon);
+
+      // 機構1: 外水氾濫(比高は地図側では中立 = elevGetを渡さない)
+      const fluvial = fluvialScoreAt(lat, lon, null, null);
+
+      // 機構3: 高潮(1度グリッドの平均標高を使う概算)
+      let cellElev = null;
       if (elevationGeojson) {
-        let nearestRisk = null, nearestDist = Infinity;
+        let nearestElev = null, nearestDist = Infinity;
         elevationGeojson.features.forEach(ef => {
           const [elon, elat] = ef.geometry.coordinates;
           if (!degBboxFilter(lat, lon, elat, elon, 150)) return;
           const d = haversineKm(lat, lon, elat, elon);
-          if (d < nearestDist) { nearestDist = d; nearestRisk = ef.properties?.risk; }
+          if (d < nearestDist) { nearestDist = d; nearestElev = elevFromGridProps(ef.properties); }
         });
-        if (typeof nearestRisk === 'number') elevRisk = nearestRisk;
+        if (typeof nearestElev === 'number') cellElev = nearestElev;
       }
-      // 全国俯瞰では、湖はOverpassの都度問い合わせが使えないため、河川・海のみで近接倍率を計算する
-      const proximity = waterProximityMultiplier(lat, lon, []);
-      const baseRisk = Math.max(rainfallRisk, elevRisk * proximity);
+      const surge = cellElev !== null ? surgeScoreAt(lat, lon, cellElev) : 0;
+
+      const combined = combineWaterHazard(fluvial, pluvial, surge);
+      if (!combined) return;
       const weight = floodWeightAt(lat, lon);
-      const finalRisk = Math.min(1.0, baseRisk * weight);
+      const finalRisk = Math.min(1.0, combined.base * weight);
       if (finalRisk > 0) riskPoints.push([lat, lon, finalRisk]);
     });
   }
@@ -1402,12 +1718,14 @@ const DIRS = [
 const SEARCH_RADIUS_M = 100;
 
 // 検索地点周辺を細かい格子(グリッド)状にサンプリングして面で塗るための設定。
-// 2km四方をカバーする設計のため半径1000m(9x9=81マス、余白込みの実際の被覆範囲は
-// 一辺約2.25km)。2026年8月: 半径1500m(約3.25km四方)になっていたのを、
-// 本来の2km四方設計に合わせて修正。
-const GRID_RADIUS_M = 1000;
-const GRID_CELL_M = 250; // 1マスのサイズは今までと同じ(精細さを保つ)
-const GRID_STEPS = GRID_RADIUS_M / GRID_CELL_M; // 半径1000m ÷ 250m = 4マスずつ = 9x9グリッド
+// 【2026年9月改訂】標高がローカルの150mタイル(AW3D30)になり、1マスあたりの
+// API問い合わせが不要になったため、9x9(1マス250m、約2.25km四方)から
+// 21x21(1マス150m、約3.15km四方)へ拡張した。1マスのサイズを標高タイルの
+// 画素サイズ(1/720度 ≒ 150m)に合わせてあるので、リサンプリングが発生しない。
+// この21x21グリッドは、内水氾濫の窪み係数(周囲との相対標高)の計算基盤も兼ねる。
+const GRID_CELL_M = 150;
+const GRID_STEPS = 10; // 中心 ±10マス = 21x21 = 441マス
+const GRID_RADIUS_M = GRID_CELL_M * GRID_STEPS; // 1500m
 
 let searchMarkerLayer;
 let searchGridLayers = {}; // ハザードキーごとのタイルレイヤー(それぞれ対応するチップと連動)
@@ -1417,36 +1735,6 @@ function elevationToRiskInfo(elevation) {
   if (elevation < 5) return { label: 'Watch zone (3–5m)', color: '#D9722C' };
   if (elevation < 10) return { label: 'Transition zone (5–10m)', color: '#D9A22C' };
   return { label: 'Relatively low risk (10m+)', color: '#4E7BA8' };
-}
-
-// elevationToRiskInfoのラベルを0〜1の数値リスクに変換(水害ハザードの合成に使う)
-function elevRiskValueFromLabel(info) {
-  switch (info.label) {
-    case 'High risk (< 3m)': return 1.0;
-    case 'Watch zone (3–5m)': return 0.75;
-    case 'Transition zone (5–10m)': return 0.4;
-    default: return 0.1;
-  }
-}
-
-// 事前生成された降雨強度グリッド(data/rainfall_risk.geojson)から、最寄りの値を参照する。
-// データが存在しない(CHIRPS対象外・未生成)場合は null を返す。
-function rainfallRiskAt(lat, lon) {
-  if (!rainfallGeojsonCacheGlobal) return null;
-  let nearestRisk = null, nearestDist = Infinity, foundNoData = false;
-  rainfallGeojsonCacheGlobal.features.forEach(f => {
-    const [flon, flat] = f.geometry.coordinates;
-    if (!degBboxFilter(lat, lon, flat, flon, 150)) return;
-    const d = haversineKm(lat, lon, flat, flon);
-    if (d < nearestDist) {
-      nearestDist = d;
-      const p = f.properties || {};
-      if (p.no_data) { foundNoData = true; nearestRisk = null; }
-      else { foundNoData = false; nearestRisk = p.risk; }
-    }
-  });
-  if (foundNoData || nearestRisk === null) return null;
-  return nearestRisk;
 }
 
 // 降雨の再現期間(2026年8月実装)。
@@ -1533,6 +1821,15 @@ function onRainfallWarmingChange(warmingStr) {
 function metersToDegLat(m) { return m / 111000; }
 function metersToDegLon(m, lat) { return m / (111000 * Math.cos(lat * Math.PI / 180)); }
 
+// 標高タイルから複数地点の標高をまとめて取得する。タイルが存在しない範囲
+// (パミール高原・モンゴル国内の一部)では null を返すので、呼び出し側で
+// Open-Elevation にフォールバックする。
+async function elevationsFromTiles(block, locations) {
+  if (!block || !block.ok) return null;
+  const out = locations.map(l => block.get(l.latitude, l.longitude));
+  return out.some(v => v === null || typeof v !== 'number') ? null : out;
+}
+
 async function fetchElevations(locations) {
   for (let attempt = 1; attempt <= ELEVATION_MAX_RETRIES; attempt++) {
     try {
@@ -1583,10 +1880,19 @@ async function queryPoint(lat, lon) {
   const gridLocations = gridCells.map(c => ({ latitude: c.lat, longitude: c.lon }));
 
   try {
-    const [elevations, gridElevations] = await Promise.all([
-      fetchElevations(locations),
-      fetchElevations(gridLocations),
-    ]);
+    // 21x21グリッド(±10画素)に加え、外水氾濫の比高計算で半径2km(約13画素)の
+    // 河川頂点も参照するため、余裕をみて ±30画素(約4.6km四方)を1回で読む。
+    const elevBlock = await loadElevationBlock(lat, lon, 30);
+
+    let elevations = await elevationsFromTiles(elevBlock, locations);
+    let gridElevations = await elevationsFromTiles(elevBlock, gridLocations);
+    if (!elevations || !gridElevations) {
+      // タイル欠損範囲: 従来どおりOpen-Elevation APIにフォールバックする
+      [elevations, gridElevations] = await Promise.all([
+        fetchElevations(locations),
+        fetchElevations(gridLocations),
+      ]);
+    }
 
     const centerElev = elevations[0];
     const surrounding = elevations.slice(1).map((elev, i) => ({ name: DIRS[i].name, elev }));
@@ -1603,25 +1909,33 @@ async function queryPoint(lat, lon) {
     // 方角グリッド・標高差テキストは、引き続き標高そのものを参考情報として表示する。
     // 湖の近接判定は、Overpass API(OpenStreetMap)にこの検索1回につき1回だけ問い合わせる
     // (169マス個別には問い合わせず、結果を使い回すことで通信回数を抑える)。
-    const lakePoints = activeLayers.has('waterHazard')
-      ? await fetchNearbyLakePoints(lat, lon, GRID_RADIUS_M + 2000)
-      : [];
 
     const elevRiskInfo = elevationToRiskInfo(centerElev);
-    const rainfallRiskHere = rainfallRiskAt(lat, lon);
-    const noRainDataHere = rainfallRiskHere === null;
+    const pluvialRain = rainfallIntensityScore(lat, lon);
+    const noRainDataHere = pluvialRain === null;
     const tierLabels = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
+
+    // 21x21グリッドの標高から窪み係数を求める(内水氾濫の増幅要因)
+    const depression = depressionFactor(centerElev, gridElevations);
+    const pluvial = noRainDataHere ? null : Math.max(0, Math.min(1, pluvialRain * depression.factor));
+    const fluvial = fluvialScoreAt(lat, lon, elevBlock && elevBlock.ok ? elevBlock.get : null, centerElev);
+    const surge = surgeScoreAt(lat, lon, centerElev);
+    const waterCombined = combineWaterHazard(fluvial, pluvial, surge);
+
     let waterBadge;
-    if (noRainDataHere) {
+    if (!waterCombined) {
       waterBadge = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS };
     } else {
-      const proximity = waterProximityMultiplier(lat, lon, lakePoints);
-      const baseRisk = Math.max(rainfallRiskHere, elevRiskValueFromLabel(elevRiskInfo) * proximity);
       const weight = floodWeightAt(lat, lon);
-      const finalRisk = Math.min(1.0, baseRisk * weight);
+      const finalRisk = Math.min(1.0, waterCombined.base * weight);
       const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
       const rainfallFreq = rainfallReturnPeriodInfo(lat, lon);
-      waterBadge = { label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk, freqInfo: rainfallFreq, freqHtmlFn: rainfallFreqHtml };
+      waterBadge = {
+        label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`,
+        color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk,
+        dominant: waterCombined.dominant,
+        freqInfo: rainfallFreq, freqHtmlFn: rainfallFreqHtml,
+      };
     }
 
     // 地震・台風・雷は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)が、
@@ -1660,6 +1974,7 @@ async function queryPoint(lat, lon) {
           ${b.freqInfo && b.freqHtmlFn ? b.freqHtmlFn(b.freqInfo) : ''}
         `).join('<div style="height:5px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
+          ${waterBadge.dominant ? `<div class="result-elev" style="margin-top:5px;">Dominant mechanism: ${waterBadge.dominant}</div>` : ''}
           <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
           <div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9.5px; opacity:0.75;">※ Reference only, not part of the Water Hazard score.</div>
         ` : ''}
@@ -1707,32 +2022,39 @@ async function queryPoint(lat, lon) {
 
     // 水害ハザードのタイル: 標高は実測API値(このマス)、降雨強度は最寄りの事前生成データ、
     // 洪水実績は重みとしてのみ使用。海上のマスは除外。チップがOFFなら生成自体をスキップする。
+    // 水害ハザードのタイル: バッジと同じ3機構モデルで1マスずつ評価する。
+    // 標高は150mタイルの実測値(このマス)、降雨は平滑化済みGumbel、
+    // 窪み係数はグリッド全体の分布から求めた値をマス共通で使う。
     if (activeLayers.has('waterHazard')) {
-    const waterGridLayer = L.layerGroup();
-    gridCells.forEach((cell, idx) => {
-      if (!isOnLand(cell.lat, cell.lon)) return;
-      const cellElev = gridElevations[idx];
-      const elevRiskInfo = elevationToRiskInfo(cellElev);
-      const elevRiskValue = elevRiskValueFromLabel(elevRiskInfo);
-      const rainfallRiskValue = rainfallRiskAt(cell.lat, cell.lon);
-      // データなしのマスは何も描かない(「No data」の明示はテキストバッジ側に一本化)
-      if (rainfallRiskValue === null) return;
+      const waterGridLayer = L.layerGroup();
+      const gridVals = gridElevations;
+      gridCells.forEach((cell, idx) => {
+        if (!isOnLand(cell.lat, cell.lon)) return;
+        const cellElev = gridVals[idx];
+        if (typeof cellElev !== 'number') return;
 
-      const halfLat = cellDLat / 2;
-      const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
+        const cellRain = rainfallIntensityScore(cell.lat, cell.lon);
+        const cellDep = depressionFactor(cellElev, gridVals);
+        const cellPluvial = cellRain === null ? null : Math.max(0, Math.min(1, cellRain * cellDep.factor));
+        const cellFluvial = fluvialScoreAt(cell.lat, cell.lon, elevBlock && elevBlock.ok ? elevBlock.get : null, cellElev);
+        const cellSurge = surgeScoreAt(cell.lat, cell.lon, cellElev);
+        const cellCombined = combineWaterHazard(cellFluvial, cellPluvial, cellSurge);
+        if (!cellCombined) return; // データなしのマスは何も描かない
 
-      const baseRisk = Math.max(rainfallRiskValue, elevRiskValue * waterProximityMultiplier(cell.lat, cell.lon, lakePoints));
-      const weight = floodWeightAt(cell.lat, cell.lon);
-      const finalRisk = Math.min(1.0, baseRisk * weight);
-      const tileColor = WARNING_TIER_COLORS[Math.min(4, Math.max(0, Math.floor(finalRisk * 5) - (finalRisk === 0 ? 1 : 0)))] ;
-      if (finalRisk <= 0) return;
-      L.rectangle(
-        [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
-        { color: tileColor, weight: 0, fillColor: tileColor, fillOpacity: 0.45 }
-      ).addTo(waterGridLayer);
-    });
-    waterGridLayer.addTo(layerGroups.waterHazard);
-    searchGridLayers.waterHazard = waterGridLayer;
+        const weight = floodWeightAt(cell.lat, cell.lon);
+        const finalRisk = Math.min(1.0, cellCombined.base * weight);
+        if (finalRisk <= 0) return;
+
+        const halfLat = cellDLat / 2;
+        const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
+        const tileColor = WARNING_TIER_COLORS[Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1))];
+        L.rectangle(
+          [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
+          { color: tileColor, weight: 0, fillColor: tileColor, fillOpacity: 0.45 }
+        ).addTo(waterGridLayer);
+      });
+      waterGridLayer.addTo(layerGroups.waterHazard);
+      searchGridLayers.waterHazard = waterGridLayer;
     }
 
     // 指定地点そのものは📍ピンで表示(どのチップの状態にも関わらず常に表示)
@@ -1836,7 +2158,7 @@ const HAZARD_DESCRIPTIONS = {
   earthquake: 'Historical earthquakes (M5.0+) within 100km, weighted by magnitude and distance.',
   typhoon: 'Historical typhoon tracks and wind intensity (JMA scale: Typhoon/Strong/Very Strong/Violent) near this location.',
   lightning: 'Lightning strike density near this location, based on satellite and ground network detections.',
-  water: 'Composite score from historical rainfall, elevation, and proximity to rivers/coastline.',
+  water: 'Highest of three mechanisms: river flooding, surface water flooding, and coastal storm surge.',
 };
 
 // 地点検索(queryPoint)の結果、またはREPORTSパネルを開いたタイミングで呼ばれる。
@@ -1945,7 +2267,9 @@ async function computeReportData(lat, lon) {
   const dLon = metersToDegLon(SEARCH_RADIUS_M, lat);
   const locations = [{ latitude: lat, longitude: lon }];
   DIRS.forEach(d => locations.push({ latitude: lat + d.dLat * dLat, longitude: lon + d.dLon * dLon }));
-  const elevations = await fetchElevations(locations);
+  const reportBlock = await loadElevationBlock(lat, lon, 30);
+  let elevations = await elevationsFromTiles(reportBlock, locations);
+  if (!elevations) elevations = await fetchElevations(locations);
   const centerElev = elevations[0];
   const surrounding = elevations.slice(1).map((elev, i) => ({ name: DIRS[i].name, elev }));
   const avgSurrounding = surrounding.reduce((s, d) => s + d.elev, 0) / surrounding.length;
@@ -1956,19 +2280,39 @@ async function computeReportData(lat, lon) {
   else if (diff > -0.5) compareLabel = 'About level with its surroundings';
   else compareLabel = 'Higher than its surroundings — relatively favorable';
 
-  const lakePoints = await fetchNearbyLakePoints(lat, lon, GRID_RADIUS_M + 2000);
   const elevRiskInfo = elevationToRiskInfo(centerElev);
-  const rainfallRiskHere = rainfallRiskAt(lat, lon);
+
+  // 地点検索と同じ3機構モデルで評価する。窪み係数は21x21グリッドの標高分布から求める。
+  const reportGrid = [];
+  if (reportBlock && reportBlock.ok) {
+    const cellDLatR = metersToDegLat(GRID_CELL_M);
+    for (let i = -GRID_STEPS; i <= GRID_STEPS; i++) {
+      const cellLat = lat + i * cellDLatR;
+      const cellDLonR = metersToDegLon(GRID_CELL_M, cellLat);
+      for (let j = -GRID_STEPS; j <= GRID_STEPS; j++) {
+        reportGrid.push(reportBlock.get(cellLat, lon + j * cellDLonR));
+      }
+    }
+  }
+  const reportDepression = depressionFactor(centerElev, reportGrid);
+  const reportRain = rainfallIntensityScore(lat, lon);
+  const reportPluvial = reportRain === null ? null : Math.max(0, Math.min(1, reportRain * reportDepression.factor));
+  const reportFluvial = fluvialScoreAt(lat, lon, reportBlock && reportBlock.ok ? reportBlock.get : null, centerElev);
+  const reportSurge = surgeScoreAt(lat, lon, centerElev);
+  const reportCombined = combineWaterHazard(reportFluvial, reportPluvial, reportSurge);
+
   let water;
-  if (rainfallRiskHere === null) {
+  if (!reportCombined) {
     water = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
   } else {
-    const proximity = waterProximityMultiplier(lat, lon, lakePoints);
-    const baseRisk = Math.max(rainfallRiskHere, elevRiskValueFromLabel(elevRiskInfo) * proximity);
     const weight = floodWeightAt(lat, lon);
-    const finalRisk = Math.min(1.0, baseRisk * weight);
+    const finalRisk = Math.min(1.0, reportCombined.base * weight);
     const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
-    water = { label: `${TIER_LABELS_RPT[tier]} water hazard (${finalRisk.toFixed(2)})`, color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk };
+    water = {
+      label: `${TIER_LABELS_RPT[tier]} water hazard (${finalRisk.toFixed(2)})`,
+      color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk,
+      dominant: reportCombined.dominant,
+    };
   }
 
   const eqInfo = earthquakeRiskInfo(lat, lon);
