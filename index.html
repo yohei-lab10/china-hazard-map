@@ -139,22 +139,123 @@
   #reportView { position: fixed; top: 0; left: -99999px; width: 720px; background: #fff; z-index: -1; }
   #reportView:empty { left: -99999px; }
   #reportView { font-family: 'Inter', sans-serif; color: #0b0b0b; background: #fff; }
-  #reportView .rpt-page { max-width: 720px; margin: 0 auto; padding: 24px; }
-  #reportView .rpt-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 0.5px solid #d8d6cf; padding-bottom: 12px; margin-bottom: 14px; }
-  #reportView .rpt-title { font-size: 12px; font-weight: 500; }
-  #reportView .rpt-meta { font-size: 11px; color: #898781; text-align: right; }
-  #reportView .rpt-loc-name { font-size: 14px; font-weight: 500; }
-  #reportView .rpt-loc-coords { font-size: 12px; color: #52514e; margin-bottom: 16px; }
-  #reportView .rpt-section { margin-bottom: 18px; }
-  #reportView .rpt-h { font-size: 12px; font-weight: 500; margin-bottom: 2px; }
-  #reportView .rpt-desc { font-size: 10px; color: #898781; margin-bottom: 8px; }
-  #reportView .rpt-bar-wrap { position: relative; height: 8px; border-radius: 4px; margin-bottom: 10px;
-    background: linear-gradient(to right, #FAC775, #F0997B, #D85A30, #7F77DD, #26215C); }
-  #reportView .rpt-bar-marker { position: absolute; top: -9px; transform: translateX(-50%); font-size: 10px; }
-  #reportView .rpt-badge { font-size: 11px; padding: 3px 9px; border-radius: 6px; display: inline-block; margin-bottom: 6px; }
-  #reportView .rpt-comment { font-size: 11px; color: #52514e; line-height: 1.5; }
-  #reportView .rpt-mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.6; }
-  #reportView .rpt-footer { border-top: 0.5px solid #d8d6cf; padding-top: 10px; margin-top: 10px; font-size: 10px; color: #898781; line-height: 1.5; }
+  #reportView .rpt-page { max-width: 720px; margin: 0 auto; padding: 30px 34px 26px; }
+
+  /* --- ヘッダー: 細い罫線と大きめの余白で誌面らしさを出す --- */
+  #reportView .rpt-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 2px solid #26215C; padding-bottom: 10px; margin-bottom: 22px;
+  }
+  #reportView .rpt-brand { display: flex; align-items: center; gap: 12px; }
+  #reportView .rpt-logo {
+    width: 68px; height: 22px; background: #f5f5f3; border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #b4b2ac;
+    display: flex; align-items: center; justify-content: center; letter-spacing: 1px;
+  }
+  #reportView .rpt-title {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+    letter-spacing: 2.4px; text-transform: uppercase; color: #26215C;
+  }
+  #reportView .rpt-meta {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #898781;
+    text-align: right; letter-spacing: 0.6px; line-height: 1.7;
+  }
+
+  /* --- 拠点名: 大きく、座標はモノスペースで --- */
+  #reportView .rpt-loc-name { font-size: 25px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.15; }
+  #reportView .rpt-loc-coords {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #898781;
+    margin-top: 5px; margin-bottom: 20px; letter-spacing: 0.5px;
+  }
+
+  /* --- 複合ハザードのヒーローブロック --- */
+  #reportView .rpt-hero {
+    border: 1px solid #e4e2dc; border-left: 5px solid #26215C; border-radius: 3px;
+    padding: 16px 18px; margin-bottom: 22px; background: #fbfbfa;
+  }
+  #reportView .rpt-hero-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+  #reportView .rpt-hero-k {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
+    letter-spacing: 1.8px; text-transform: uppercase; color: #898781; margin-bottom: 5px;
+  }
+  #reportView .rpt-hero-v { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -0.8px; }
+  #reportView .rpt-hero-score {
+    font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 700;
+    line-height: 1; letter-spacing: -1px;
+  }
+  #reportView .rpt-hero-driver {
+    font-family: 'Inter', sans-serif; font-size: 11px; color: #52514e; margin-top: 9px;
+  }
+  #reportView .rpt-hero-driver b { font-weight: 700; }
+
+  /* --- 内訳の横棒 --- */
+  #reportView .rpt-bd { margin-top: 14px; padding-top: 13px; border-top: 1px solid #e8e6e0; }
+  #reportView .rpt-bd-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  #reportView .rpt-bd-row:last-child { margin-bottom: 0; }
+  #reportView .rpt-bd-name {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.8px;
+    text-transform: uppercase; color: #52514e; width: 82px; flex-shrink: 0;
+  }
+  #reportView .rpt-bd-track { flex: 1; height: 5px; background: #ecebe6; border-radius: 3px; overflow: hidden; }
+  #reportView .rpt-bd-fill { height: 100%; border-radius: 3px; }
+  #reportView .rpt-bd-val {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #52514e;
+    width: 30px; text-align: right; flex-shrink: 0;
+  }
+
+  /* --- 各ハザードのセクション --- */
+  #reportView .rpt-section { margin-bottom: 20px; }
+  #reportView .rpt-h {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+    letter-spacing: 1.8px; text-transform: uppercase; color: #26215C;
+    padding-bottom: 5px; border-bottom: 1px solid #e8e6e0; margin-bottom: 9px;
+  }
+  #reportView .rpt-desc { font-size: 9.5px; color: #898781; line-height: 1.65; margin-bottom: 10px; }
+  #reportView .rpt-bar-wrap { position: relative; height: 7px; border-radius: 4px; margin: 12px 0 11px; }
+  #reportView .rpt-bar-marker { position: absolute; top: -10px; transform: translateX(-50%); font-size: 9px; color: #26215C; }
+  #reportView .rpt-badge {
+    font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 4px;
+    display: inline-block; letter-spacing: 0.2px;
+  }
+  #reportView .rpt-comment { font-size: 10.5px; color: #52514e; line-height: 1.6; margin-top: 8px; }
+  #reportView .rpt-mono { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; line-height: 1.75; }
+
+  /* --- 数値を並べる小さなキー・バリュー --- */
+  #reportView .rpt-kv { display: flex; gap: 26px; margin: 10px 0 4px; flex-wrap: wrap; }
+  #reportView .rpt-kv-item { }
+  #reportView .rpt-kv-k {
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 1.2px;
+    text-transform: uppercase; color: #b4b2ac; margin-bottom: 2px;
+  }
+  #reportView .rpt-kv-v { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #26215C; }
+
+  /* --- ポートフォリオ一覧ページ --- */
+  #reportView .rpt-sum-title { font-size: 25px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 4px; }
+  #reportView .rpt-sum-sub { font-size: 11px; color: #898781; margin-bottom: 22px; }
+  #reportView table.rpt-tbl { width: 100%; border-collapse: collapse; }
+  #reportView table.rpt-tbl th {
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700;
+    letter-spacing: 1.2px; text-transform: uppercase; color: #898781;
+    text-align: left; padding: 0 6px 7px; border-bottom: 1.5px solid #26215C;
+  }
+  #reportView table.rpt-tbl th.num, #reportView table.rpt-tbl td.num { text-align: right; }
+  #reportView table.rpt-tbl td {
+    padding: 9px 6px; border-bottom: 1px solid #eeece7; font-size: 11.5px; vertical-align: middle;
+  }
+  #reportView table.rpt-tbl td.mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #52514e; }
+  #reportView .rpt-pill {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    font-weight: 700; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.4px;
+  }
+  #reportView .rpt-rank {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #b4b2ac; width: 20px;
+  }
+
+  #reportView .rpt-footer {
+    border-top: 1px solid #e8e6e0; padding-top: 11px; margin-top: 22px;
+    font-size: 8.5px; color: #b4b2ac; line-height: 1.7;
+  }
+  #reportView .rpt-footer b { color: #898781; font-weight: 700; }
   .method-item { margin-bottom: 10px; }
   .method-item:last-child { margin-bottom: 0; }
   .method-label {
@@ -2029,9 +2130,12 @@ async function queryPoint(lat, lon) {
       const waterGridLayer = L.layerGroup();
       const gridVals = gridElevations;
       gridCells.forEach((cell, idx) => {
-        if (!isOnLand(cell.lat, cell.lon)) return;
         const cellElev = gridVals[idx];
         if (typeof cellElev !== 'number') return;
+        // 陸/海の判定: CHINA_COASTLINE_POLYGON は30頂点しかなく、海南島・青島・大連などを
+        // 「海」と誤判定してタイルが1枚も描画されない問題があった。標高タイルでは海面が0mで
+        // 埋まっているため、粗いポリゴンで陸と判定されるか、標高が0mより高ければ陸とみなす。
+        if (!isOnLand(cell.lat, cell.lon) && !(cellElev > 0)) return;
 
         const cellRain = rainfallIntensityScore(cell.lat, cell.lon);
         const cellDep = depressionFactor(cellElev, gridVals);
@@ -2155,10 +2259,30 @@ document.getElementById('searchBtn').addEventListener('click', () => {
 let reportLocations = [{ name: '', lat: '', lon: '' }];
 
 const HAZARD_DESCRIPTIONS = {
-  earthquake: 'Historical earthquakes (M5.0+) within 100km, weighted by magnitude and distance.',
-  typhoon: 'Historical typhoon tracks and wind intensity (JMA scale: Typhoon/Strong/Very Strong/Violent) near this location.',
-  lightning: 'Lightning strike density near this location, based on satellite and ground network detections.',
-  water: 'Highest of three mechanisms: river flooding, surface water flooding, and coastal storm surge.',
+  earthquake: 'Based on the USGS earthquake catalog (M5.0+, 1976 onward). '
+    + 'Each past earthquake within 100km is weighted by its magnitude and its distance from the site, '
+    + 'and the strongest effective influence is reported. '
+    + 'This reflects observed seismicity, not fault-based ground motion modelling, '
+    + 'so it may understate hazard on faults that have been quiet during the observation period.',
+  typhoon: 'Based on IBTrACS best-track data (NOAA/NCEI). '
+    + 'Storms whose 34kt wind field reached this location are classified on the JMA scale '
+    + '(Typhoon / Strong / Very Strong / Violent), and the strongest historical impact is reported. '
+    + 'Frequency is estimated separately from the number of Category 1+ passages. '
+    + 'Wind fields are reconstructed from track and radius data, not from a wind simulation.',
+  lightning: 'Based on WWLLN / WGLC lightning stroke density climatology (multi-year average). '
+    + 'The value expresses how active this location is relative to the rest of mainland China. '
+    + 'It describes long-term average activity, not the probability of a strike on a specific structure.',
+  water: 'Three flood mechanisms are evaluated separately and the most severe one is reported: '
+    + 'river flooding (proximity and scale of nearby rivers, and how high the site sits above them), '
+    + 'surface water flooding (extreme rainfall intensity combined with how low-lying the site is '
+    + 'relative to its surroundings), and coastal storm surge (elevation against a surge level that '
+    + 'decays inland). Past flood records adjust the result modestly upward. '
+    + 'Elevation comes from JAXA AW3D30 at 150m resolution, so street-level drainage is not represented; '
+    + 'this is a screening indicator, not a hydrodynamic flood simulation.',
+  overall: 'The highest of the four hazard scores. '
+    + 'The four are not averaged, because a frequent but low-severity peril and a rare but '
+    + 'catastrophic one are not interchangeable. The breakdown below shows which peril drives the result. '
+    + 'This is a hazard indicator, not an expected loss estimate.',
 };
 
 // 地点検索(queryPoint)の結果、またはREPORTSパネルを開いたタイミングで呼ばれる。
@@ -2344,7 +2468,40 @@ async function computeReportData(lat, lon) {
     });
   }
 
-  return { centerElev, surrounding, diff, compareLabel, water, earthquake, typhoon, lightning, rainfallCurves, yearsUsed: gumbel ? gumbel.yearsUsed : null };
+  // 複合ハザード: 4ハザードの最大値。平均や重み付き和にしないのは、重みに根拠が無いため。
+  // また地震(稀・全損もあり得る)と雷(高頻度・小損害)は損失の起き方が異なり、
+  // 平均すると「他が低いから薄まる」という誤った緩和が起きる。
+  const perilList = [
+    { key: 'earthquake', label: 'Earthquake', ratio: earthquake.ratio },
+    { key: 'typhoon', label: 'Typhoon', ratio: typhoon.ratio },
+    { key: 'lightning', label: 'Lightning', ratio: lightning.ratio },
+    { key: 'water', label: 'Water', ratio: water.ratio },
+  ];
+  const scored = perilList.filter(x => typeof x.ratio === 'number' && !isNaN(x.ratio));
+  let overall = null;
+  if (scored.length > 0) {
+    let top = scored[0];
+    scored.forEach(x => { if (x.ratio > top.ratio) top = x; });
+    const tier = Math.min(4, Math.max(0, Math.ceil(top.ratio * 5) - 1));
+    overall = {
+      ratio: top.ratio,
+      tier,
+      label: TIER_LABELS_RPT[tier],
+      drivenBy: top.label,
+      colors: WARNING_TIER_COLORS,
+      color: WARNING_TIER_COLORS[tier],
+      breakdown: perilList,
+    };
+  }
+
+  // 降雨の「現在の水準」: Gumbel分布の平均値 = mu + 0.5772 * beta。
+  // これは観測期間における「年最大24時間降水量の平均」に一致するため、
+  // 再現期間の外挿値に対する基準として提示する。
+  const rainfallTypical = gumbel ? gumbel.mu + 0.5772157 * gumbel.beta : null;
+
+  return { centerElev, surrounding, diff, compareLabel, water, earthquake, typhoon, lightning,
+    rainfallCurves, rainfallTypical, overall,
+    yearsUsed: gumbel ? gumbel.yearsUsed : null };
 }
 
 function rptLegendBar(colors, ratio) {
@@ -2440,17 +2597,108 @@ async function renderReportView(results) {
     document.body.appendChild(view);
   }
   const today = new Date().toISOString().slice(0, 10);
-  view.innerHTML = results.map((r, i) => `
-    <div class="rpt-page">
+
+  // 共通ヘッダー。LOGO枠は保険会社ごとの差し替えを想定したプレースホルダ。
+  const rptHead = (rightLine) => `
       <div class="rpt-head">
-        <div style="width:64px;height:20px;background:#f5f5f3;border-radius:4px;font-size:10px;color:#898781;display:flex;align-items:center;justify-content:center;">LOGO</div>
-        <div>
-          <div class="rpt-title">Natural catastrophe risk report</div>
-          <div class="rpt-meta">Generated ${today} · WGS84</div>
+        <div class="rpt-brand">
+          <div class="rpt-logo">LOGO</div>
+          <div class="rpt-title">Natural Catastrophe Risk Report</div>
         </div>
-      </div>
+        <div class="rpt-meta">${today}<br>WGS84 · CHINA</div>
+      </div>`;
+
+  const rptFooter = `
+      <div class="rpt-footer">
+        <b>Disclaimer.</b> This report presents screening-level hazard indicators derived from public
+        historical and climatological datasets. It is not a guarantee of future events, not an expected
+        loss estimate, and not a sole basis for underwriting, pricing, or coverage decisions.
+        Scores are relative within mainland China and are not comparable to indices published elsewhere.
+        Rainfall return periods beyond the observation period are statistical extrapolations.
+        Elevation and terrain figures are reference values and are not used directly in the hazard scores.
+      </div>`;
+
+  // --- 複合ハザードのヒーローブロック + 内訳 ---
+  const heroBlock = (o) => {
+    if (!o) return '';
+    const rows = o.breakdown.map(b => {
+      const has = typeof b.ratio === 'number' && !isNaN(b.ratio);
+      const pct = has ? Math.max(2, Math.min(100, b.ratio * 100)) : 0;
+      const tier = has ? Math.min(4, Math.max(0, Math.ceil(b.ratio * 5) - 1)) : 0;
+      return `
+        <div class="rpt-bd-row">
+          <div class="rpt-bd-name">${b.label}</div>
+          <div class="rpt-bd-track">${has ? `<div class="rpt-bd-fill" style="width:${pct.toFixed(0)}%; background:${WARNING_TIER_COLORS[tier]};"></div>` : ''}</div>
+          <div class="rpt-bd-val">${has ? b.ratio.toFixed(2) : '—'}</div>
+        </div>`;
+    }).join('');
+    return `
+      <div class="rpt-hero" style="border-left-color:${o.color};">
+        <div class="rpt-hero-top">
+          <div>
+            <div class="rpt-hero-k">Overall hazard</div>
+            <div class="rpt-hero-v" style="color:${o.color};">${o.label}</div>
+          </div>
+          <div class="rpt-hero-score" style="color:${o.color};">${o.ratio.toFixed(2)}</div>
+        </div>
+        <div class="rpt-hero-driver">Driven by <b>${o.drivenBy}</b> — the highest of the four perils.</div>
+        <div class="rpt-bd">${rows}</div>
+      </div>`;
+  };
+
+  // --- 拠点が2件以上のときだけ、冒頭にポートフォリオ一覧ページを置く ---
+  let summaryHtml = '';
+  if (results.length > 1) {
+    const ranked = results
+      .map((r, i) => ({ r, i, ratio: r.data.overall ? r.data.overall.ratio : -1 }))
+      .sort((a, b) => b.ratio - a.ratio);
+    const rows = ranked.map((x, n) => {
+      const o = x.r.data.overall;
+      const cell = (v) => {
+        if (typeof v !== 'number' || isNaN(v)) return '<td class="mono num">—</td>';
+        const t = Math.min(4, Math.max(0, Math.ceil(v * 5) - 1));
+        return `<td class="mono num" style="color:${WARNING_TIER_COLORS[t]}; font-weight:700;">${v.toFixed(2)}</td>`;
+      };
+      const bc = o ? rptBadgeColors(o.color) : null;
+      return `
+        <tr>
+          <td class="rpt-rank">${String(n + 1).padStart(2, '0')}</td>
+          <td style="font-weight:600;">${escapeHtml(x.r.name)}</td>
+          <td class="mono">${x.r.lat.toFixed(3)}, ${x.r.lon.toFixed(3)}</td>
+          <td>${o ? `<span class="rpt-pill" style="background:${bc.bg}; color:${bc.text};">${o.label} ${o.ratio.toFixed(2)}</span>` : '—'}</td>
+          <td class="mono" style="font-size:10px;">${o ? o.drivenBy : '—'}</td>
+          ${cell(x.r.data.earthquake.ratio)}
+          ${cell(x.r.data.typhoon.ratio)}
+          ${cell(x.r.data.lightning.ratio)}
+          ${cell(x.r.data.water.ratio)}
+        </tr>`;
+    }).join('');
+    summaryHtml = `
+    <div class="rpt-page">
+      ${rptHead()}
+      <div class="rpt-sum-title">Portfolio summary</div>
+      <div class="rpt-sum-sub">${results.length} locations, ranked by overall hazard. Detailed pages follow in the same order as entered.</div>
+      <table class="rpt-tbl">
+        <thead>
+          <tr>
+            <th></th><th>Location</th><th>Coordinates</th><th>Overall</th><th>Driver</th>
+            <th class="num">EQ</th><th class="num">TY</th><th class="num">LT</th><th class="num">WA</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="rpt-desc" style="margin-top:14px;">${HAZARD_DESCRIPTIONS.overall}</div>
+      ${rptFooter}
+    </div>`;
+  }
+
+  view.innerHTML = summaryHtml + results.map((r, i) => `
+    <div class="rpt-page">
+      ${rptHead()}
       <div class="rpt-loc-name">${escapeHtml(r.name)}</div>
       <div class="rpt-loc-coords">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
+
+      ${heroBlock(r.data.overall)}
 
       <div class="rpt-section">
         <div class="rpt-h">Earthquake</div>
@@ -2464,7 +2712,7 @@ async function renderReportView(results) {
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS.typhoon}</div>
         ${rptLegendBar(r.data.typhoon.colors, r.data.typhoon.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.typhoon.color).bg}; color:${rptBadgeColors(r.data.typhoon.color).text};">${r.data.typhoon.label}</span>
-        <div class="rpt-comment">${r.data.typhoon.freq && r.data.typhoon.freq.observed ? `Typhoon frequency: ~${r.data.typhoon.freq.returnPeriod.toFixed(1)}yr return period (based on ${r.data.typhoon.freq.totalYears}yrs of data).` : ''}</div>
+        ${r.data.typhoon.freq && r.data.typhoon.freq.observed ? `<div class="rpt-comment">Category 1+ passages occur on average once every ~${r.data.typhoon.freq.returnPeriod.toFixed(1)} years, based on ${r.data.typhoon.freq.totalYears} years of track data.</div>` : ''}
       </div>
 
       <div class="rpt-section">
@@ -2479,14 +2727,36 @@ async function renderReportView(results) {
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS.water}</div>
         ${rptLegendBar(r.data.water.colors, r.data.water.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.water.color).bg}; color:${rptBadgeColors(r.data.water.color).text};">${r.data.water.label}</span>
+        ${r.data.water.dominant ? `<div class="rpt-comment">Dominant mechanism at this location: <b>${r.data.water.dominant}</b>.</div>` : ''}
 
         ${r.data.rainfallCurves ? `
-        <div style="margin-top:14px;">
-          <div class="rpt-h" style="font-size:11px;">Rainfall return period</div>
-          <div class="rpt-desc">24h rainfall expected to be exceeded on average once every N years, from ${r.data.yearsUsed || '—'} years of CHIRPS data fit to a Gumbel distribution. Reference only.</div>
-          <div class="rpt-mono">${RAINFALL_RETURN_PERIODS_YR.map((T, ti) => `${T}yr: ~${r.data.rainfallCurves[0].values[ti].toFixed(0)}mm`).join(' / ')} (${r.data.yearsUsed || '—'}yrs data)</div>
-          <div style="margin:8px 0 4px;"><canvas id="rptChart${i}" width="640" height="220"></canvas></div>
-          <div style="display:flex; flex-wrap:wrap; gap:10px; font-size:10px; color:#52514e;">
+        <div style="margin-top:16px;">
+          <div class="rpt-h" style="font-size:9.5px;">Rainfall intensity</div>
+          <div class="rpt-desc">
+            Observed level is the average annual maximum 24-hour rainfall over the observation period.
+            Return-period values estimate the depth exceeded on average once every N years, obtained by
+            fitting a Gumbel distribution to the annual maxima.
+            ${r.data.yearsUsed && r.data.yearsUsed < 50 ? `The 50- and 100-year figures extrapolate well beyond the ${r.data.yearsUsed}-year record and carry substantial uncertainty.` : ''}
+          </div>
+          <div class="rpt-kv">
+            ${typeof r.data.rainfallTypical === 'number' ? `
+            <div class="rpt-kv-item">
+              <div class="rpt-kv-k">Observed (${r.data.yearsUsed || '—'}yr avg)</div>
+              <div class="rpt-kv-v">${r.data.rainfallTypical.toFixed(0)} mm</div>
+            </div>` : ''}
+            ${RAINFALL_RETURN_PERIODS_YR.map((T, ti) => `
+            <div class="rpt-kv-item">
+              <div class="rpt-kv-k">${T}-year</div>
+              <div class="rpt-kv-v">${r.data.rainfallCurves[0].values[ti].toFixed(0)} mm</div>
+            </div>`).join('')}
+          </div>
+          <div class="rpt-desc" style="margin-top:2px;">
+            For context, the China Meteorological Administration classifies 50mm+ in 24h as 暴雨 (rainstorm),
+            100mm+ as 大暴雨, and 250mm+ as 特大暴雨. These thresholds are shown for reference and are not
+            used to derive the score.
+          </div>
+          <div style="margin:10px 0 4px;"><canvas id="rptChart${i}" width="640" height="220"></canvas></div>
+          <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:9.5px; color:#52514e;">
             <span><span style="display:inline-block;width:8px;height:8px;background:#378ADD;border-radius:2px;margin-right:4px;"></span>Current</span>
             <span><span style="display:inline-block;width:8px;height:8px;background:#1D9E75;border-radius:2px;margin-right:4px;"></span>+1.5°C</span>
             <span><span style="display:inline-block;width:8px;height:8px;background:#EF9F27;border-radius:2px;margin-right:4px;"></span>+2°C</span>
@@ -2494,14 +2764,24 @@ async function renderReportView(results) {
           </div>
         </div>` : ''}
 
-        <div style="margin-top:14px;">
-          <div class="rpt-h" style="font-size:11px;">Elevation vs. surroundings</div>
-          <div class="rpt-desc">Center point vs. 8 surrounding directions within 100m. The black marker shows the searched location. Color and height both represent elevation (m). Reference only.</div>
+        <div style="margin-top:16px;">
+          <div class="rpt-h" style="font-size:9.5px;">Elevation vs. surroundings</div>
+          <div class="rpt-desc">Centre point compared with eight surrounding directions within 100m. The black marker shows the searched location; colour and height both represent elevation in metres. Elevation is a surface model and includes buildings and vegetation.</div>
+          <div class="rpt-kv">
+            <div class="rpt-kv-item">
+              <div class="rpt-kv-k">Elevation</div>
+              <div class="rpt-kv-v">${r.data.centerElev.toFixed(1)} m</div>
+            </div>
+            <div class="rpt-kv-item">
+              <div class="rpt-kv-k">vs. surroundings</div>
+              <div class="rpt-kv-v">${r.data.diff >= 0 ? '+' : ''}${r.data.diff.toFixed(1)} m</div>
+            </div>
+          </div>
           <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
         </div>
       </div>
 
-      <div class="rpt-footer">This report is for reference only and is not a guarantee or sole basis for insurance underwriting decisions. Rainfall return period and elevation comparison are reference values not used in the Water Hazard score.</div>
+      ${rptFooter}
     </div>
   `).join('');
 
