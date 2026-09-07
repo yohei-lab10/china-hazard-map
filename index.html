@@ -498,7 +498,7 @@ const METHODOLOGY = [
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
   { label: 'Water Hazard', color: COLORS.waterHazard,
-    desc: 'Three flood mechanisms are evaluated separately and the most severe one is reported: river flooding (distance to river, river scale, height above the river), surface water flooding (extreme rainfall intensity combined with how low-lying the site is relative to its surroundings), and coastal storm surge (elevation against a surge level that decays inland). Past flood records adjust the result upward by at most 20%. The point search reads 150m elevation tiles directly; the map-wide layer is an approximation that omits the local terrain terms. A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
+    desc: 'Three flood mechanisms are evaluated separately and the most severe one is reported: river flooding (distance to river, river scale, height above the river), surface water flooding (extreme rainfall intensity combined with how low-lying the site is relative to its surroundings), and coastal storm surge (elevation against a surge level that decays inland). Proximity to a river confluence increases the river flooding term modestly. Past flood records adjust the result upward by at most 20%. The point search reads 150m elevation tiles directly; the map-wide layer is an approximation that omits the local terrain terms. A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
   { label: 'Point Lookup', color: '#5C6675',
     desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
 ];
@@ -1416,7 +1416,34 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev) {
     const score = prox * scale * riverReliefFactor(relief);
     if (score > best) best = score;
   });
-  return best;
+  // 河川が近くにない地点では合流部があっても意味がないため、加算ではなく乗算にする
+  return best > 0 ? Math.min(1, best * confluenceFactor(lat, lon)) : 0;
+}
+
+// 河川の合流部。合流部では上流からの流量が集まり水位が上がりやすいため、
+// 外水氾濫のスコアを控えめに割り増しする。
+// HydroRIVERSの線分は下流向きに並ぶので、複数の線分の下流端が同じ座標に集まる点を
+// 合流部として抽出した(data/river_confluences.json、5,137点)。
+// 段階を分けないのは、HydroRIVERSの位置精度(15秒グリッド=約500m)が判定したい距離と
+// 同程度しかなく、300m/500mのような細かい区分が実質的な意味を持たないため。
+let confluenceIndex = null;
+const CONFLUENCE_RADIUS_KM = 0.5;
+const CONFLUENCE_UPLIFT = 1.15;
+
+function confluenceFactor(lat, lon) {
+  if (!confluenceIndex) return 1.0;
+  const baseLat = Math.floor(lat / COAST_INDEX_CELL_DEG);
+  const baseLon = Math.floor(lon / COAST_INDEX_CELL_DEG);
+  for (let dLat = -1; dLat <= 1; dLat++) {
+    for (let dLon = -1; dLon <= 1; dLon++) {
+      const bucket = confluenceIndex.get(`${baseLat + dLat}_${baseLon + dLon}`);
+      if (!bucket) continue;
+      for (const [clon, clat] of bucket) {
+        if (haversineKm(lat, lon, clat, clon) <= CONFLUENCE_RADIUS_KM) return CONFLUENCE_UPLIFT;
+      }
+    }
+  }
+  return 1.0;
 }
 
 // ==== 機構3: 高潮・海岸浸水 ====
@@ -1512,17 +1539,19 @@ function combineWaterHazard(fluvial, pluvial, surge) {
 }
 
 async function buildWaterHazard() {
-  const [rainfallGeojson, elevationGeojson, riversGeojson, coastline] = await Promise.all([
+  const [rainfallGeojson, elevationGeojson, riversGeojson, coastline, confluences] = await Promise.all([
     fetchGeojsonSafe('data/rainfall_risk.geojson'),
     fetchGeojsonSafe('data/elevation_risk.geojson'),
     fetchGeojsonSafe('data/rivers.geojson'),
     fetchGeojsonSafe('data/coastline_points.json'),
+    fetchGeojsonSafe('data/river_confluences.json'),
   ]);
   rainfallGeojsonCacheGlobal = rainfallGeojson;
   elevationGeojsonCacheGlobal = elevationGeojson;
   riversGeojsonCacheGlobal = riversGeojson;
   riverSpatialIndex = buildRiverSpatialIndex(riversGeojson);
   coastlinePointsIndex = buildCoastlineIndex(coastline && coastline.points);
+  confluenceIndex = buildCoastlineIndex(confluences && confluences.points);
 
   if (!floodGeojsonCacheGlobal) {
     floodGeojsonCacheGlobal = await fetchGeojsonSafe('data/floods.geojson');
@@ -2276,7 +2305,8 @@ const HAZARD_DESCRIPTIONS = {
     + 'river flooding (proximity and scale of nearby rivers, and how high the site sits above them), '
     + 'surface water flooding (extreme rainfall intensity combined with how low-lying the site is '
     + 'relative to its surroundings), and coastal storm surge (elevation against a surge level that '
-    + 'decays inland). Past flood records adjust the result modestly upward. '
+    + 'decays inland). Proximity to a river confluence, where flows converge and water levels rise more readily, '
+    + 'increases the river flooding term modestly. Past flood records adjust the result modestly upward. '
     + 'Elevation comes from JAXA AW3D30 at 150m resolution, so street-level drainage is not represented; '
     + 'this is a screening indicator, not a hydrodynamic flood simulation.',
   overall: 'The highest of the four hazard scores. '
