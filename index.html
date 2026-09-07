@@ -1350,11 +1350,32 @@ function percentileOf(sortedVals, q) {
   return sortedVals[i];
 }
 
+// 21x21グリッド(行優先: 行=南北、列=東西)から、指定マスを中心とする (2*half+1) 四方を切り出す。
+// 端に寄っている場合は、はみ出さない範囲だけを返す。
+const DEPRESSION_HALF = 3;        // ±3マス = 7x7 = 49マス(約1.05km四方)
+const DEPRESSION_QUANTILE = 0.20; // 49マスなら下から10番目。極端値に引きずられないための分位
+
+function subGridAround(vals, side, ci, cj, half) {
+  const out = [];
+  for (let r = Math.max(0, ci - half); r <= Math.min(side - 1, ci + half); r++) {
+    for (let c = Math.max(0, cj - half); c <= Math.min(side - 1, cj + half); c++) {
+      out.push(vals[r * side + c]);
+    }
+  }
+  return out;
+}
+
+// 【2026年9月改訂】評価範囲を21x21(3.15km四方)から7x7(約1.05km四方)へ縮小した。
+// 保険会社の水災リスクチェックリストが「半径500m以内と比べて低いか」を問うており、
+// 3.15km四方では敷地ではなく一帯を見ていることになるため。
+// あわせて基準の分位を10%から20%に変更した。441マスの下位10%は下から44番目だが、
+// 49マスの下位10%は下から4番目となりノイズに弱くなる。20%なら下から10番目で、
+// 「最小値ではなく分位を使う」という当初の設計意図(1マスの誤差に引きずられない)を保てる。
 function depressionFactor(centerElev, neighborhoodVals) {
   const vals = neighborhoodVals.filter(v => typeof v === 'number').sort((a, b) => a - b);
-  if (vals.length < 20 || centerElev === null) return { factor: 1.0, rel: null, rng: null };
-  const p10 = percentileOf(vals, 0.10);
-  const p90 = percentileOf(vals, 0.90);
+  if (vals.length < 12 || centerElev === null) return { factor: 1.0, rel: null, rng: null };
+  const p10 = percentileOf(vals, DEPRESSION_QUANTILE);
+  const p90 = percentileOf(vals, 1 - DEPRESSION_QUANTILE);
   const rng = p90 - p10;
   const rel = centerElev - p10;
   if (rng < 2) return { factor: 1.0, rel, rng };
@@ -2060,7 +2081,9 @@ async function queryPoint(lat, lon) {
     const tierLabels = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
 
     // 21x21グリッドの標高から窪み係数を求める(内水氾濫の増幅要因)
-    const depression = depressionFactor(centerElev, gridElevations);
+    const gridSide = GRID_STEPS * 2 + 1;
+    const depression = depressionFactor(centerElev,
+      subGridAround(gridElevations, gridSide, GRID_STEPS, GRID_STEPS, DEPRESSION_HALF));
     const pluvial = noRainDataHere ? null : Math.max(0, Math.min(1, pluvialRain * depression.factor));
     const fluvial = fluvialScoreAt(lat, lon, elevBlock && elevBlock.ok ? elevBlock.get : null, centerElev);
     const surge = surgeScoreAt(lat, lon, centerElev);
@@ -2181,7 +2204,8 @@ async function queryPoint(lat, lon) {
         if (!isOnLand(cell.lat, cell.lon) && !(cellElev > 0)) return;
 
         const cellRain = rainfallIntensityScore(cell.lat, cell.lon);
-        const cellDep = depressionFactor(cellElev, gridVals);
+        const cellDep = depressionFactor(cellElev,
+          subGridAround(gridVals, GRID_STEPS * 2 + 1, Math.floor(idx / (GRID_STEPS * 2 + 1)), idx % (GRID_STEPS * 2 + 1), DEPRESSION_HALF));
         const cellPluvial = cellRain === null ? null : Math.max(0, Math.min(1, cellRain * cellDep.factor));
         const cellFluvial = fluvialScoreAt(cell.lat, cell.lon, elevBlock && elevBlock.ok ? elevBlock.get : null, cellElev);
         const cellSurge = surgeScoreAt(cell.lat, cell.lon, cellElev);
@@ -2452,17 +2476,28 @@ async function computeReportData(lat, lon) {
 
   // 地点検索と同じ3機構モデルで評価する。窪み係数は21x21グリッドの標高分布から求める。
   const reportGrid = [];
+  // 3D地形図にも同じ格子を使う。Plotlyのsurfaceは z[y][x] の2次元配列を取るため、
+  // 行(y)=南北、列(x)=東西 として組み立てる。北を上にするので i は降順に積む。
+  const terrainRows = [];
   if (reportBlock && reportBlock.ok) {
     const cellDLatR = metersToDegLat(GRID_CELL_M);
     for (let i = -GRID_STEPS; i <= GRID_STEPS; i++) {
       const cellLat = lat + i * cellDLatR;
       const cellDLonR = metersToDegLon(GRID_CELL_M, cellLat);
+      const row = [];
       for (let j = -GRID_STEPS; j <= GRID_STEPS; j++) {
-        reportGrid.push(reportBlock.get(cellLat, lon + j * cellDLonR));
+        const v = reportBlock.get(cellLat, lon + j * cellDLonR);
+        reportGrid.push(v);
+        row.push(typeof v === 'number' ? v : null);
       }
+      terrainRows.push(row);
     }
   }
-  const reportDepression = depressionFactor(centerElev, reportGrid);
+  const terrainAxis = [];
+  for (let k = -GRID_STEPS; k <= GRID_STEPS; k++) terrainAxis.push(k * GRID_CELL_M);
+  const terrain = terrainRows.length ? { z: terrainRows, axis: terrainAxis } : null;
+  const reportDepression = depressionFactor(centerElev,
+    subGridAround(reportGrid, GRID_STEPS * 2 + 1, GRID_STEPS, GRID_STEPS, DEPRESSION_HALF));
   const reportRain = rainfallIntensityScore(lat, lon);
   const reportPluvial = reportRain === null ? null : Math.max(0, Math.min(1, reportRain * reportDepression.factor));
   const reportFluvial = fluvialScoreAt(lat, lon, reportBlock && reportBlock.ok ? reportBlock.get : null, centerElev);
@@ -2544,7 +2579,7 @@ async function computeReportData(lat, lon) {
   const rainfallTypical = gumbel ? gumbel.mu + 0.5772157 * gumbel.beta : null;
 
   return { centerElev, surrounding, diff, compareLabel, water, earthquake, typhoon, lightning,
-    rainfallCurves, rainfallTypical, overall,
+    rainfallCurves, rainfallTypical, overall, terrain,
     yearsUsed: gumbel ? gumbel.yearsUsed : null };
 }
 
@@ -2810,7 +2845,7 @@ async function renderReportView(results) {
 
         <div style="margin-top:16px;">
           <div class="rpt-h" style="font-size:9.5px;">Elevation vs. surroundings</div>
-          <div class="rpt-desc">Centre point compared with eight surrounding directions within 100m. The black marker shows the searched location; colour and height both represent elevation in metres. Elevation is a surface model and includes buildings and vegetation.</div>
+          <div class="rpt-desc">Terrain across roughly 3.15km around the site, sampled from 150m elevation tiles (441 points). The black marker shows the searched location; colour and height both represent elevation in metres. The vertical scale is exaggerated so that gentle relief remains visible. Elevation is a surface model and includes buildings and vegetation.</div>
           <div class="rpt-kv">
             <div class="rpt-kv-item">
               <div class="rpt-kv-k">Elevation</div>
@@ -2856,23 +2891,26 @@ async function renderReportView(results) {
     }
 
     // 標高地形: 中心+周囲8方向(実測9点)を3x3グリッドとしてプロット(補間はしない)
-    const order = ['NW', 'N', 'NE', 'W', null, 'E', 'SW', 'S', 'SE'];
-    const elevByName = { C: r.data.centerElev };
-    r.data.surrounding.forEach(s => { elevByName[s.name] = s.elev; });
-    const z = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-    order.forEach((name, idx) => {
-      const row = Math.floor(idx / 3), col = idx % 3;
-      z[row][col] = name === null ? elevByName.C : elevByName[name];
-    });
-    const axis = [-100, 0, 100];
+    // 【2026年9月改訂】従来は中心+8方向のわずか9点(±100m)で描いており、
+    // 150mタイルの1画素より狭い範囲だったため凹凸がほとんど表現できなかった。
+    // 窪み係数の計算に使う21x21グリッド(±1.5km、441点)をそのまま流用して解像度を上げる。
     const terrainDiv = document.getElementById(`rptTerrain${i}`);
+    const tr = r.data.terrain;
+    const z = tr ? tr.z : [[r.data.centerElev]];
+    const axis = tr ? tr.axis : [0];
+    const flat = z.flat().filter(v => typeof v === 'number');
+    const zMin = Math.min(...flat), zMax = Math.max(...flat);
+    const zSpan = Math.max(1, zMax - zMin);
     // 検索地点(中心=0,0)がどこかひと目でわかるよう、地表面より少し浮かせたマーカーを重ねる
-    const centerMarkerZ = elevByName.C + Math.max(1, (Math.max(...Object.values(elevByName)) - Math.min(...Object.values(elevByName))) * 0.15);
+    const centerMarkerZ = r.data.centerElev + zSpan * 0.12;
     tasks.push(
       Plotly.newPlot(terrainDiv, [{
         z, x: axis, y: axis, type: 'surface', showscale: true,
         colorscale: [[0, '#185FA5'], [0.35, '#1D9E75'], [0.6, '#FAC775'], [0.8, '#D85A30'], [1, '#791F1F']],
-        contours: { z: { show: false } },
+        // 等高線を面に焼き込むと、数mしかない緩やかな起伏でも形が読み取れる
+        contours: { z: { show: true, usecolormap: false, color: '#00000033', width: 1, project: { z: false } } },
+        lighting: { ambient: 0.75, diffuse: 0.8, specular: 0.08, roughness: 0.9 },
+        lightposition: { x: -1000, y: 1000, z: 3000 },
         colorbar: { title: { text: 'elevation (m)', side: 'right', font: { size: 10, color: '#52514e' } }, tickfont: { size: 9, color: '#898781' }, thickness: 12, len: 0.7 },
       }, {
         type: 'scatter3d', mode: 'markers+text', x: [0], y: [0], z: [centerMarkerZ],
@@ -2885,8 +2923,11 @@ async function renderReportView(results) {
         scene: {
           xaxis: { title: { text: 'E–W (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' }, gridcolor: '#e1e0d9' },
           yaxis: { title: { text: 'N–S (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' }, gridcolor: '#e1e0d9' },
-          zaxis: { title: { text: 'elevation (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' } },
-          camera: { eye: { x: 1.3, y: -1.3, z: 1.7 } },
+          zaxis: { title: { text: 'elevation (m)', font: { size: 9, color: '#898781' } }, tickfont: { size: 8, color: '#898781' }, range: [zMin - zSpan * 0.08, zMax + zSpan * 0.20] },
+          // 水平3.15kmに対し標高差が数mしかない地点では、実スケールだと完全に平らに見える。
+          // 縦横比を固定して、起伏が常に箱の高さの一定割合を占めるようにする(誇張表示)。
+          aspectmode: 'manual', aspectratio: { x: 1, y: 1, z: 0.42 },
+          camera: { eye: { x: 1.5, y: -1.5, z: 1.1 } },
         },
         paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff',
       }, { displayModeBar: false, responsive: false })
