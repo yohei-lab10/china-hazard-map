@@ -256,6 +256,10 @@
     font-size: 8.5px; color: #b4b2ac; line-height: 1.7;
   }
   #reportView .rpt-footer b { color: #898781; font-weight: 700; }
+  #reportView .rpt-copyright {
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #898781;
+    letter-spacing: 0.4px; margin-top: 7px; padding-top: 7px; border-top: 1px solid #eeece7;
+  }
   .method-item { margin-bottom: 10px; }
   .method-item:last-child { margin-bottom: 0; }
   .method-label {
@@ -356,6 +360,10 @@
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.5px;
     color: var(--text-faint); text-transform: uppercase;
   }
+  .app-copyright {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-faint);
+    padding: 0 16px 12px; background: var(--panel); letter-spacing: 0.3px;
+  }
   .legend-note { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); line-height: 1.55; padding: 0 16px 10px; background: var(--panel); }
   .legend-note.collapsed .legend-full { display: none; }
   .legend-note .legend-toggle {
@@ -423,6 +431,7 @@
     <span class="mono-small" id="countLabel"></span>
   </div>
   <div class="legend-note" id="legendNote"></div>
+  <div class="app-copyright">© <span id="copyrightYear"></span> YM @MSIG. All rights reserved.</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -2372,15 +2381,15 @@ function renderReportPanel() {
   const panel = document.getElementById('reportPanel');
   panel.innerHTML = `
     <div style="font-family:'JetBrains Mono', monospace; font-size:10.5px; font-weight:700; letter-spacing:0.5px; color:var(--text-primary); margin-bottom:8px;">INTEGRATED REPORT</div>
-    <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:10px;">
-      <label style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-muted);">
-        <input type="radio" name="reportCoordSystem" value="wgs84" checked style="width:14px;height:14px;">WGS84 (OpenStreetMap, GPS)
+    <div style="display:flex; flex-wrap:wrap; gap:6px 14px; margin-bottom:10px;">
+      <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text-muted); white-space:nowrap;">
+        <input type="radio" name="reportCoordSystem" value="wgs84" checked style="width:14px;height:14px;">WGS84
       </label>
-      <label style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-muted);">
-        <input type="radio" name="reportCoordSystem" value="gcj02" style="width:14px;height:14px;">GCJ-02 (Amap / 高德地图)
+      <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text-muted); white-space:nowrap;">
+        <input type="radio" name="reportCoordSystem" value="gcj02" style="width:14px;height:14px;">GCJ-02 (高德)
       </label>
-      <label style="display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-muted);">
-        <input type="radio" name="reportCoordSystem" value="bd09" style="width:14px;height:14px;">BD-09 (Baidu Maps / 百度地图)
+      <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text-muted); white-space:nowrap;">
+        <input type="radio" name="reportCoordSystem" value="bd09" style="width:14px;height:14px;">BD-09 (百度)
       </label>
     </div>
     <div id="reportLocList"></div>
@@ -2493,9 +2502,17 @@ async function computeReportData(lat, lon) {
       terrainRows.push(row);
     }
   }
+  // 3D地形図は、窪み係数の評価範囲と同じ 7x7(±3マス、約1.05km四方)に切り出す。
+  // 図と判定根拠の範囲を一致させることで、「この地形から窪み度を判定した」と説明できる。
+  // (地点検索の21x21グリッド表示は従来どおり3.15km四方のまま)
   const terrainAxis = [];
-  for (let k = -GRID_STEPS; k <= GRID_STEPS; k++) terrainAxis.push(k * GRID_CELL_M);
-  const terrain = terrainRows.length ? { z: terrainRows, axis: terrainAxis } : null;
+  for (let k = -DEPRESSION_HALF; k <= DEPRESSION_HALF; k++) terrainAxis.push(k * GRID_CELL_M);
+  const terrainSub = terrainRows.length
+    ? terrainRows
+        .slice(GRID_STEPS - DEPRESSION_HALF, GRID_STEPS + DEPRESSION_HALF + 1)
+        .map(row => row.slice(GRID_STEPS - DEPRESSION_HALF, GRID_STEPS + DEPRESSION_HALF + 1))
+    : [];
+  const terrain = terrainSub.length ? { z: terrainSub, axis: terrainAxis } : null;
   const reportDepression = depressionFactor(centerElev,
     subGridAround(reportGrid, GRID_STEPS * 2 + 1, GRID_STEPS, GRID_STEPS, DEPRESSION_HALF));
   const reportRain = rainfallIntensityScore(lat, lon);
@@ -2695,6 +2712,7 @@ async function renderReportView(results) {
         Scores are relative within mainland China and are not comparable to indices published elsewhere.
         Rainfall return periods beyond the observation period are statistical extrapolations.
         Elevation and terrain figures are reference values and are not used directly in the hazard scores.
+        <div class="rpt-copyright">© ${new Date().getFullYear()} YM @MSIG. All rights reserved.</div>
       </div>`;
 
   // --- 複合ハザードのヒーローブロック + 内訳 ---
@@ -2844,8 +2862,8 @@ async function renderReportView(results) {
         </div>` : ''}
 
         <div style="margin-top:16px;">
-          <div class="rpt-h" style="font-size:9.5px;">Elevation vs. surroundings</div>
-          <div class="rpt-desc">Terrain across roughly 3.15km around the site, sampled from 150m elevation tiles (441 points). The black marker shows the searched location; colour and height both represent elevation in metres. The vertical scale is exaggerated so that gentle relief remains visible. Elevation is a surface model and includes buildings and vegetation.</div>
+          <div class="rpt-h" style="font-size:9.5px;">Terrain around the site (approx. 1.05km)</div>
+          <div class="rpt-desc">Terrain across roughly 1.05km around the site, sampled from 150m elevation tiles (49 cells) — the same area used to judge how low-lying the site is. The black marker shows the searched location; colour and height both represent elevation in metres. The vertical scale is exaggerated so that gentle relief remains visible. Elevation is a surface model and includes buildings and vegetation.</div>
           <div class="rpt-kv">
             <div class="rpt-kv-item">
               <div class="rpt-kv-k">Elevation</div>
@@ -2947,6 +2965,8 @@ async function renderReportView(results) {
     Promise.all(tasks).then(resolveLoc);
   })));
 }
+
+document.getElementById('copyrightYear').textContent = new Date().getFullYear();
 
 initMap();
 renderLayerBar();
