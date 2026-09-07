@@ -764,6 +764,20 @@ async function fetchGeojsonSafe(path) {
   }
 }
 
+// 海岸線・河川合流部は {"points": [[lon, lat], ...]} という独自形式で、GeoJSONではない。
+// fetchGeojsonSafe は features を持たないJSONをnullとして捨てるため、こちらを使う。
+async function fetchPointsSafe(path) {
+  try {
+    const res = await fetch(path);
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!Array.isArray(json.points) || json.points.length === 0) return null;
+    return json;
+  } catch (e) {
+    return null;
+  }
+}
+
 // HAZARD_GRADIENTの色停止点(0/0.25/0.5/0.75/1.0)の間を線形補間して、weight(0〜1)に対応する
 // 1色を返す。台風の軌跡を線(ポリライン)で描くために使う(ヒートマップの色と統一するため)。
 const HAZARD_GRADIENT_STOPS = [
@@ -1543,8 +1557,8 @@ async function buildWaterHazard() {
     fetchGeojsonSafe('data/rainfall_risk.geojson'),
     fetchGeojsonSafe('data/elevation_risk.geojson'),
     fetchGeojsonSafe('data/rivers.geojson'),
-    fetchGeojsonSafe('data/coastline_points.json'),
-    fetchGeojsonSafe('data/river_confluences.json'),
+    fetchPointsSafe('data/coastline_points.json'),
+    fetchPointsSafe('data/river_confluences.json'),
   ]);
   rainfallGeojsonCacheGlobal = rainfallGeojson;
   elevationGeojsonCacheGlobal = elevationGeojson;
