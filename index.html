@@ -512,21 +512,6 @@ const METHODOLOGY = [
     desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
 ];
 
-const TYPHOON_SAMPLE = [
-  { points: [[20.5,128.0],[22.5,122.0],[24.0,120.0],[24.82,118.57]] },
-  { points: [[27.9,128.5],[28.6,124.9],[29.5,122.5],[29.99,122.30]] },
-  { points: [[24.8,127.0],[27.0,124.5],[29.0,122.3],[29.99,122.30]] },
-  { points: [[22.0,130.0],[26.0,125.5],[28.0,121.8],[28.37,121.36]] },
-];
-
-const LOWLAND_FLOOD_PRONE_PROXY = [
-  { center: [31.0, 121.4], weight: 0.7 },
-  { center: [23.1, 113.3], weight: 0.65 },
-  { center: [34.75, 113.65], weight: 0.6 },
-  { center: [30.5, 114.3], weight: 0.55 },
-  { center: [39.9, 116.4], weight: 0.5 },
-];
-
 // 雷: WGLC(WWLLN Global Lightning Climatology)由来のgeojsonをキャッシュする(読込直後に1回だけ設定)
 let lightningGeojsonCacheGlobal = null;
 
@@ -617,6 +602,15 @@ function updateLegend() {
     const rest = firstSentenceEnd > -1 ? l.note.slice(firstSentenceEnd + 1).trim() : '';
     const expanded = legendExpanded.has(l.key);
     const range = dataRanges[l.key] ? ` <span style="color:var(--text-primary);font-weight:600;">[${dataRanges[l.key]}]</span>` : '';
+    // 台風データの取得に失敗した場合は、凡例の先頭で明示する(0件・低リスクと誤読させない)
+    if (l.key === 'typhoonHazard' && typhoonDataUnavailable) {
+      return `<div style="margin-bottom:6px;">
+        <strong style="color:var(--text-primary);">${l.label}:</strong>
+        <span style="color:var(--risk-severe);font-weight:600;">Data unavailable.</span>
+        The typhoon dataset could not be loaded, so nothing is shown on the map and no typhoon
+        evaluation is produced. This is not an indication of low typhoon hazard. Please retry later.
+      </div>`;
+    }
     return `<div style="margin-bottom:6px;">
       <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${summary}
       ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
@@ -665,6 +659,21 @@ function escapeHtml(s) {
 // 地震・台風・洪水の実データは、地点検索のタイル色付けにも再利用するためグローバルにキャッシュしておく
 let earthquakeGeojsonCache = null;
 let typhoonGeojsonCacheGlobal = null;
+
+// 【2026年9月】data/typhoons.geojson の取得に失敗したことを示すフラグ。
+// 以前は取得に失敗すると TYPHOON_SAMPLE(架空の4経路・tier2固定)を地図に描画しており、
+// 利用者側から本物のデータと区別がつかなかった。同様に地点検索・レポートでは
+// 「No typhoon (34kt+) impact at this point」と表示され、取得失敗が
+// 「その地点は安全」という積極的な主張にすり替わっていた。
+// データが無いときは、無いと表示する。推定も代替も行わない。
+let typhoonDataUnavailable = false;
+
+// 台風の評価が出せないときのラベル。「データが無い」と「実績が無い」を必ず書き分ける。
+function typhoonNoDataLabel() {
+  return typhoonDataUnavailable
+    ? 'Typhoon data unavailable — not evaluated'
+    : 'No typhoon (34kt+) impact at this point';
+}
 let floodGeojsonCacheGlobal = null;
 
 async function loadEarthquakes() {
@@ -1054,11 +1063,12 @@ async function buildTyphoonHazard() {
       dataRanges.typhoonHazard = `${new Date(minTime).getFullYear()}–${new Date(maxTime).getFullYear()}`;
       updateLegend();
     }
+    typhoonDataUnavailable = false;
   } else {
-    TYPHOON_SAMPLE.forEach(t => {
-      const lonLatCoords = t.points.map(([lat, lon]) => [lon, lat]);
-      collectTyphoonSegments(lonLatCoords, null, null, { tier: 2, ratio: 0.5 }, segments);
-    });
+    // 取得失敗。何も描かず、凡例・バッジ・レポートに「評価できなかった」と明示する。
+    typhoonDataUnavailable = true;
+    dataRanges.typhoonHazard = null;
+    updateLegend();
   }
 
   // 弱い区間から先に描画し、強い区間を最後(最前面)に描くことで、重なった場所では
@@ -2134,7 +2144,7 @@ async function queryPoint(lat, lon) {
       badges.push({
         ...(info
           ? { label: `${TYPHOON_TIER_LABELS[info.tier]} hazard (${info.valueLabel})`, color: info.color, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS, ratio: info.ratio }
-          : { label: 'No typhoon (34kt+) impact at this point', color: NO_DATA_COLOR, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS }),
+          : { label: typhoonNoDataLabel(), color: NO_DATA_COLOR, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS }),
         freqInfo: freq, freqHtmlFn: typhoonFreqHtml,
       });
     }
@@ -2549,7 +2559,7 @@ async function computeReportData(lat, lon) {
   const tyFreq = typhoonReturnPeriodInfo(lat, lon);
   const typhoon = tyInfo
     ? { label: `${TYPHOON_TIER_LABELS[tyInfo.tier]} hazard (${tyInfo.valueLabel})`, color: tyInfo.color, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS, ratio: tyInfo.ratio, freq: tyFreq }
-    : { label: 'No typhoon (34kt+) impact at this point', color: NO_DATA_COLOR, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS, ratio: null, freq: tyFreq };
+    : { label: typhoonNoDataLabel(), color: NO_DATA_COLOR, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS, ratio: null, freq: tyFreq };
 
   const ltInfo = lightningRiskInfo(lat, lon);
   const lightning = ltInfo
