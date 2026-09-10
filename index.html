@@ -9,19 +9,22 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
   :root {
-    --bg: #F3F4F6;
-    --panel: #FFFFFF;
-    --border: #E0E3E8;
-    --border-strong: #C7CCD4;
-    --text-primary: #1A2130;
-    --text-muted: #5C6675;
-    --text-faint: #94A0AF;
-    --navy: #1F3A5F;
-    --navy-soft: #2C4E7C;
-    --risk-low: #3F8F5F;
-    --risk-mid: #D9A22C;
-    --risk-high: #D9722C;
-    --risk-severe: #C13A2E;
+    /* 【2026年9月改訂】本体アプリをログイン画面(案A・レーダー)と統一したダーク
+       テーマに変更。PDFレポート(#reportView以下)は印刷物として白背景を維持する
+       ため、別スコープの独自CSSのまま変更していない。 */
+    --bg: #10151F;
+    --panel: #1A2130;
+    --border: #2A3348;
+    --border-strong: #57668A;
+    --text-primary: #F1F3F6;
+    --text-muted: #9AA5B4;
+    --text-faint: #6C7686;
+    --navy: #3E6FB0;
+    --navy-soft: #5C8DD1;
+    --risk-low: #4CAF74;
+    --risk-mid: #E8B94A;
+    --risk-high: #E8823A;
+    --risk-severe: #E14A3D;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; background: var(--bg); }
@@ -116,12 +119,13 @@
     border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
   .report-loc-row {
-    display: flex; flex-direction: column; gap: 6px; background: #fff;
+    display: flex; flex-direction: column; gap: 6px; background: var(--panel);
     border: 1px solid var(--border-strong); border-radius: 6px; padding: 8px; margin-bottom: 8px;
   }
   .report-loc-row-head { display: flex; justify-content: space-between; align-items: center; }
   .report-loc-row input[type="text"] {
     font-family: 'Inter', sans-serif; font-size: 12px; padding: 6px 8px;
+    background: var(--bg); color: var(--text-primary);
     border: 1px solid var(--border-strong); border-radius: 5px; width: 100%; box-sizing: border-box;
   }
   .report-loc-row .coords-row { display: flex; gap: 6px; }
@@ -130,7 +134,7 @@
     width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
     letter-spacing: 0.5px; padding: 9px; border-radius: 6px; margin-top: 4px;
   }
-  .report-add-btn { background: #fff; color: var(--navy); border: 1px dashed var(--border-strong); }
+  .report-add-btn { background: var(--panel); color: var(--navy); border: 1px dashed var(--border-strong); }
   .report-generate-btn { background: var(--navy); color: #fff; border: none; }
   .report-generate-btn:disabled { opacity: 0.5; }
   .report-status { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); margin-top: 6px; text-align: center; }
