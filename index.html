@@ -393,12 +393,6 @@
     letter-spacing: 0.5px; color: var(--navy-soft); cursor: pointer;
     padding: 6px 16px; background: var(--panel); display: block;
   }
-  .legend-note.collapsed .legend-full { display: none; }
-  .legend-note .legend-toggle {
-    display: block; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
-    font-weight: 600; letter-spacing: 0.4px; color: var(--navy); cursor: pointer;
-  }
-
   /* ============================================================
      ログインゲート(2026年9月追加)
      静的サイト(GitHub Pages)のためブラウザ側の確認のみ。ページソースを
@@ -668,11 +662,11 @@ const LAYERS = [
   { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
     note: 'Earthquakes: historical M5.0+ events across China, based on USGS earthquake catalog data. Marker size scales with magnitude.' },
   { key: 'lightning', label: 'Lightning', color: COLORS.lightning,
-    note: 'Lightning: historical stroke density (2010–2023 multi-year mean) from the WWLLN Global Lightning Climatology. A climatological average, not real-time data.' },
+    note: 'Lightning: historical stroke density (2010–2023 multi-year mean) from the WWLLN Global Lightning Climatology. A climatological average, not real-time data. Map-wide view not shown; search a point to see the evaluation.' },
   { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
-    note: 'Water Hazard: evaluates three flood mechanisms separately — river flooding, surface water flooding, and coastal storm surge — and reports the most severe of the three, adjusted by past flood records. Point-search results use 150m elevation tiles; the map-wide layer is an approximation. Areas with no rainfall data show no color on the map (see the point-search panel for a "No data" label).' },
+    note: 'Water Hazard: evaluates three flood mechanisms separately — river flooding, surface water flooding, and coastal storm surge — and reports the most severe of the three, adjusted by past flood records. Map-wide view not shown (a national approximation was not reliable enough); search a point to see the evaluation, which uses 150m elevation tiles.' },
 ];
 
 // 地点検索で「評価バッジ+リスク凡例」を表示する4レイヤー
@@ -869,7 +863,6 @@ function renderLayerBar() {
   });
 }
 
-let legendExpanded = new Set();
 // レポートに「いつ時点の・何年分のデータで判定したか」を印字するために保持する。
 // 引受記録として、後から同じ判断を再現できる状態にしておく必要がある。
 let dataRanges = { typhoonHazard: null, earthquake: null, lightning: '2010–2023' };
@@ -877,6 +870,9 @@ let dataRanges = { typhoonHazard: null, earthquake: null, lightning: '2010–202
 // 50年分と30日分では評価の土台がまったく違うため、黙って切り替わってはいけない。
 let earthquakeFallbackLive = false;
 
+// 【2026年9月改訂】層ごとの個別「Show more/less」(legendExpanded)を廃止した。
+// フッター全体の外側トグル(footerToggle)と合わせて「Show more」を2回押す二段階に
+// なっており分かりにくかったため、外側のトグル1つだけで全文を出し入れする形に統一した。
 function updateLegend() {
   const container = document.getElementById('legendNote');
   const active = LAYERS.filter(l => activeLayers.has(l.key));
@@ -885,10 +881,6 @@ function updateLegend() {
     return;
   }
   container.innerHTML = active.map(l => {
-    const firstSentenceEnd = l.note.indexOf('. ');
-    const summary = firstSentenceEnd > -1 ? l.note.slice(0, firstSentenceEnd + 1) : l.note;
-    const rest = firstSentenceEnd > -1 ? l.note.slice(firstSentenceEnd + 1).trim() : '';
-    const expanded = legendExpanded.has(l.key);
     const range = dataRanges[l.key] ? ` <span style="color:var(--text-primary);font-weight:600;">[${dataRanges[l.key]}]</span>` : '';
     // 台風データの取得に失敗した場合は、凡例の先頭で明示する(0件・低リスクと誤読させない)
     if (l.key === 'typhoonHazard' && typhoonDataUnavailable) {
@@ -910,20 +902,10 @@ function updateLegend() {
       </div>` : '';
 
     return `<div style="margin-bottom:6px;">
-      <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${summary}
-      ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
-      <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
+      <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${l.note}
       ${climateToggle}
     </div>`;
   }).join('');
-
-  container.querySelectorAll('.legend-toggle').forEach(el => {
-    el.addEventListener('click', () => {
-      const key = el.dataset.key;
-      if (legendExpanded.has(key)) legendExpanded.delete(key); else legendExpanded.add(key);
-      updateLegend();
-    });
-  });
 
   // climate-chipのクリックはclimateChipsHtml()内のonclick属性で処理するため、
   // ここでの addEventListener 登録は不要(inline onclickに一本化)。
@@ -1120,17 +1102,10 @@ async function loadLightning() {
   const geojson = await fetchGeojsonSafe('data/lightning.geojson');
   if (!geojson) return;
   lightningGeojsonCacheGlobal = geojson;
-  // risk(0〜1)を重みとして使い、密度に応じたグラデーションで表示する(HAZARD_GRADIENTは既存の
-  // 緑→黄→赤のリスク強度グラデーションを他レイヤーと共通で使い回している)
-  const heatPoints = geojson.features
-    .map(f => {
-      const [lon, lat] = f.geometry.coordinates;
-      const risk = f.properties?.risk;
-      return typeof risk === 'number' ? [lat, lon, risk] : null;
-    })
-    .filter(Boolean);
-  const heat = L.heatLayer(heatPoints, { radius: 26, blur: 22, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT });
-  heat.addTo(layerGroups.lightning);
+  // 【2026年9月改訂】全国俯瞰のヒートマップ表示を取りやめた(地震・台風のみ全国表示を
+  // 提供する方針に整理)。地点検索側(lightningRiskInfo)はこのキャッシュを直接参照する
+  // ため、ここでのデータ取得自体は変更していない。雷チップは地点検索の評価バッジ・
+  // 150m格子タイルとしては引き続き機能する。
 }
 
 async function fetchGeojsonSafe(path) {
@@ -1442,8 +1417,18 @@ async function buildTyphoonHazard() {
   // (ポリゴン)として描画するよう変更し、実際の暴風域の広さの違いが見た目にも
   // 表れるようにした。帯同士が重なっても地図が見えなくなりすぎないよう、
   // 透過度を上げて(fillOpacity 0.28)半透明にしてある。
+  // 【2026年9月改訂】全国表示(帯)が、地点検索の台風バッジと違う基準(連続5色
+  // グラデーション・頻度重みなし)で色分けされていたため、同じ基準に揃えた。
+  // 区間の中点で地点検索と同じ typhoonFrequencyWeightAt() を呼び、頻度重み
+  // (×1.0〜1.5)を掛けてから、地点検索と同じJMA4階級の配色(TYPHOON_TIER_COLORS)
+  // で塗る。全区間×全台風の頻度計算のため、初回描画時にまとめて1回だけ実行する。
   segments.sort((s1, s2) => s1.ratio - s2.ratio);
   segments.forEach(seg => {
+    const midLat = (seg.a.lat + seg.b.lat) / 2, midLon = (seg.a.lon + seg.b.lon) / 2;
+    const freq = typhoonFrequencyWeightAt(midLat, midLon);
+    const adjustedRatio = Math.min(1, seg.ratio * freq.weight);
+    const tier = Math.min(TYPHOON_TIER_COLORS.length - 1, Math.floor(adjustedRatio * TYPHOON_TIER_COLORS.length));
+    const segColor = TYPHOON_TIER_COLORS[tier];
     const brg = bearingDeg(seg.a.lat, seg.a.lon, seg.b.lat, seg.b.lon);
     const perpL = brg - 90, perpR = brg + 90;
     const aL = destinationPoint(seg.a.lat, seg.a.lon, perpL, seg.a.catRadius);
@@ -1451,8 +1436,8 @@ async function buildTyphoonHazard() {
     const bL = destinationPoint(seg.b.lat, seg.b.lon, perpL, seg.b.catRadius);
     const bR = destinationPoint(seg.b.lat, seg.b.lon, perpR, seg.b.catRadius);
     L.polygon([aL, bL, bR, aR], {
-      color: colorForWeight(seg.ratio), weight: 1, opacity: 0.35,
-      fillColor: colorForWeight(seg.ratio), fillOpacity: 0.28,
+      color: segColor, weight: 1, opacity: 0.35,
+      fillColor: segColor, fillOpacity: 0.28,
     }).addTo(layerGroups.typhoonHazard);
   });
 }
@@ -2052,53 +2037,13 @@ async function buildWaterHazard() {
 // 気候シナリオが切り替わるたびにデータを再取得する必要はなく、既にキャッシュ済みの
 // gumbel_mu/gumbel_betaにwarmingCを掛けて再分類するだけで済むため。新しいデータの
 // 取得や保存は発生しない(ファイル容量は増えない)。
+// 【2026年9月改訂】全国俯瞰のヒートマップ表示を取りやめた(地震・台風のみ全国表示を
+// 提供する方針に整理)。地点検索側の3機構評価・気候シナリオ切替はqueryPoint内の
+// 別の計算経路で行われるため影響しない。setClimateScenario()から呼ばれた際は
+// レイヤーを空にするだけで終了する(地図の色を変えたい場合は地点検索を使う)。
+// 元の全国概算ロジック(降雨×標高×洪水実績)はCHANGELOGに残してある。
 function renderWaterHeatmap(warmingC) {
-  const rainfallGeojson = rainfallGeojsonCacheGlobal;
-  const elevationGeojson = elevationGeojsonCacheGlobal;
   layerGroups.waterHazard.clearLayers();
-  const riskPoints = [];
-
-  // 全国俯瞰の色分けは「概算」である点に注意。
-  // 窪み係数と河川比高は150m標高タイルの読み込みが必要で、全国1,661格子ぶんを
-  // 起動時に取得するのは非現実的なため、地図側では両方とも中立(1.0)として扱う。
-  // 正確な3機構評価は地点検索側(21x21グリッド)で行う。
-  if (rainfallGeojson) {
-    rainfallGeojson.features.forEach(f => {
-      const [lon, lat] = f.geometry.coordinates;
-      const props = f.properties || {};
-      if (props.no_data) return; // データなしは地図上には何も描かない
-
-      // 機構2: 内水氾濫(窪み係数は地図側では中立。気候シナリオはここにだけ効く)
-      const pluvial = rainfallIntensityScore(lat, lon, warmingC);
-
-      // 機構1: 外水氾濫(比高は地図側では中立 = elevGetを渡さない)
-      const fluvial = fluvialScoreAt(lat, lon, null, null);
-
-      // 機構3: 高潮(1度グリッドの平均標高を使う概算。気候シナリオの影響を受けない)
-      let cellElev = null;
-      if (elevationGeojson) {
-        let nearestElev = null, nearestDist = Infinity;
-        elevationGeojson.features.forEach(ef => {
-          const [elon, elat] = ef.geometry.coordinates;
-          if (!degBboxFilter(lat, lon, elat, elon, 150)) return;
-          const d = haversineKm(lat, lon, elat, elon);
-          if (d < nearestDist) { nearestDist = d; nearestElev = elevFromGridProps(ef.properties); }
-        });
-        if (typeof nearestElev === 'number') cellElev = nearestElev;
-      }
-      const surge = cellElev !== null ? surgeScoreAt(lat, lon, cellElev) : null;
-
-      const combined = combineWaterHazard(fluvial, pluvial, surge);
-      if (!combined) return;
-      const weight = floodWeightAt(lat, lon);
-      const finalRisk = Math.min(1.0, combined.base * weight);
-      if (finalRisk > 0) riskPoints.push([lat, lon, finalRisk]);
-    });
-  }
-
-  if (riskPoints.length > 0) {
-    L.heatLayer(riskPoints, { radius: 40, blur: 32, maxZoom: 8, max: 1.0, gradient: HAZARD_GRADIENT }).addTo(layerGroups.waterHazard);
-  }
 }
 
 
