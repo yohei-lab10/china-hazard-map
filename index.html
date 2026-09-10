@@ -825,19 +825,24 @@ function renderLayerBar() {
   // 「押されていない」見た目のままになる不具合の報告があり、原因はコードの
   // 読み合わせでは特定できなかったため、別々の状態を持たずLeafletの実態を
   // そのまま見る形にして、構造的にズレが起きないようにした。
+  const debugLines = [];
   bar.innerHTML = LAYERS.map(l => {
     const active = map.hasLayer(layerGroups[l.key]);
-    // 【一時診断ログ・2026年9月】チップの見た目と地図の実際の状態が食い違う不具合の
-    // 調査用。問題が解決したら削除する。
-    console.log('[chip-debug]', l.key,
-      'map.hasLayer=' + active,
-      'activeLayers.has=' + activeLayers.has(l.key),
-      'layerGroup exists=' + !!layerGroups[l.key],
-      'layerGroup childCount=' + (layerGroups[l.key] ? layerGroups[l.key].getLayers().length : 'n/a'));
+    // 【一時診断・2026年9月】コンソールが開きにくい環境でも見えるよう、画面に直接
+    // 文字で表示する形に変更した。問題が解決したら削除する。
+    debugLines.push(`${l.key}: hasLayer=${active} / activeLayers=${activeLayers.has(l.key)} / childCount=${layerGroups[l.key] ? layerGroups[l.key].getLayers().length : 'n/a'}`);
     return `<button class="layer-chip${active ? ' active' : ''}" style="${active ? `background:${l.color};border-color:${l.color};` : ''}" data-key="${l.key}">
       <span class="dot" style="background:${active ? '#fff' : l.color};"></span>${l.label}
     </button>`;
   }).join('');
+  let debugPanel = document.getElementById('chipDebugPanel');
+  if (!debugPanel) {
+    debugPanel = document.createElement('div');
+    debugPanel.id = 'chipDebugPanel';
+    debugPanel.style.cssText = 'background:#000; color:#0f0; font-family:monospace; font-size:11px; padding:8px 16px; white-space:pre-wrap; border-bottom:2px solid #f00;';
+    bar.parentNode.insertBefore(debugPanel, bar.nextSibling);
+  }
+  debugPanel.textContent = '[DEBUG]\n' + debugLines.join('\n');
   bar.querySelectorAll('.layer-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.key;
