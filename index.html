@@ -497,12 +497,15 @@
     #loginGate .scan-ring { animation: none; display: none; }
     .login-card { animation: none; }
   }
-  .extent-tooltip {
-    background: rgba(16,21,31,0.85); color: #F1F3F6; border: none;
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; padding: 2px 6px;
-    box-shadow: none;
+  .extent-legend {
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-faint);
+    margin-top: 6px;
   }
-  .extent-tooltip::before { display: none; }
+  .extent-legend .swatch {
+    display: inline-block; width: 14px; height: 0; border-top-width: 1.5px;
+    margin-right: 5px; vertical-align: middle;
+  }
 </style>
 </head>
 <body>
@@ -2563,6 +2566,10 @@ async function queryPoint(lat, lon) {
           ${waterBadge.dominant ? `<div class="result-elev" style="margin-top:5px;">Dominant mechanism: ${waterBadge.dominant}</div>` : ''}
           ${waterBadge.caveat ? `<div class="result-elev" style="margin-top:5px;color:var(--risk-severe);font-weight:600;">${waterBadge.caveat}</div>` : ''}
           <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text} (factored into the score above)</div>
+          <div class="extent-legend">
+            <span><span class="swatch" style="border-top:1.5px dashed #6C7686;"></span>Evaluated area (~3.15km)</span>
+            <span><span class="swatch" style="border-top:1.5px dotted #E8B94A;"></span>Depression check (~1.05km)</span>
+          </div>
           ${mapRainfallWarming !== 0 ? `<div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9px; opacity:0.6;">Reflects the +${mapRainfallWarming}°C scenario selected below.</div>` : ''}
         ` : ''}
       `;
@@ -2666,21 +2673,23 @@ async function queryPoint(lat, lon) {
     // (「約1.05km四方の窪みを考慮」)と揃え、計算式やしきい値は出さない。
     searchExtentLayer = L.layerGroup().addTo(map);
 
+    // 【2026年9月改訂】枠の説明を地図上のツールチップとして浮かせていたが、
+    // ズームレベルによって2つの枠の画面上の間隔が縮まり、ラベル同士が重なって
+    // 見えなくなることがあった。地図上には枠(線)だけを残し、説明は地図の外
+    // (検索結果パネル)に凡例として1行でまとめる方式に変更した。
     const halfLatOuter = metersToDegLat(GRID_RADIUS_M);
     const halfLonOuter = metersToDegLon(GRID_RADIUS_M, lat);
     L.rectangle(
       [[lat - halfLatOuter, lon - halfLonOuter], [lat + halfLatOuter, lon + halfLonOuter]],
       { color: '#6C7686', weight: 1, dashArray: '4 4', fill: false, interactive: false }
-    ).bindTooltip('Evaluated area (~3.15km)', { permanent: true, direction: 'bottom', className: 'extent-tooltip', offset: [0, 16] })
-     .addTo(searchExtentLayer);
+    ).addTo(searchExtentLayer);
 
     const halfLatInner = metersToDegLat(DEPRESSION_HALF * GRID_CELL_M);
     const halfLonInner = metersToDegLon(DEPRESSION_HALF * GRID_CELL_M, lat);
     L.rectangle(
       [[lat - halfLatInner, lon - halfLonInner], [lat + halfLatInner, lon + halfLonInner]],
       { color: '#E8B94A', weight: 1.5, dashArray: '2 3', fill: false, interactive: false }
-    ).bindTooltip('Depression check (~1.05km)', { permanent: true, direction: 'bottom', className: 'extent-tooltip', offset: [0, -4] })
-     .addTo(searchExtentLayer);
+    ).addTo(searchExtentLayer);
 
     // 検索結果パネル(バッジ・標高情報等)の表示でmap要素の高さが変わるため、
     // Leafletが内部キャッシュしている古いサイズのままcenterがズレないよう、
