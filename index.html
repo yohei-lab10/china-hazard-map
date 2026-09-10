@@ -489,6 +489,12 @@
     #loginGate .scan-ring { animation: none; display: none; }
     .login-card { animation: none; }
   }
+  .extent-tooltip {
+    background: rgba(16,21,31,0.85); color: #F1F3F6; border: none;
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; padding: 2px 6px;
+    box-shadow: none;
+  }
+  .extent-tooltip::before { display: none; }
 </style>
 </head>
 <body>
@@ -709,15 +715,25 @@ const BASEMAP = {
 };
 
 function addRasterFallback(m, attribCarto) {
-  // carto-raster: 廃止予定。キー無しでは「API KEY REQUIRED」の透かしタイルが返るが、
-  // 少なくともクラッシュはしない。ベクター側に問題がある間の安全な退避先として使う。
-  const key = BASEMAP.cartoApiKey ? `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}` : '';
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png${key}`, {
-    attribution: attribCarto, subdomains: 'abcd', maxZoom: 19,
-  }).addTo(m);
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png${key}`, {
-    subdomains: 'abcd', maxZoom: 19,
-  }).addTo(m);
+  // 【2026年9月修正】CARTOのラスター版(light_nolabels等)は、CARTOのAPIキー必須化に
+  // 伴いキー無しだと「API KEY REQUIRED」の透かし入りタイルしか返らなくなった
+  // (地図がほぼ何も見えない状態になる)。キー未設定の間は、キー不要で確実に表示できる
+  // OpenStreetMap標準タイルに緊急避難する。CARTOキーを設定すれば、このelse節ではなく
+  // 上のif節(CARTOラスター)が使われるようになる。
+  if (BASEMAP.cartoApiKey) {
+    const key = `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}`;
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png${key}`, {
+      attribution: attribCarto, subdomains: 'abcd', maxZoom: 19,
+    }).addTo(m);
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png${key}`, {
+      subdomains: 'abcd', maxZoom: 19,
+    }).addTo(m);
+  } else {
+    console.warn('CARTOのAPIキーが無いため、キー不要のOpenStreetMap標準タイルで表示しています。見た目を統一したい場合はcartoApiKeyを設定してください。');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', subdomains: 'abc', maxZoom: 19,
+    }).addTo(m);
+  }
 }
 
 function addBasemap(m) {
@@ -883,6 +899,7 @@ function updateLegend() {
       mapRainfallWarming = parseFloat(el.dataset.warming);
       renderWaterHeatmap(mapRainfallWarming);
       updateLegend();
+      refreshRainfallFreqDisplay();
     });
   });
 }
@@ -1686,13 +1703,10 @@ function depressionFactor(centerElev, neighborhoodVals) {
 }
 
 // 【2026年9月】badge/reportの「標高差」表示を、窪み係数が実際に使っている基準
-// (周囲450m・下位20%分位、centerElev - p10 = rel)に揃えるための表示テキスト生成。
-// 従来は中心+周囲8方向・半径100mの単純平均との差(別計算)を表示しており、
-// 「Dominant mechanism: Surface water flooding」のすぐ下で「これはスコアに
-// 使われていない参考値」と注記していたため、実際に内水判定を動かしている
-// 窪み係数と無関係であるかのように読めてしまっていた。この関数は
-// depressionFactor()と同じ数値(rel/rng/factor)から文言を組み立てるため、
-// 表示イコール実際の計算根拠になる。
+// (depressionFactor()と同じrel/rngの分類)に揃えるための表示テキスト生成。
+// 従来は別計算(周囲8方向・100mの単純平均)を表示しており、窪み係数と無関係に
+// 見える注記が付いていたため統一した。ただし社外向け表示のため、具体的な半径
+// (450m)や分位点(20%)、係数の数値そのものは出さない(算出方式は非開示の方針)。
 function depressionFactorLabel(dep) {
   if (dep.rng === null) {
     return { text: 'Insufficient nearby elevation data to assess', factor: 1.0 };
@@ -1702,11 +1716,11 @@ function depressionFactorLabel(dep) {
   }
   const rel = dep.rel;
   let text;
-  if (rel <= 0.5) text = 'Sits at the local low point within 450m';
-  else if (rel <= 2) text = 'Notably lower than nearby high ground within 450m';
-  else if (rel <= 5) text = 'Mid-range relative to the surrounding 450m';
-  else if (rel <= 10) text = 'Higher than most of its surroundings within 450m';
-  else text = 'Well above the surrounding low ground within 450m — relatively favorable';
+  if (rel <= 0.5) text = 'Sits at the local low point';
+  else if (rel <= 2) text = 'Notably lower than nearby high ground';
+  else if (rel <= 5) text = 'Mid-range relative to its surroundings';
+  else if (rel <= 10) text = 'Higher than most of its surroundings';
+  else text = 'Well above the surrounding low ground — relatively favorable';
   return { text, factor: dep.factor };
 }
 
@@ -2274,6 +2288,7 @@ const GRID_STEPS = 10; // 中心 ±10マス = 21x21 = 441マス
 const GRID_RADIUS_M = GRID_CELL_M * GRID_STEPS; // 1500m
 
 let searchMarkerLayer;
+let searchExtentLayer; // 評価範囲の枠(2026年9月追加)。検索のたびに作り直す
 let searchGridLayers = {}; // ハザードキーごとのタイルレイヤー(それぞれ対応するチップと連動)
 
 // 【2026年9月削除】elevationToRiskInfo()は3m/5m/10mの旧しきい値をそのまま流用した
@@ -2308,7 +2323,9 @@ const RAINFALL_CC_PCT_PER_DEG = 7; // %/℃(Clausius-Clapeyron関係)
 const RAINFALL_WARMING_SCENARIOS = [0, 1.5, 2, 3]; // ℃(0=現在の観測ベース)
 // レポートのシナリオ曲線・凡例で共用する配色(RAINFALL_WARMING_SCENARIOSと同じ順・同じ数)
 const CURVE_COLORS_RPT = ['#378ADD', '#1D9E75', '#EF9F27', '#D85A30'];
-let rainfallSelectedWarming = 0;
+// 【2026年9月改訂】地点検索用のrainfallSelectedWarmingと、全国ヒートマップ用の
+// mapRainfallWarmingが別々に存在し、見た目の同じラジオボタンが2箇所に重複表示され
+// 混乱を招いていた。1つの状態(mapRainfallWarming)に統合し、切替は地図側のみで行う。
 function rainfallReturnPeriodInfo(lat, lon) {
   if (!rainfallGeojsonCacheGlobal) return null;
   let nearest = null, nearestDist = Infinity;
@@ -2323,40 +2340,30 @@ function rainfallReturnPeriodInfo(lat, lon) {
   }
   const { gumbel_mu: mu, gumbel_beta: beta, years_used: yearsUsed } = nearest;
   // 選択中の昇温シナリオに応じた気候変動係数(0℃なら1.0=観測ベースのまま)
-  const ccFactor = 1 + (RAINFALL_CC_PCT_PER_DEG / 100) * rainfallSelectedWarming;
+  const ccFactor = 1 + (RAINFALL_CC_PCT_PER_DEG / 100) * mapRainfallWarming;
   const results = RAINFALL_RETURN_PERIODS_YR.map(T => {
     const baseMm = mu - beta * Math.log(-Math.log(1 - 1 / T));
     return { years: T, mm: baseMm * ccFactor };
   });
-  return { results, yearsUsed, warming: rainfallSelectedWarming };
+  return { results, yearsUsed, warming: mapRainfallWarming };
 }
 
+// 【2026年9月改訂】シナリオ切替はここでは行わない(地図側の「Map colors for」に一本化)。
+// ここでは選択中のシナリオを1行で示すだけの読み取り専用表示にする。
 function rainfallFreqHtml(freq) {
   if (!freq) return '';
   const rows = freq.results.map(r => `${r.years}yr: ~${r.mm.toFixed(0)}mm`).join(' / ');
-
-  // 昇温シナリオの切替
-  const scenarioOptions = RAINFALL_WARMING_SCENARIOS.map(w => `
-    <label>
-      <input type="radio" name="rainfallWarming" value="${w}" ${w === freq.warming ? 'checked' : ''} onchange="onRainfallWarmingChange(this.value)">
-      ${w === 0 ? 'Current' : `+${w}°C`}
-    </label>
-  `).join('');
-  // +1.5/+2/+3°C選択時のみ、IPCC根拠の説明を表示(Current時は観測値そのものなので説明不要)
-  const scenarioNote = freq.warming === 0
-    ? ''
-    : `<br>+${freq.warming}°C scenario (IPCC AR6, ~${RAINFALL_CC_PCT_PER_DEG}%/°C)`;
+  const scenarioLabel = freq.warming === 0 ? 'current climate' : `+${freq.warming}°C scenario`;
 
   return `<div class="result-freq" id="rainfallFreq">
-    <div class="rp-group" style="margin-bottom:3px;">${scenarioOptions}</div>
-    ${rows} (${freq.yearsUsed}yrs data)${scenarioNote}
+    ${rows} (${scenarioLabel}, ${freq.yearsUsed}yrs data)
   </div>`;
 }
 
-// ラジオボタンで昇温シナリオが切り替わった時: 直前の検索地点に対してのみ再計算する。
-// 降雨の再現期間はGumbelパラメータからその場で算出できるため、通信は発生しない。
-function onRainfallWarmingChange(warmingStr) {
-  rainfallSelectedWarming = parseFloat(warmingStr);
+// 地図側の気候シナリオ切替(climate-chip)が押されたときに、表示中の検索結果があれば
+// この行だけを再計算する。降雨の再現期間はGumbelパラメータからその場で算出できるため、
+// 通信は発生しない。
+function refreshRainfallFreqDisplay() {
   if (!lastQueriedLatLon) return;
   const el = document.getElementById('rainfallFreq');
   if (!el) return;
@@ -2522,9 +2529,7 @@ async function queryPoint(lat, lon) {
         ${activeLayers.has('waterHazard') ? `
           ${waterBadge.dominant ? `<div class="result-elev" style="margin-top:5px;">Dominant mechanism: ${waterBadge.dominant}</div>` : ''}
           ${waterBadge.caveat ? `<div class="result-elev" style="margin-top:5px;color:var(--risk-severe);font-weight:600;">${waterBadge.caveat}</div>` : ''}
-          <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text}</div>
-          <div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9.5px; opacity:0.75;">Depression factor ×${depLabel.factor.toFixed(2)} — this is the same 450m/20th-percentile comparison used in the surface water flooding score above.</div>
-          <div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9.5px; opacity:0.6;">Rainfall return-period figures above always show the selected climate scenario for reference; the Water Hazard score itself always uses current-climate (0°C) observations.</div>
+          <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text} (factored into the score above)</div>
         ` : ''}
       `;
     } else {
@@ -2533,6 +2538,7 @@ async function queryPoint(lat, lon) {
     }
 
     if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
+    if (searchExtentLayer) map.removeLayer(searchExtentLayer);
 
     // 半径1000m(一辺約2.25km、2km四方設計)圏内を、各ハザードのリスクに応じた色のタイルで塗る
     // (地震・台風・雷はローカルデータのみ、追加通信なし)
@@ -2618,6 +2624,26 @@ async function queryPoint(lat, lon) {
         iconAnchor: [13, 26],
       }),
     }).addTo(map);
+
+    // 【2026年9月追加】評価範囲そのものを地図上に枠で示す。数値の開示はレポート側
+    // (「約1.05km四方の窪みを考慮」)と揃え、計算式やしきい値は出さない。
+    searchExtentLayer = L.layerGroup().addTo(map);
+
+    const halfLatOuter = metersToDegLat(GRID_RADIUS_M);
+    const halfLonOuter = metersToDegLon(GRID_RADIUS_M, lat);
+    L.rectangle(
+      [[lat - halfLatOuter, lon - halfLonOuter], [lat + halfLatOuter, lon + halfLonOuter]],
+      { color: '#6C7686', weight: 1, dashArray: '4 4', fill: false, interactive: false }
+    ).bindTooltip('Evaluated area (~3.15km)', { permanent: true, direction: 'top', className: 'extent-tooltip' })
+     .addTo(searchExtentLayer);
+
+    const halfLatInner = metersToDegLat(DEPRESSION_HALF * GRID_CELL_M);
+    const halfLonInner = metersToDegLon(DEPRESSION_HALF * GRID_CELL_M, lat);
+    L.rectangle(
+      [[lat - halfLatInner, lon - halfLonInner], [lat + halfLatInner, lon + halfLonInner]],
+      { color: '#E8B94A', weight: 1.5, dashArray: '2 3', fill: false, interactive: false }
+    ).bindTooltip('Depression check (~1.05km)', { permanent: true, direction: 'bottom', className: 'extent-tooltip' })
+     .addTo(searchExtentLayer);
 
     // 検索結果パネル(バッジ・標高情報等)の表示でmap要素の高さが変わるため、
     // Leafletが内部キャッシュしている古いサイズのままcenterがズレないよう、
@@ -3261,18 +3287,14 @@ async function renderReportView(results) {
 
         <div style="margin-top:16px;">
           <div class="rpt-h" style="font-size:9.5px;">Terrain around the site (approx. 1.05km)</div>
-          <div class="rpt-desc">Terrain across roughly 1.05km around the site, sampled from 150m elevation tiles (49 cells) — the same area used to judge how low-lying the site is. The black marker shows the searched location; colour and height both represent elevation in metres. The vertical scale is exaggerated so that gentle relief remains visible. Elevation is a surface model and includes buildings and vegetation.</div>
+          <div class="rpt-desc">Terrain across the area surrounding the site, sampled from 150m elevation tiles. The black marker shows the searched location; colour and height both represent elevation in metres. The vertical scale is exaggerated so that gentle relief remains visible. Elevation is a surface model and includes buildings and vegetation.</div>
           <div class="rpt-kv">
             <div class="rpt-kv-item">
               <div class="rpt-kv-k">Elevation</div>
               <div class="rpt-kv-v">${r.data.centerElev.toFixed(1)} m</div>
             </div>
-            <div class="rpt-kv-item">
-              <div class="rpt-kv-k">Depression factor</div>
-              <div class="rpt-kv-v">×${r.data.depLabel.factor.toFixed(2)}</div>
-            </div>
           </div>
-          <div class="rpt-desc" style="margin-top:2px;">${r.data.depLabel.text} (based on the surrounding 450m, 20th percentile — the same comparison used in the surface water flooding score above).</div>
+          <div class="rpt-desc" style="margin-top:2px;">${r.data.depLabel.text}, considering the surrounding ~1.05km (roughly 450m in each direction from the site) — factored into the surface water flooding score above.</div>
           <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
         </div>
       </div>
