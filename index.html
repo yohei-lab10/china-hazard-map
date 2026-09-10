@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>China Natural Catastrophe Risk Map</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
   :root {
@@ -435,6 +436,8 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 <!-- 標高タイル(AW3D30 150m)の地点参照用: HTTPレンジリクエストで該当ピクセルだけを読み取る -->
 <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
@@ -499,6 +502,21 @@ const LAYERS = [
 // 地点検索で「評価バッジ+リスク凡例」を表示する4レイヤー
 const BADGE_LAYER_KEYS = ['earthquake', 'typhoonHazard', 'lightning', 'waterHazard'];
 
+// 各データセットの提供者・ライセンス表記。無償公開データでも「出典の明示」は
+// ライセンス条件そのものであり、商用提供時は省略できない。画面(METHODOLOGY)と
+// PDFレポートの両方に出す。
+const DATA_ATTRIBUTION = [
+  ['Base map', '© OpenStreetMap contributors, © CARTO'],
+  ['Earthquakes', 'USGS Earthquake Catalog — U.S. Geological Survey'],
+  ['Typhoons', 'IBTrACS — NOAA National Centers for Environmental Information / WMO'],
+  ['Rainfall', 'CHIRPS — Climate Hazards Center, UC Santa Barbara'],
+  ['Elevation', 'ALOS World 3D-30m (AW3D30) © JAXA — used under the AW3D30 Terms of Use'],
+  ['Rivers', 'HydroRIVERS / HydroSHEDS — Lehner, B., Grill, G. (2013). hydrosheds.org'],
+  ['Flood records', 'Dartmouth Flood Observatory, University of Colorado'],
+  ['Lightning', 'WGLC — Kaplan, J.O. & Lau, K.H.-K. (2021), derived from WWLLN'],
+  ['Lakes', '© OpenStreetMap contributors (Overpass API)'],
+];
+
 const METHODOLOGY = [
   { label: 'Earthquakes', color: COLORS.earthquake,
     desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
@@ -525,24 +543,73 @@ function inLandBbox(lat, lon) {
 let map, layerGroups = {};
 let activeLayers = new Set();
 
+// ============================================================================
+// ベースマップ設定
+//
+// 経緯: CARTOのラスタータイル(basemaps.cartocdn.com/light_nolabels/...)は
+// 2026年にAPIキー必須となり、かつ提供元がラスター方式そのものを廃止予定と公表した。
+// 2026年8月にEsriのレガシーラスター(services.arcgisonline.com)へ一度移行したが、
+// 表示速度が許容できずCARTOへ差し戻した経緯がある(maxNativeZoom未設定だけが
+// 原因ではなかった)。廃止予定のエンドポイントに依存し続けるのは避けたいため、
+// 2026年9月にCARTOのベクタータイル(MapLibre GL)へ移行した。
+//
+// APIキー: https://carto.com/basemaps/apikey で取得(CARTOアカウント不要)。
+// 無償枠は月500万タイルリクエスト。本ツールは社内の引受担当者が使う想定で、
+// 地図画像を外部配布しないため、この枠に達する見込みはない。
+//
+// 切り戻し: provider を 'carto-raster' または 'esri-raster' に変えれば、
+// 以前の方式に戻せる。ベクター表示に問題が出た場合の退避経路として残してある。
+// ============================================================================
+const BASEMAP = {
+  provider: 'carto-vector',   // 'carto-vector' | 'carto-raster' | 'esri-raster'
+  cartoApiKey: '',            // ← ここに取得したキーを入れる(空だとタイルが出ない)
+};
+
+function addBasemap(m) {
+  const attribCarto = '&copy; OpenStreetMap contributors &copy; CARTO';
+
+  if (BASEMAP.provider === 'carto-vector') {
+    if (!BASEMAP.cartoApiKey) {
+      console.warn('BASEMAP.cartoApiKey が未設定です。https://carto.com/basemaps/apikey で取得してください。');
+    }
+    // MapLibre GLのベクタータイルをLeafletのレイヤーとして重ねる。
+    // ハザードのオーバーレイは従来どおりLeaflet側に描くため、他の実装は変更不要。
+    const styleUrl = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+      + (BASEMAP.cartoApiKey ? `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}` : '');
+    L.maplibreGL({ style: styleUrl, attribution: attribCarto }).addTo(m);
+    return;
+  }
+
+  if (BASEMAP.provider === 'esri-raster') {
+    // ArcGIS RESTのタイルURLは {z}/{y}/{x} の順(CARTOの {z}/{x}/{y} と異なる)。
+    // 実データは世界的にズーム13程度までのため、maxNativeZoomを必ず設定する。
+    const base = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/';
+    L.tileLayer(base + 'World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '&copy; Esri &copy; OpenStreetMap contributors',
+      maxZoom: 16, maxNativeZoom: 13,
+    }).addTo(m);
+    L.tileLayer(base + 'World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16, maxNativeZoom: 13,
+    }).addTo(m);
+    return;
+  }
+
+  // carto-raster: 廃止予定。キー無しでは「API KEY REQUIRED」の透かしタイルが返る。
+  const key = BASEMAP.cartoApiKey ? `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}` : '';
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png${key}`, {
+    attribution: attribCarto, subdomains: 'abcd', maxZoom: 19,
+  }).addTo(m);
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png${key}`, {
+    subdomains: 'abcd', maxZoom: 19,
+  }).addTo(m);
+}
+
 function initMap() {
   map = L.map('map', { zoomControl: true, attributionControl: true }).setView([31.57, 120.30], 11);
   // デスクトップでウィンドウ幅を変えた時など、#appのサイズが変わってもLeafletが
   // 内部キャッシュしたサイズのままだとタイルが崩れるため、リサイズのたびに再計算する
   window.addEventListener('resize', () => map.invalidateSize());
-  // Light, professional cartographic base (CartoDB Positron)
-  // 【2026年8月】CARTOがAPIキー必須化→Esriに切り替え→Esriが遅いとの報告により、
-  // CARTOに戻した。CARTOのAPIキー問題(無料枠だが登録要)は解消していない可能性が
-  // あるため、再度「API KEY REQUIRED」の透かしタイルが表示される場合は、
-  // https://carto.com/basemaps/apikey/ で無料キーを取得し、下記URLの末尾に
-  // ?key=あなたのキー を付与する必要がある。
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd', maxZoom: 19,
-  }).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
-    subdomains: 'abcd', maxZoom: 19,
-  }).addTo(map);
+  addBasemap(map);
 
   layerGroups.earthquake = L.layerGroup();
   layerGroups.lightning = L.layerGroup();
@@ -587,7 +654,12 @@ function renderLayerBar() {
 }
 
 let legendExpanded = new Set();
-let dataRanges = { typhoonHazard: null };
+// レポートに「いつ時点の・何年分のデータで判定したか」を印字するために保持する。
+// 引受記録として、後から同じ判断を再現できる状態にしておく必要がある。
+let dataRanges = { typhoonHazard: null, earthquake: null, lightning: '2010–2023' };
+// 地震データが事前生成ファイルではなく直近30日のライブ問い合わせにフォールバックしたか。
+// 50年分と30日分では評価の土台がまったく違うため、黙って切り替わってはいけない。
+let earthquakeFallbackLive = false;
 
 function updateLegend() {
   const container = document.getElementById('legendNote');
@@ -611,10 +683,29 @@ function updateLegend() {
         evaluation is produced. This is not an indication of low typhoon hazard. Please retry later.
       </div>`;
     }
+    // Water Hazardのみ、地図の色分けに使う気候シナリオの切替ボタンを併記する。
+    // 選択してもWater Hazardスコア(地点検索・レポート)は変わらない。地図の色だけが変わる。
+    const climateToggle = l.key === 'waterHazard' ? `
+      <div style="margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span style="color:var(--text-faint); font-size:11px;">Map colors for:</span>
+        ${RAINFALL_WARMING_SCENARIOS.map(w => `
+          <button class="climate-chip${mapRainfallWarming === w ? ' active' : ''}" data-warming="${w}"
+            style="font-size:11px; padding:2px 8px; border-radius:10px; border:1px solid var(--border-strong);
+              background:${mapRainfallWarming === w ? 'var(--navy)' : 'var(--panel)'};
+              color:${mapRainfallWarming === w ? '#fff' : 'var(--text-muted)'}; cursor:pointer;">
+            ${w === 0 ? 'Current' : '+' + w + '°C'}
+          </button>`).join('')}
+      </div>
+      <div style="color:var(--text-faint); font-size:10.5px; margin-top:3px;">
+        Rainfall projected using IPCC AR6 Clausius-Clapeyron scaling (+7%/°C). The Water Hazard score
+        shown in point search and PDF reports always uses current-climate observations.
+      </div>` : '';
+
     return `<div style="margin-bottom:6px;">
       <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${summary}
       ${rest ? `<span class="legend-full" style="${expanded ? '' : 'display:none;'}"> ${rest}</span>
       <span class="legend-toggle" data-key="${l.key}">${expanded ? 'Show less' : 'Show more'}</span>` : ''}
+      ${climateToggle}
     </div>`;
   }).join('');
 
@@ -622,6 +713,14 @@ function updateLegend() {
     el.addEventListener('click', () => {
       const key = el.dataset.key;
       if (legendExpanded.has(key)) legendExpanded.delete(key); else legendExpanded.add(key);
+      updateLegend();
+    });
+  });
+
+  container.querySelectorAll('.climate-chip').forEach(el => {
+    el.addEventListener('click', () => {
+      mapRainfallWarming = parseFloat(el.dataset.warming);
+      renderWaterHeatmap(mapRainfallWarming);
       updateLegend();
     });
   });
@@ -634,7 +733,15 @@ function renderMethodology() {
       <div class="method-label"><span class="dot" style="background:${m.color};"></span>${m.label}</div>
       <div class="method-desc">${m.desc}</div>
     </div>
-  `).join('');
+  `).join('') + `
+    <div class="method-item">
+      <div class="method-label"><span class="dot" style="background:#5C6675;"></span>Data sources &amp; attribution</div>
+      <div class="method-desc">
+        ${DATA_ATTRIBUTION.map(([k, v]) => `<div><b>${k}:</b> ${v}</div>`).join('')}
+        <div style="margin-top:6px;">All datasets are used under their respective open or free-of-charge terms.
+        Derived layers distributed with this tool remain subject to the original providers' terms.</div>
+      </div>
+    </div>`;
 }
 
 document.getElementById('methodologyBtn').addEventListener('click', () => {
@@ -712,12 +819,18 @@ async function loadEarthquakes() {
     });
     const minYear = isFinite(minTime) ? new Date(minTime).getFullYear() : '—';
     const maxYear = isFinite(maxTime) ? new Date(maxTime).getFullYear() : '—';
+    dataRanges.earthquake = `${minYear}–${maxYear}`;
+    earthquakeFallbackLive = false;
     document.getElementById('statusLabel').textContent = `Data range: ${minYear}–${maxYear}`;
     document.getElementById('countLabel').textContent = `${count} earthquakes (M5.0+)`;
     return;
   }
 
   // Fallback: live last-30-days query, used only until the backfilled file exists
+  // 【2026年9月】このフォールバックに落ちると評価の土台が50年分から30日分になる。
+  // 実データではあるが、地震ハザードは著しく低く出る。レポートに明示する。
+  earthquakeFallbackLive = true;
+  dataRanges.earthquake = 'last 30 days only (pre-generated catalog unavailable)';
   try {
     const url = 'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=' +
       new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10) +
@@ -1352,10 +1465,14 @@ const RAIN_X50_K = 3.9019; // -ln(-ln(1 - 1/50))
 const RAIN_NORM_LO = 16;
 const RAIN_NORM_HI = 218;
 
-function rainfallIntensityScore(lat, lon) {
+// 【2026年9月】第2引数warmingCは全国ヒートマップの気候シナリオ切替専用。
+// 地点検索・レポートの呼び出しは引数を渡さないため既定の0(現在気候)のままで、
+// Water Hazardスコア自体は選択中のシナリオに関わらず常に現在気候で計算される。
+function rainfallIntensityScore(lat, lon, warmingC = 0) {
   const g = smoothedGumbelAt(lat, lon);
   if (!g) return null;
-  const x50 = g.mu + g.beta * RAIN_X50_K;
+  const ccFactor = 1 + (RAINFALL_CC_PCT_PER_DEG / 100) * warmingC;
+  const x50 = (g.mu + g.beta * RAIN_X50_K) * ccFactor;
   return Math.max(0, Math.min(1, (x50 - RAIN_NORM_LO) / (RAIN_NORM_HI - RAIN_NORM_LO)));
 }
 
@@ -1407,6 +1524,31 @@ function depressionFactor(centerElev, neighborhoodVals) {
   return { factor, rel, rng };
 }
 
+// 【2026年9月】badge/reportの「標高差」表示を、窪み係数が実際に使っている基準
+// (周囲450m・下位20%分位、centerElev - p10 = rel)に揃えるための表示テキスト生成。
+// 従来は中心+周囲8方向・半径100mの単純平均との差(別計算)を表示しており、
+// 「Dominant mechanism: Surface water flooding」のすぐ下で「これはスコアに
+// 使われていない参考値」と注記していたため、実際に内水判定を動かしている
+// 窪み係数と無関係であるかのように読めてしまっていた。この関数は
+// depressionFactor()と同じ数値(rel/rng/factor)から文言を組み立てるため、
+// 表示イコール実際の計算根拠になる。
+function depressionFactorLabel(dep) {
+  if (dep.rng === null) {
+    return { text: 'Insufficient nearby elevation data to assess', factor: 1.0 };
+  }
+  if (dep.rng < 2) {
+    return { text: 'Surrounding terrain too flat to judge a local low point', factor: dep.factor };
+  }
+  const rel = dep.rel;
+  let text;
+  if (rel <= 0.5) text = 'Sits at the local low point within 450m';
+  else if (rel <= 2) text = 'Notably lower than nearby high ground within 450m';
+  else if (rel <= 5) text = 'Mid-range relative to the surrounding 450m';
+  else if (rel <= 10) text = 'Higher than most of its surroundings within 450m';
+  else text = 'Well above the surrounding low ground within 450m — relatively favorable';
+  return { text, factor: dep.factor };
+}
+
 // ==== 機構1: 外水氾濫(河川の氾濫) ====
 // 半径2km以内の河川を1本ずつ評価し、最大値を採る。
 // 最寄りが小河川でも、少し遠い大河川のほうが危険なことがあるため。
@@ -1453,6 +1595,11 @@ function nearestVertexOnRiver(lat, lon, coords) {
 }
 
 function fluvialScoreAt(lat, lon, elevGet, centerElev) {
+  // 【2026年9月】河川データが読み込めていない場合は 0 ではなく null を返す。
+  // 0 は「評価した結果、近くに川が無かった」という判定であり、取得失敗とは意味が違う。
+  // 0 を返すと combineWaterHazard が正当な候補として最大値比較に入れてしまい、
+  // 取得失敗が「評価済みの安全判定」として合成される。
+  if (!riverSpatialIndex || !riversGeojsonCacheGlobal) return null;
   let best = 0;
   nearbyRiverFeatures(lat, lon).forEach(f => {
     const coords = f.geometry?.coordinates;
@@ -1485,6 +1632,9 @@ const CONFLUENCE_RADIUS_KM = 0.5;
 const CONFLUENCE_UPLIFT = 1.15;
 
 function confluenceFactor(lat, lon) {
+  // 合流部は外水氾濫の「補正倍率」であって独立した機構ではないため、未ロードでも
+  // 外水の評価自体は成立する。ただし最大1.15倍の上乗せが黙って消えるので、
+  // waterCaveatText() で「合流部補正は未適用」と明示する。
   if (!confluenceIndex) return 1.0;
   const baseLat = Math.floor(lat / COAST_INDEX_CELL_DEG);
   const baseLon = Math.floor(lon / COAST_INDEX_CELL_DEG);
@@ -1548,7 +1698,11 @@ function coastDistanceKm(lat, lon) {
 }
 
 function surgeScoreAt(lat, lon, elev) {
-  if (elev === null) return 0;
+  // 【2026年9月】海岸線点群が読み込めていない場合、coastDistanceKm() は Infinity を返し、
+  // 結果として全地点が「海岸から遠い = 高潮 0」になる。取得失敗が数値 0 に化けて
+  // スコアに混ざるのを避けるため、評価不能として null を返す。標高が取れない場合も同じ。
+  if (!coastlinePointsIndex) return null;
+  if (elev === null) return null;
   const d = coastDistanceKm(lat, lon);
   const reach = SURGE_BASE_LEVEL_M - SURGE_DECAY_M_PER_KM * d;
   if (reach <= 0) return 0; // 15km以上内陸では対象外
@@ -1586,6 +1740,12 @@ function combineWaterHazard(fluvial, pluvial, surge) {
     { key: 'pluvial', label: 'Surface water flooding', value: pluvial },
     { key: 'surge', label: 'Coastal storm surge', value: surge },
   ].filter(p => typeof p.value === 'number');
+  // 評価できなかった機構(value が数値でないもの)を記録し、呼び出し側で明示させる
+  const missing = [
+    { label: 'river flooding', value: fluvial },
+    { label: 'surface water flooding', value: pluvial },
+    { label: 'coastal storm surge', value: surge },
+  ].filter(p => typeof p.value !== 'number').map(p => p.label);
   if (parts.length === 0) return null;
   let top = parts[0];
   parts.forEach(p => { if (p.value > top.value) top = p; });
@@ -1594,8 +1754,29 @@ function combineWaterHazard(fluvial, pluvial, surge) {
   const dominant = tied.length > 1
     ? `${tied.slice(0, -1).join(', ')} and ${tied[tied.length - 1]}`
     : tied[0];
-  return { base: top.value, dominant, dominantKey: top.key, dominantCount: tied.length };
+  return { base: top.value, dominant, dominantKey: top.key, dominantCount: tied.length, missing };
 }
+
+// 水害スコアに添える注記。評価できなかった機構がある場合、スコアは
+// 「残った機構だけで計算した値」であり、実際のハザードを過小評価しうる。
+// その事実を画面とレポートの両方に必ず出す。
+function waterCaveatText(missing) {
+  const parts = [];
+  const hasMissing = missing && missing.length > 0;
+  // 「観測範囲外」と「取得失敗」を文言で断定し分けられない(rainfallIntensityScore は
+  // どちらでも null を返す)ため、原因を決めつけず "no data" と書く。
+  if (hasMissing) parts.push(`${missing.join(', ')} (no data)`);
+  if (!confluenceIndex) parts.push('river confluence adjustment (no data)');
+  if (parts.length === 0) return '';
+  const tail = hasMissing
+    ? ' The score reflects only the remaining mechanisms and may understate the hazard.'
+    : '';
+  return `Not evaluated: ${parts.join('; ')}.${tail}`;
+}
+
+// 全国ヒートマップの気候シナリオ選択(0=現在気候)。地点検索・レポートのスコアには
+// 一切影響しない(rainfallIntensityScoreの第2引数を渡すのはここだけ)。
+let mapRainfallWarming = 0;
 
 async function buildWaterHazard() {
   const [rainfallGeojson, elevationGeojson, riversGeojson, coastline, confluences] = await Promise.all([
@@ -1617,7 +1798,17 @@ async function buildWaterHazard() {
   }
 
   rainfallGridIndex = buildRainfallGridIndex(rainfallGeojson);
+  renderWaterHeatmap(mapRainfallWarming);
+}
 
+// 【2026年9月】buildWaterHazardからヒートマップの描画部分だけを分離した。
+// 気候シナリオが切り替わるたびにデータを再取得する必要はなく、既にキャッシュ済みの
+// gumbel_mu/gumbel_betaにwarmingCを掛けて再分類するだけで済むため。新しいデータの
+// 取得や保存は発生しない(ファイル容量は増えない)。
+function renderWaterHeatmap(warmingC) {
+  const rainfallGeojson = rainfallGeojsonCacheGlobal;
+  const elevationGeojson = elevationGeojsonCacheGlobal;
+  layerGroups.waterHazard.clearLayers();
   const riskPoints = [];
 
   // 全国俯瞰の色分けは「概算」である点に注意。
@@ -1630,13 +1821,13 @@ async function buildWaterHazard() {
       const props = f.properties || {};
       if (props.no_data) return; // データなしは地図上には何も描かない
 
-      // 機構2: 内水氾濫(窪み係数は地図側では中立)
-      const pluvial = rainfallIntensityScore(lat, lon);
+      // 機構2: 内水氾濫(窪み係数は地図側では中立。気候シナリオはここにだけ効く)
+      const pluvial = rainfallIntensityScore(lat, lon, warmingC);
 
       // 機構1: 外水氾濫(比高は地図側では中立 = elevGetを渡さない)
       const fluvial = fluvialScoreAt(lat, lon, null, null);
 
-      // 機構3: 高潮(1度グリッドの平均標高を使う概算)
+      // 機構3: 高潮(1度グリッドの平均標高を使う概算。気候シナリオの影響を受けない)
       let cellElev = null;
       if (elevationGeojson) {
         let nearestElev = null, nearestDist = Infinity;
@@ -1648,7 +1839,7 @@ async function buildWaterHazard() {
         });
         if (typeof nearestElev === 'number') cellElev = nearestElev;
       }
-      const surge = cellElev !== null ? surgeScoreAt(lat, lon, cellElev) : 0;
+      const surge = cellElev !== null ? surgeScoreAt(lat, lon, cellElev) : null;
 
       const combined = combineWaterHazard(fluvial, pluvial, surge);
       if (!combined) return;
@@ -1919,12 +2110,9 @@ const GRID_RADIUS_M = GRID_CELL_M * GRID_STEPS; // 1500m
 let searchMarkerLayer;
 let searchGridLayers = {}; // ハザードキーごとのタイルレイヤー(それぞれ対応するチップと連動)
 
-function elevationToRiskInfo(elevation) {
-  if (elevation < 3) return { label: 'High risk (< 3m)', color: '#C13A2E' };
-  if (elevation < 5) return { label: 'Watch zone (3–5m)', color: '#D9722C' };
-  if (elevation < 10) return { label: 'Transition zone (5–10m)', color: '#D9A22C' };
-  return { label: 'Relatively low risk (10m+)', color: '#4E7BA8' };
-}
+// 【2026年9月削除】elevationToRiskInfo()は3m/5m/10mの旧しきい値をそのまま流用した
+// 単独の「標高リスク」表示だったが、depressionFactorLabel()に統合したため呼び出し元が
+// 無くなった(死んだコードとして残していたのを削除)。
 
 // 降雨の再現期間(2026年8月実装)。
 // fetch_rainfall.py側で20年分の年最大値にフィット済みのGumbel分布パラメータ
@@ -1950,7 +2138,10 @@ const RAINFALL_RETURN_PERIODS_YR = [10, 50, 100];
 // 注意: これは「その昇温レベルに達した世界での想定値」であり、いつそうなるかを示すものではない。
 // 昇温量の選択(=どのSSPシナリオを想定するか)は利用者の判断に委ねる。
 const RAINFALL_CC_PCT_PER_DEG = 7; // %/℃(Clausius-Clapeyron関係)
+// マップ・地点検索・レポートで共有する配列。ここを変えるだけで4箇所に反映される。
 const RAINFALL_WARMING_SCENARIOS = [0, 1.5, 2, 3]; // ℃(0=現在の観測ベース)
+// レポートのシナリオ曲線・凡例で共用する配色(RAINFALL_WARMING_SCENARIOSと同じ順・同じ数)
+const CURVE_COLORS_RPT = ['#378ADD', '#1D9E75', '#EF9F27', '#D85A30'];
 let rainfallSelectedWarming = 0;
 function rainfallReturnPeriodInfo(lat, lon) {
   if (!rainfallGeojsonCacheGlobal) return null;
@@ -2084,30 +2275,21 @@ async function queryPoint(lat, lon) {
     }
 
     const centerElev = elevations[0];
-    const surrounding = elevations.slice(1).map((elev, i) => ({ name: DIRS[i].name, elev }));
-    const avgSurrounding = surrounding.reduce((s, d) => s + d.elev, 0) / surrounding.length;
-    const diff = avgSurrounding - centerElev;
-
-    let compareLabel;
-    if (diff >= 1) compareLabel = 'Sits noticeably lower than its surroundings';
-    else if (diff >= 0.5) compareLabel = 'Slightly lower than its surroundings';
-    else if (diff > -0.5) compareLabel = 'About level with its surroundings';
-    else compareLabel = 'Higher than its surroundings — relatively favorable';
 
     // バッジは「水害ハザード」の統合値(降雨×標高の高い方 × 洪水実績の重み)で判定する。
-    // 方角グリッド・標高差テキストは、引き続き標高そのものを参考情報として表示する。
     // 湖の近接判定は、Overpass API(OpenStreetMap)にこの検索1回につき1回だけ問い合わせる
     // (169マス個別には問い合わせず、結果を使い回すことで通信回数を抑える)。
 
-    const elevRiskInfo = elevationToRiskInfo(centerElev);
     const pluvialRain = rainfallIntensityScore(lat, lon);
     const noRainDataHere = pluvialRain === null;
     const tierLabels = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
 
-    // 21x21グリッドの標高から窪み係数を求める(内水氾濫の増幅要因)
+    // 21x21グリッドの標高から窪み係数を求める(内水氾濫の増幅要因)。
+    // 【2026年9月】表示用の標高差(depLabel)もこのdepressionと同じ計算根拠を使う。
     const gridSide = GRID_STEPS * 2 + 1;
     const depression = depressionFactor(centerElev,
       subGridAround(gridElevations, gridSide, GRID_STEPS, GRID_STEPS, DEPRESSION_HALF));
+    const depLabel = depressionFactorLabel(depression);
     const pluvial = noRainDataHere ? null : Math.max(0, Math.min(1, pluvialRain * depression.factor));
     const fluvial = fluvialScoreAt(lat, lon, elevBlock && elevBlock.ok ? elevBlock.get : null, centerElev);
     const surge = surgeScoreAt(lat, lon, centerElev);
@@ -2115,7 +2297,13 @@ async function queryPoint(lat, lon) {
 
     let waterBadge;
     if (!waterCombined) {
-      waterBadge = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS };
+      // 3機構すべてが評価不能。降雨圏外なのか取得失敗なのかを書き分ける。
+      waterBadge = {
+        label: noRainDataHere && riverSpatialIndex && coastlinePointsIndex
+          ? 'No rainfall data (outside CHIRPS coverage)'
+          : 'Water hazard not evaluated (data unavailable)',
+        color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS,
+      };
     } else {
       const weight = floodWeightAt(lat, lon);
       const finalRisk = Math.min(1.0, waterCombined.base * weight);
@@ -2125,6 +2313,7 @@ async function queryPoint(lat, lon) {
         label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`,
         color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk,
         dominant: waterCombined.dominant,
+        caveat: waterCaveatText(waterCombined.missing),
         freqInfo: rainfallFreq, freqHtmlFn: rainfallFreqHtml,
       };
     }
@@ -2166,8 +2355,10 @@ async function queryPoint(lat, lon) {
         `).join('<div style="height:5px;"></div>')}
         ${activeLayers.has('waterHazard') ? `
           ${waterBadge.dominant ? `<div class="result-elev" style="margin-top:5px;">Dominant mechanism: ${waterBadge.dominant}</div>` : ''}
-          <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${compareLabel} (avg. surrounding diff: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}m)</div>
-          <div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9.5px; opacity:0.75;">※ Reference only, not part of the Water Hazard score.</div>
+          ${waterBadge.caveat ? `<div class="result-elev" style="margin-top:5px;color:var(--risk-severe);font-weight:600;">${waterBadge.caveat}</div>` : ''}
+          <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text}</div>
+          <div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9.5px; opacity:0.75;">Depression factor ×${depLabel.factor.toFixed(2)} — this is the same 450m/20th-percentile comparison used in the surface water flooding score above.</div>
+          <div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9.5px; opacity:0.6;">Rainfall return-period figures above always show the selected climate scenario for reference; the Water Hazard score itself always uses current-climate (0°C) observations.</div>
         ` : ''}
       `;
     } else {
@@ -2487,16 +2678,6 @@ async function computeReportData(lat, lon) {
   let elevations = await elevationsFromTiles(reportBlock, locations);
   if (!elevations) elevations = await fetchElevations(locations);
   const centerElev = elevations[0];
-  const surrounding = elevations.slice(1).map((elev, i) => ({ name: DIRS[i].name, elev }));
-  const avgSurrounding = surrounding.reduce((s, d) => s + d.elev, 0) / surrounding.length;
-  const diff = avgSurrounding - centerElev;
-  let compareLabel;
-  if (diff >= 1) compareLabel = 'Sits noticeably lower than its surroundings';
-  else if (diff >= 0.5) compareLabel = 'Slightly lower than its surroundings';
-  else if (diff > -0.5) compareLabel = 'About level with its surroundings';
-  else compareLabel = 'Higher than its surroundings — relatively favorable';
-
-  const elevRiskInfo = elevationToRiskInfo(centerElev);
 
   // 地点検索と同じ3機構モデルで評価する。窪み係数は21x21グリッドの標高分布から求める。
   const reportGrid = [];
@@ -2530,6 +2711,7 @@ async function computeReportData(lat, lon) {
   const terrain = terrainSub.length ? { z: terrainSub, axis: terrainAxis } : null;
   const reportDepression = depressionFactor(centerElev,
     subGridAround(reportGrid, GRID_STEPS * 2 + 1, GRID_STEPS, GRID_STEPS, DEPRESSION_HALF));
+  const reportDepLabel = depressionFactorLabel(reportDepression);
   const reportRain = rainfallIntensityScore(lat, lon);
   const reportPluvial = reportRain === null ? null : Math.max(0, Math.min(1, reportRain * reportDepression.factor));
   const reportFluvial = fluvialScoreAt(lat, lon, reportBlock && reportBlock.ok ? reportBlock.get : null, centerElev);
@@ -2538,7 +2720,12 @@ async function computeReportData(lat, lon) {
 
   let water;
   if (!reportCombined) {
-    water = { label: 'No rainfall data (outside CHIRPS coverage)', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
+    water = {
+      label: reportRain === null && riverSpatialIndex && coastlinePointsIndex
+        ? 'No rainfall data (outside CHIRPS coverage)'
+        : 'Water hazard not evaluated (data unavailable)',
+      color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null,
+    };
   } else {
     const weight = floodWeightAt(lat, lon);
     const finalRisk = Math.min(1.0, reportCombined.base * weight);
@@ -2547,6 +2734,7 @@ async function computeReportData(lat, lon) {
       label: `${TIER_LABELS_RPT[tier]} water hazard (${finalRisk.toFixed(2)})`,
       color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk,
       dominant: reportCombined.dominant,
+      caveat: waterCaveatText(reportCombined.missing),
     };
   }
 
@@ -2617,7 +2805,7 @@ async function computeReportData(lat, lon) {
   // 再現期間の外挿値に対する基準として提示する。
   const rainfallTypical = gumbel ? gumbel.mu + 0.5772157 * gumbel.beta : null;
 
-  return { centerElev, surrounding, diff, compareLabel, water, earthquake, typhoon, lightning,
+  return { centerElev, depLabel: reportDepLabel, water, earthquake, typhoon, lightning,
     rainfallCurves, rainfallTypical, overall, terrain,
     yearsUsed: gumbel ? gumbel.yearsUsed : null };
 }
@@ -2726,7 +2914,25 @@ async function renderReportView(results) {
         <div class="rpt-meta">${today}<br>WGS84 · CHINA</div>
       </div>`;
 
-  const rptFooter = `
+  // データの版・観測期間。どのデータで判定した結果なのかが後から追えるようにする。
+  const provenanceRows = [
+    ['Earthquakes', dataRanges.earthquake || 'unavailable'],
+    ['Typhoons', dataRanges.typhoonHazard || 'unavailable'],
+    ['Lightning', dataRanges.lightning + ' multi-year mean'],
+    ['Rainfall', 'CHIRPS annual maxima, Gumbel fit (see per-site year count)'],
+    ['Elevation', 'JAXA AW3D30, resampled to 150 m'],
+  ];
+  const rptProvenance = `
+      <div class="rpt-footer">
+        <b>Data used for this assessment (generated ${today}).</b>
+        ${provenanceRows.map(([k, v]) => `${k}: ${v}.`).join(' ')}
+        ${earthquakeFallbackLive ? '<b> Warning: the pre-generated earthquake catalog could not be loaded, so the earthquake figure reflects only the past 30 days and understates the hazard.</b>' : ''}
+        <div style="margin-top:5px;">
+          ${DATA_ATTRIBUTION.filter(([k]) => k !== 'Base map' && k !== 'Lakes').map(([k, v]) => `${k}: ${v}`).join(' · ')}
+        </div>
+      </div>`;
+
+  const rptFooter = rptProvenance + `
       <div class="rpt-footer">
         <b>Disclaimer.</b> This report presents screening-level hazard indicators derived from public
         historical and climatological datasets. It is not a guarantee of future events, not an expected
@@ -2847,6 +3053,7 @@ async function renderReportView(results) {
         ${rptLegendBar(r.data.water.colors, r.data.water.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.water.color).bg}; color:${rptBadgeColors(r.data.water.color).text};">${r.data.water.label}</span>
         ${r.data.water.dominant ? `<div class="rpt-comment">Dominant mechanism at this location: <b>${r.data.water.dominant}</b>.</div>` : ''}
+        ${r.data.water.caveat ? `<div class="rpt-comment" style="color:#C13A2E;font-weight:700;">${r.data.water.caveat}</div>` : ''}
 
         ${r.data.rainfallCurves ? `
         <div style="margin-top:16px;">
@@ -2874,12 +3081,15 @@ async function renderReportView(results) {
             100mm+ as 大暴雨, and 250mm+ as 特大暴雨. These thresholds are shown for reference and are not
             used to derive the score.
           </div>
+          <div class="rpt-desc" style="margin-top:2px;">
+            The Water Hazard score above always uses the <b>Current</b> (observed) 50-year value shown below —
+            it does not change with the +1.5°C / +2°C scenarios, which are shown for reference only,
+            scaled using IPCC AR6 Clausius-Clapeyron (~${RAINFALL_CC_PCT_PER_DEG}%/°C).
+          </div>
           <div style="margin:10px 0 4px;"><canvas id="rptChart${i}" width="640" height="220"></canvas></div>
           <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:9.5px; color:#52514e;">
-            <span><span style="display:inline-block;width:8px;height:8px;background:#378ADD;border-radius:2px;margin-right:4px;"></span>Current</span>
-            <span><span style="display:inline-block;width:8px;height:8px;background:#1D9E75;border-radius:2px;margin-right:4px;"></span>+1.5°C</span>
-            <span><span style="display:inline-block;width:8px;height:8px;background:#EF9F27;border-radius:2px;margin-right:4px;"></span>+2°C</span>
-            <span><span style="display:inline-block;width:8px;height:8px;background:#D85A30;border-radius:2px;margin-right:4px;"></span>+3°C</span>
+            ${RAINFALL_WARMING_SCENARIOS.map((w, wi) => `
+            <span><span style="display:inline-block;width:8px;height:8px;background:${CURVE_COLORS_RPT[wi]};border-radius:2px;margin-right:4px;"></span>${w === 0 ? 'Current' : '+' + w + '°C'}</span>`).join('')}
           </div>
         </div>` : ''}
 
@@ -2892,10 +3102,11 @@ async function renderReportView(results) {
               <div class="rpt-kv-v">${r.data.centerElev.toFixed(1)} m</div>
             </div>
             <div class="rpt-kv-item">
-              <div class="rpt-kv-k">vs. surroundings</div>
-              <div class="rpt-kv-v">${r.data.diff >= 0 ? '+' : ''}${r.data.diff.toFixed(1)} m</div>
+              <div class="rpt-kv-k">Depression factor</div>
+              <div class="rpt-kv-v">×${r.data.depLabel.factor.toFixed(2)}</div>
             </div>
           </div>
+          <div class="rpt-desc" style="margin-top:2px;">${r.data.depLabel.text} (based on the surrounding 450m, 20th percentile — the same comparison used in the surface water flooding score above).</div>
           <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
         </div>
       </div>
@@ -2909,7 +3120,7 @@ async function renderReportView(results) {
     if (r.data.rainfallCurves) {
       tasks.push(new Promise((resolveChart) => {
         const canvas = document.getElementById(`rptChart${i}`);
-        const colors = ['#378ADD', '#1D9E75', '#EF9F27', '#D85A30'];
+        const colors = CURVE_COLORS_RPT;
         new Chart(canvas, {
           type: 'line',
           data: {
