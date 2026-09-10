@@ -1,4 +1,4 @@
-<!doctype html>
+ <!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -565,18 +565,43 @@ const BASEMAP = {
   cartoApiKey: '',            // ← ここに取得したキーを入れる(空だとタイルが出ない)
 };
 
+function addRasterFallback(m, attribCarto) {
+  // carto-raster: 廃止予定。キー無しでは「API KEY REQUIRED」の透かしタイルが返るが、
+  // 少なくともクラッシュはしない。ベクター側に問題がある間の安全な退避先として使う。
+  const key = BASEMAP.cartoApiKey ? `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}` : '';
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png${key}`, {
+    attribution: attribCarto, subdomains: 'abcd', maxZoom: 19,
+  }).addTo(m);
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png${key}`, {
+    subdomains: 'abcd', maxZoom: 19,
+  }).addTo(m);
+}
+
 function addBasemap(m) {
   const attribCarto = '&copy; OpenStreetMap contributors &copy; CARTO';
 
   if (BASEMAP.provider === 'carto-vector') {
+    // 【2026年9月修正】APIキーが空のままMapLibre GLのベクタースタイルを読みに行くと、
+    // CARTO側がエラーを返し、そのエラーオブジェクトをMapLibreの内部Web Workerに渡そうと
+    // した際に DataCloneError で地図初期化そのものが落ちる不具合があった。
+    // キー未設定の間はベクター処理に入らず、安全なラスター版に自動フォールバックする。
     if (!BASEMAP.cartoApiKey) {
-      console.warn('BASEMAP.cartoApiKey が未設定です。https://carto.com/basemaps/apikey で取得してください。');
+      console.warn('BASEMAP.cartoApiKey が未設定のため、ベクタータイルの代わりにラスター版で表示します。https://carto.com/basemaps/apikey で取得し、cartoApiKeyに設定してください。');
+      addRasterFallback(m, attribCarto);
+      return;
     }
-    // MapLibre GLのベクタータイルをLeafletのレイヤーとして重ねる。
-    // ハザードのオーバーレイは従来どおりLeaflet側に描くため、他の実装は変更不要。
-    const styleUrl = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
-      + (BASEMAP.cartoApiKey ? `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}` : '');
-    L.maplibreGL({ style: styleUrl, attribution: attribCarto }).addTo(m);
+    try {
+      // MapLibre GLのベクタータイルをLeafletのレイヤーとして重ねる。
+      // ハザードのオーバーレイは従来どおりLeaflet側に描くため、他の実装は変更不要。
+      const styleUrl = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+        + `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}`;
+      L.maplibreGL({ style: styleUrl, attribution: attribCarto }).addTo(m);
+    } catch (e) {
+      // キーがあってもスタイル取得やWorker初期化で失敗する可能性があるため、
+      // ここでも握りつぶさずログを残した上でラスター版に落とす。
+      console.error('ベクタータイルの初期化に失敗しました。ラスター版に切り替えます。', e);
+      addRasterFallback(m, attribCarto);
+    }
     return;
   }
 
@@ -594,14 +619,7 @@ function addBasemap(m) {
     return;
   }
 
-  // carto-raster: 廃止予定。キー無しでは「API KEY REQUIRED」の透かしタイルが返る。
-  const key = BASEMAP.cartoApiKey ? `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}` : '';
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png${key}`, {
-    attribution: attribCarto, subdomains: 'abcd', maxZoom: 19,
-  }).addTo(m);
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png${key}`, {
-    subdomains: 'abcd', maxZoom: 19,
-  }).addTo(m);
+  addRasterFallback(m, attribCarto);
 }
 
 function initMap() {
@@ -2042,18 +2060,23 @@ function typhoonReturnPeriodInfo(lat, lon) {
 }
 
 // 雷: 既知の落雷多発地点までの距離から密度を推定し5段階に変換
+// 【2026年9月改訂】80km→55kmに変更。格子間隔(0.5度≈55km)より意図的に広く取っていた
+// 80kmはぼかしが強すぎたため、格子間隔と揃えることで、なめらかさを保ったまま
+// 少しシャープにした。半径をさらに絞る(例: 10km)と、格子間の隙間が
+// 「データなし」だらけになるため行っていない(元データの格子自体が55km間隔で
+// 粗いため、半径を縮めても精密さは上がらず、穴が増えるだけ)。
 function lightningRiskInfo(lat, lon) {
   if (!lightningGeojsonCacheGlobal) return null;
   let nearest = null, nearestDist = Infinity;
   lightningGeojsonCacheGlobal.features.forEach(f => {
     const [slon, slat] = f.geometry.coordinates;
-    if (!degBboxFilter(lat, lon, slat, slon, 80)) return;
+    if (!degBboxFilter(lat, lon, slat, slon, 55)) return;
     const d = haversineKm(lat, lon, slat, slon);
     if (d < nearestDist) { nearestDist = d; nearest = f.properties?.risk; }
   });
-  if (nearest === null || nearest === undefined || nearestDist > 80) return null;
+  if (nearest === null || nearest === undefined || nearestDist > 55) return null;
   // 格子点(約55km間隔)からの距離で緩やかに減衰させ、格子の境目が不自然に見えないようにする
-  const falloff = Math.max(0, 1 - nearestDist / 80);
+  const falloff = Math.max(0, 1 - nearestDist / 55);
   const ratio = nearest * falloff;
   if (ratio <= 0.05) return null;
   const tier = Math.min(4, Math.floor(ratio * 5));
