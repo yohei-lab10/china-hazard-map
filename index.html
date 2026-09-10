@@ -827,6 +827,13 @@ function renderLayerBar() {
   // そのまま見る形にして、構造的にズレが起きないようにした。
   bar.innerHTML = LAYERS.map(l => {
     const active = map.hasLayer(layerGroups[l.key]);
+    // 【一時診断ログ・2026年9月】チップの見た目と地図の実際の状態が食い違う不具合の
+    // 調査用。問題が解決したら削除する。
+    console.log('[chip-debug]', l.key,
+      'map.hasLayer=' + active,
+      'activeLayers.has=' + activeLayers.has(l.key),
+      'layerGroup exists=' + !!layerGroups[l.key],
+      'layerGroup childCount=' + (layerGroups[l.key] ? layerGroups[l.key].getLayers().length : 'n/a'));
     return `<button class="layer-chip${active ? ' active' : ''}" style="${active ? `background:${l.color};border-color:${l.color};` : ''}" data-key="${l.key}">
       <span class="dot" style="background:${active ? '#fff' : l.color};"></span>${l.label}
     </button>`;
@@ -2344,15 +2351,6 @@ function waterHazardByScenario(lat, lon, fluvial, surge, depressionFactorObj, we
   });
 }
 
-function waterScenarioSummaryHtml(scenarios) {
-  const parts = scenarios.map(s => {
-    const label = s.warming === 0 ? 'Current' : `+${s.warming}°C`;
-    const value = s.finalRisk === null ? 'n/a' : `${s.tierLabel} (${s.finalRisk.toFixed(2)})`;
-    return `${label} ${value}`;
-  });
-  return parts.join(' · ');
-}
-
 // レポートのシナリオ曲線・凡例で共用する配色(RAINFALL_WARMING_SCENARIOSと同じ順・同じ数)
 const CURVE_COLORS_RPT = ['#378ADD', '#1D9E75', '#EF9F27', '#D85A30'];
 // 【2026年9月改訂】地点検索用のrainfallSelectedWarmingと、全国ヒートマップ用の
@@ -2559,8 +2557,19 @@ async function queryPoint(lat, lon) {
           ${waterBadge.dominant ? `<div class="result-elev" style="margin-top:5px;">Dominant mechanism: ${waterBadge.dominant}</div>` : ''}
           ${waterBadge.caveat ? `<div class="result-elev" style="margin-top:5px;color:var(--risk-severe);font-weight:600;">${waterBadge.caveat}</div>` : ''}
           <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text} (factored into the score above)</div>
-          ${waterBadge.byScenario ? `<div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9.5px; opacity:0.85;">By climate scenario: ${waterScenarioSummaryHtml(waterBadge.byScenario)}</div>
-          <div class="result-elev" style="margin-top:2px; font-family:'JetBrains Mono', monospace; font-size:9px; opacity:0.6;">Shown for reference only — the score above always uses Current.</div>` : ''}
+          ${waterBadge.byScenario ? (() => {
+            // 【2026年9月改訂】4パターンを常に並べる表示だと、気候シナリオのボタンを
+            // 押しても見た目が何も変わらず「連動していない」ように見えていた。
+            // 選択中のシナリオ(mapRainfallWarming)に該当する1件だけを、ボタンの
+            // 選択と連動して表示する形に変更した。Current選択時は上のスコアと同じに
+            // なるため表示しない。
+            const sel = waterBadge.byScenario.find(s => s.warming === mapRainfallWarming);
+            if (!sel || sel.warming === 0) return '';
+            const label = `+${sel.warming}°C`;
+            const value = sel.finalRisk === null ? 'not evaluated' : `${sel.tierLabel} (${sel.finalRisk.toFixed(2)})`;
+            return `<div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:10px;">Under ${label}: <b>${value}</b></div>
+          <div class="result-elev" style="margin-top:2px; font-family:'JetBrains Mono', monospace; font-size:9px; opacity:0.6;">Reference only — the score above always uses Current.</div>`;
+          })() : ''}
         ` : ''}
       `;
     } else {
