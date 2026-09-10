@@ -385,6 +385,14 @@
     padding: 0 16px 12px; background: var(--panel); letter-spacing: 0.3px;
   }
   .legend-note { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); line-height: 1.55; padding: 0 16px 10px; background: var(--panel); }
+  /* 【2026年9月追加】status-bar(1行)は常に表示、その下の凡例説明・著作権はまとめて
+     折りたたむ。ヘッダーの折りたたみと同じ「Show more」の言葉・挙動に揃えている。 */
+  #footerExtra.collapsed { display: none; }
+  .footer-toggle {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600;
+    letter-spacing: 0.5px; color: var(--navy-soft); cursor: pointer;
+    padding: 6px 16px; background: var(--panel); display: block;
+  }
   .legend-note.collapsed .legend-full { display: none; }
   .legend-note .legend-toggle {
     display: block; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
@@ -596,8 +604,11 @@
     <span class="mono-small" id="statusLabel">Loading…</span>
     <span class="mono-small" id="countLabel"></span>
   </div>
-  <div class="legend-note" id="legendNote"></div>
-  <div class="app-copyright">© <span id="copyrightYear"></span> YM @MSIG. All rights reserved.</div>
+  <span class="footer-toggle" id="footerToggle">Show more</span>
+  <div id="footerExtra" class="collapsed">
+    <div class="legend-note" id="legendNote"></div>
+    <div class="app-copyright">© <span id="copyrightYear"></span> YM @MSIG. All rights reserved.</div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -988,6 +999,14 @@ document.getElementById('brandToggle').addEventListener('click', (e) => {
   const el = document.getElementById('brandText');
   const expanded = el.classList.toggle('expanded');
   document.getElementById('brandToggle').textContent = expanded ? 'Show less' : 'Show more';
+});
+
+// 【2026年9月追加】フッター(凡例の説明文・著作権)も既定で折りたたみ、status-bar
+// (1行)だけを常時表示する。ヘッダーと同じ「Show more」の言葉・挙動に揃えている。
+document.getElementById('footerToggle').addEventListener('click', () => {
+  const el = document.getElementById('footerExtra');
+  const nowCollapsed = el.classList.toggle('collapsed');
+  document.getElementById('footerToggle').textContent = nowCollapsed ? 'Show more' : 'Show less';
 });
 
 function escapeHtml(s) {
@@ -2683,7 +2702,7 @@ async function queryPoint(lat, lon) {
     L.rectangle(
       [[lat - halfLatOuter, lon - halfLonOuter], [lat + halfLatOuter, lon + halfLonOuter]],
       { color: '#6C7686', weight: 1, dashArray: '4 4', fill: false, interactive: false }
-    ).bindTooltip('Evaluated area (~3.15km)', { permanent: true, direction: 'bottom', className: 'extent-tooltip' })
+    ).bindTooltip('Evaluated area (~3.15km)', { permanent: true, direction: 'bottom', className: 'extent-tooltip', offset: [0, 16] })
      .addTo(searchExtentLayer);
 
     const halfLatInner = metersToDegLat(DEPRESSION_HALF * GRID_CELL_M);
@@ -2691,7 +2710,7 @@ async function queryPoint(lat, lon) {
     L.rectangle(
       [[lat - halfLatInner, lon - halfLonInner], [lat + halfLatInner, lon + halfLonInner]],
       { color: '#E8B94A', weight: 1.5, dashArray: '2 3', fill: false, interactive: false }
-    ).bindTooltip('Depression check (~1.05km)', { permanent: true, direction: 'bottom', className: 'extent-tooltip' })
+    ).bindTooltip('Depression check (~1.05km)', { permanent: true, direction: 'bottom', className: 'extent-tooltip', offset: [0, -4] })
      .addTo(searchExtentLayer);
 
     // 検索結果パネル(バッジ・標高情報等)の表示でmap要素の高さが変わるため、
