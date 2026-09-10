@@ -863,16 +863,7 @@ function updateLegend() {
     // Water Hazardのみ、地図の色分けに使う気候シナリオの切替ボタンを併記する。
     // 選択してもWater Hazardスコア(地点検索・レポート)は変わらない。地図の色だけが変わる。
     const climateToggle = l.key === 'waterHazard' ? `
-      <div style="margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-        <span style="color:var(--text-faint); font-size:11px;">Map colors for:</span>
-        ${RAINFALL_WARMING_SCENARIOS.map(w => `
-          <button class="climate-chip${mapRainfallWarming === w ? ' active' : ''}" data-warming="${w}"
-            style="font-size:11px; padding:2px 8px; border-radius:10px; border:1px solid var(--border-strong);
-              background:${mapRainfallWarming === w ? 'var(--navy)' : 'var(--panel)'};
-              color:${mapRainfallWarming === w ? '#fff' : 'var(--text-muted)'}; cursor:pointer;">
-            ${w === 0 ? 'Current' : '+' + w + '°C'}
-          </button>`).join('')}
-      </div>
+      ${climateChipsHtml()}
       <div style="color:var(--text-faint); font-size:10.5px; margin-top:3px;">
         Rainfall projected using IPCC AR6 Clausius-Clapeyron scaling (+7%/°C). The Water Hazard score
         shown in point search and PDF reports always uses current-climate observations.
@@ -894,14 +885,37 @@ function updateLegend() {
     });
   });
 
-  container.querySelectorAll('.climate-chip').forEach(el => {
-    el.addEventListener('click', () => {
-      mapRainfallWarming = parseFloat(el.dataset.warming);
-      renderWaterHeatmap(mapRainfallWarming);
-      updateLegend();
-      refreshRainfallFreqDisplay();
-    });
-  });
+  // climate-chipのクリックはclimateChipsHtml()内のonclick属性で処理するため、
+  // ここでの addEventListener 登録は不要(inline onclickに一本化)。
+}
+
+// 【2026年9月】気候シナリオの切替をここに一本化。地図の凡例と検索結果バッジの両方に
+// 同じボタンを表示し(場所は2箇所だが状態は1つだけ)、どちらを押しても両方が連動する。
+// 以前は地点検索側にだけラジオボタンがあり、後から地図側にも別の状態変数で追加した
+// ところ、見た目が同じ2つの独立したコントロールに見えてしまっていた。
+function setClimateScenario(w) {
+  mapRainfallWarming = w;
+  renderWaterHeatmap(mapRainfallWarming);
+  updateLegend();
+  // renderWaterHeatmapはlayerGroups.waterHazardを丸ごとクリアするため、検索中の
+  // 地点検索タイル(150m格子)も一緒に消えてしまう。既存の「レイヤーチップをON/OFF
+  // したら直前の検索地点でqueryPointを再実行する」パターンに合わせ、検索中なら
+  // 丸ごと再描画する(降雨の参考表示・バッジのボタンもこの中で一緒に更新される)。
+  if (lastQueriedLatLon) queryPoint(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
+}
+
+function climateChipsHtml() {
+  return `<div style="margin-top:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+    <span style="color:var(--text-faint); font-size:10.5px;">Climate:</span>
+    ${RAINFALL_WARMING_SCENARIOS.map(w => `
+      <button class="climate-chip${mapRainfallWarming === w ? ' active' : ''}" data-warming="${w}"
+        onclick="setClimateScenario(${w})"
+        style="font-size:10.5px; padding:2px 7px; border-radius:10px; border:1px solid var(--border-strong);
+          background:${mapRainfallWarming === w ? 'var(--navy)' : 'var(--panel)'};
+          color:${mapRainfallWarming === w ? '#fff' : 'var(--text-muted)'}; cursor:pointer;">
+        ${w === 0 ? 'Current' : '+' + w + '°C'}
+      </button>`).join('')}
+  </div>`;
 }
 
 function renderMethodology() {
@@ -2350,6 +2364,9 @@ function rainfallReturnPeriodInfo(lat, lon) {
 
 // 【2026年9月改訂】シナリオ切替はここでは行わない(地図側の「Map colors for」に一本化)。
 // ここでは選択中のシナリオを1行で示すだけの読み取り専用表示にする。
+// 【2026年9月改訂】ご指摘によりトップ(検索結果バッジ)側にもシナリオ切替を復活。
+// ただし状態は地図側と共通(mapRainfallWarming)なので、以前のような「見た目が同じ
+// 別々のコントロール」にはならず、どちらを押しても両方が同時に切り替わる。
 function rainfallFreqHtml(freq) {
   if (!freq) return '';
   const rows = freq.results.map(r => `${r.years}yr: ~${r.mm.toFixed(0)}mm`).join(' / ');
@@ -2357,18 +2374,8 @@ function rainfallFreqHtml(freq) {
 
   return `<div class="result-freq" id="rainfallFreq">
     ${rows} (${scenarioLabel}, ${freq.yearsUsed}yrs data)
+    ${climateChipsHtml()}
   </div>`;
-}
-
-// 地図側の気候シナリオ切替(climate-chip)が押されたときに、表示中の検索結果があれば
-// この行だけを再計算する。降雨の再現期間はGumbelパラメータからその場で算出できるため、
-// 通信は発生しない。
-function refreshRainfallFreqDisplay() {
-  if (!lastQueriedLatLon) return;
-  const el = document.getElementById('rainfallFreq');
-  if (!el) return;
-  const freq = rainfallReturnPeriodInfo(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
-  el.outerHTML = rainfallFreqHtml(freq);
 }
 
 function metersToDegLat(m) { return m / 111000; }
@@ -2590,7 +2597,10 @@ async function queryPoint(lat, lon) {
         // 埋まっているため、粗いポリゴンで陸と判定されるか、標高が0mより高ければ陸とみなす。
         if (!isOnLand(cell.lat, cell.lon) && !(cellElev > 0)) return;
 
-        const cellRain = rainfallIntensityScore(cell.lat, cell.lon);
+        // 【2026年9月修正】ここにmapRainfallWarmingを渡し忘れていたため、地図の気候
+        // シナリオを切り替えても、検索中の地点の水害タイル(150m格子)だけは常に現在気候
+        // のまま変わらなかった(全国俯瞰のヒートマップだけが変化していた)。
+        const cellRain = rainfallIntensityScore(cell.lat, cell.lon, mapRainfallWarming);
         const cellDep = depressionFactor(cellElev,
           subGridAround(gridVals, GRID_STEPS * 2 + 1, Math.floor(idx / (GRID_STEPS * 2 + 1)), idx % (GRID_STEPS * 2 + 1), DEPRESSION_HALF));
         const cellPluvial = cellRain === null ? null : Math.max(0, Math.min(1, cellRain * cellDep.factor));
