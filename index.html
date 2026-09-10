@@ -848,6 +848,7 @@ function renderLayerBar() {
   debugPanel.textContent = '[DEBUG] renderLayerBar呼び出し回数=' + __renderLayerBarCallCount + '\n' + debugLines.join('\n') + '\n[前回のクリック] ' + __lastClickLog;
   bar.querySelectorAll('.layer-chip').forEach(btn => {
     btn.addEventListener('click', (e) => {
+      alert('クリック検知: ' + btn.dataset.key); // 【一時テスト】これが出るかどうかだけ確認する
       // 【2026年9月修正】iOS Safariで1回のタップに対してclickイベントが二重発火し、
       // 「ON→OFF」を一瞬で往復してしまう(状態はOFFに戻るが、地図の描画だけ残る)
       // 不具合が確認されたため、同じボタンへの短時間(400ms以内)の連続クリックは
