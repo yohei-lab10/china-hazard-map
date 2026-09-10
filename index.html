@@ -919,6 +919,7 @@ function updateLegend() {
 // 以前は地点検索側にだけラジオボタンがあり、後から地図側にも別の状態変数で追加した
 // ところ、見た目が同じ2つの独立したコントロールに見えてしまっていた。
 function setClimateScenario(w) {
+  console.log('[climate-debug] setClimateScenario called with w=' + w, 'lastQueriedLatLon=', lastQueriedLatLon);
   mapRainfallWarming = w;
   renderWaterHeatmap(mapRainfallWarming);
   updateLegend();
@@ -2476,7 +2477,12 @@ async function queryPoint(lat, lon) {
     // 湖の近接判定は、Overpass API(OpenStreetMap)にこの検索1回につき1回だけ問い合わせる
     // (169マス個別には問い合わせず、結果を使い回すことで通信回数を抑える)。
 
-    const pluvialRain = rainfallIntensityScore(lat, lon);
+    // 【2026年9月改訂】バッジ本体(スコア・severityバー)が気候シナリオの選択に
+    // 連動するよう変更。以前は常に現在気候(0)固定で、選択中のシナリオは別行の
+    // 参考テキストにしか出なかったが、バッジ自体が動く方が分かりやすいという
+    // フィードバックを受けて変更した。レポート(PDF)側は記録として現在気候のまま
+    // 固定する方針は変えていない。
+    const pluvialRain = rainfallIntensityScore(lat, lon, mapRainfallWarming);
     const noRainDataHere = pluvialRain === null;
     const tierLabels = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
 
@@ -2505,16 +2511,15 @@ async function queryPoint(lat, lon) {
       const finalRisk = Math.min(1.0, waterCombined.base * weight);
       const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
       const rainfallFreq = rainfallReturnPeriodInfo(lat, lon);
-      // 【2026年9月追加】ヘッダーの総合スコアは従来どおり現在気候のまま。
-      // 参考として、+1.5/+2/+3℃だとどうなるかも一緒に計算しておく。
-      const byScenario = waterHazardByScenario(lat, lon, fluvial, surge, depression, weight, tierLabels);
+      // 【2026年9月改訂】バッジ本体が選択中の気候シナリオで直接計算されるようになった
+      // ため、別行での参考表示(byScenario)は不要になり削除した。レポート側は
+      // 引き続き現在気候固定+4シナリオ参考表という形を維持している。
       waterBadge = {
         label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`,
         color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk,
         dominant: waterCombined.dominant,
         caveat: waterCaveatText(waterCombined.missing),
         freqInfo: rainfallFreq, freqHtmlFn: rainfallFreqHtml,
-        byScenario,
       };
     }
 
@@ -2557,19 +2562,7 @@ async function queryPoint(lat, lon) {
           ${waterBadge.dominant ? `<div class="result-elev" style="margin-top:5px;">Dominant mechanism: ${waterBadge.dominant}</div>` : ''}
           ${waterBadge.caveat ? `<div class="result-elev" style="margin-top:5px;color:var(--risk-severe);font-weight:600;">${waterBadge.caveat}</div>` : ''}
           <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text} (factored into the score above)</div>
-          ${waterBadge.byScenario ? (() => {
-            // 【2026年9月改訂】4パターンを常に並べる表示だと、気候シナリオのボタンを
-            // 押しても見た目が何も変わらず「連動していない」ように見えていた。
-            // 選択中のシナリオ(mapRainfallWarming)に該当する1件だけを、ボタンの
-            // 選択と連動して表示する形に変更した。Current選択時は上のスコアと同じに
-            // なるため表示しない。
-            const sel = waterBadge.byScenario.find(s => s.warming === mapRainfallWarming);
-            if (!sel || sel.warming === 0) return '';
-            const label = `+${sel.warming}°C`;
-            const value = sel.finalRisk === null ? 'not evaluated' : `${sel.tierLabel} (${sel.finalRisk.toFixed(2)})`;
-            return `<div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:10px;">Under ${label}: <b>${value}</b></div>
-          <div class="result-elev" style="margin-top:2px; font-family:'JetBrains Mono', monospace; font-size:9px; opacity:0.6;">Reference only — the score above always uses Current.</div>`;
-          })() : ''}
+          ${mapRainfallWarming !== 0 ? `<div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9px; opacity:0.6;">Reflects the +${mapRainfallWarming}°C scenario selected below.</div>` : ''}
         ` : ''}
       `;
     } else {
