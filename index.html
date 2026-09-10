@@ -817,58 +817,39 @@ function initMap() {
   layerGroups.waterHazard = L.layerGroup();
 }
 
-let __renderLayerBarCallCount = 0;
-let __lastClickLog = '(まだクリックされていません)';
+// 【2026年9月・最終方式】状態を計算してチップに反映する方式(activeLayers/
+// map.hasLayerを毎回読み直す)をやめ、タップされたボタン自身の見た目を直接
+// その場で書き換える方式にした。ボタンの再生成(innerHTML)も毎クリックでは
+// 行わず、既存のボタン要素をそのまま使い回すため、要素の張り替えタイミングに
+// 起因する取りこぼしが構造的に起こらない。
 function renderLayerBar() {
-  __renderLayerBarCallCount++;
   const bar = document.getElementById('layerBar');
-  // 【2026年9月修正】チップの見た目を activeLayers(別管理の状態)ではなく、
-  // 地図に実際にレイヤーが乗っているか(map.hasLayer、Leaflet側の実際の状態)で
-  // 決めるようにした。地震・台風のチップが、実際にはデータが表示されているのに
-  // 「押されていない」見た目のままになる不具合の報告があり、原因はコードの
-  // 読み合わせでは特定できなかったため、別々の状態を持たずLeafletの実態を
-  // そのまま見る形にして、構造的にズレが起きないようにした。
-  const debugLines = [];
   bar.innerHTML = LAYERS.map(l => {
-    const active = map.hasLayer(layerGroups[l.key]);
-    // 【一時診断・2026年9月】コンソールが開きにくい環境でも見えるよう、画面に直接
-    // 文字で表示する形に変更した。問題が解決したら削除する。
-    debugLines.push(`${l.key}: hasLayer=${active} / activeLayers=${activeLayers.has(l.key)} / childCount=${layerGroups[l.key] ? layerGroups[l.key].getLayers().length : 'n/a'}`);
-    return `<button class="layer-chip${active ? ' active' : ''}" style="${active ? `background:${l.color};border-color:${l.color};` : ''}" data-key="${l.key}">
-      <span class="dot" style="background:${active ? '#fff' : l.color};"></span>${l.label}
+    return `<button class="layer-chip" data-key="${l.key}" data-color="${l.color}">
+      <span class="dot" style="background:${l.color};"></span>${l.label}
     </button>`;
   }).join('');
-  let debugPanel = document.getElementById('chipDebugPanel');
-  if (!debugPanel) {
-    debugPanel = document.createElement('div');
-    debugPanel.id = 'chipDebugPanel';
-    debugPanel.style.cssText = 'background:#000; color:#0f0; font-family:monospace; font-size:11px; padding:8px 16px; white-space:pre-wrap; border-bottom:2px solid #f00;';
-    bar.parentNode.insertBefore(debugPanel, bar.nextSibling);
-  }
-  debugPanel.textContent = '[DEBUG / VERSION: GLOBALLOCK-V7] renderLayerBar呼び出し回数=' + __renderLayerBarCallCount + '\n' + debugLines.join('\n') + '\n[前回のクリック] ' + __lastClickLog;
   bar.querySelectorAll('.layer-chip').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      // 【2026年9月再修正】ボタン単位のdebounceでは、再描画で新しいボタン要素に
-      // 差し替わるタイミング次第で防ぎきれないケースがあったため、ボタンに紐付けず
-      // 画面全体で1つだけロックを持つ方式に変更した。ロック中の重複クリックは
-      // 完全に無視し、setTimeoutで一定時間後に自動解除する。
-      if (window.__chipClickLocked) {
-        __lastClickLog = '重複クリックを無視しました(ロック中)';
-        return;
-      }
-      window.__chipClickLocked = true;
-      setTimeout(() => { window.__chipClickLocked = false; }, 600);
+    btn.addEventListener('click', () => {
       const key = btn.dataset.key;
-      const beforeActive = activeLayers.has(key);
-      const beforeHasLayer = map.hasLayer(layerGroups[key]);
-      if (activeLayers.has(key)) {
-        activeLayers.delete(key);
-        map.removeLayer(layerGroups[key]);
-      } else {
+      const color = btn.dataset.color;
+      const dot = btn.querySelector('.dot');
+      // ボタン自身のクラスをその場でtoggleし、返ってきた新しい状態(true/false)を
+      // そのまま唯一の判断材料として使う。他の場所の状態は一切読みに行かない。
+      const nowActive = btn.classList.toggle('active');
+      if (nowActive) {
+        btn.style.background = color;
+        btn.style.borderColor = color;
+        dot.style.background = '#fff';
         activeLayers.add(key);
         map.addLayer(layerGroups[key]);
+      } else {
+        btn.style.background = '';
+        btn.style.borderColor = '';
+        dot.style.background = color;
+        activeLayers.delete(key);
+        map.removeLayer(layerGroups[key]);
       }
-      __lastClickLog = key + 'をタップ / クリック前(activeLayers=' + beforeActive + ', hasLayer=' + beforeHasLayer + ') → クリック直後(activeLayers=' + activeLayers.has(key) + ', hasLayer=' + map.hasLayer(layerGroups[key]) + ')';
       // 評価バッジ(地震・台風・雷・水害)のいずれかをON/OFFしたら、地点検索の結果表示を
       // 直前の検索地点で再計算する。全てOFFになった場合は非表示にする。
       if (BADGE_LAYER_KEYS.includes(key)) {
@@ -881,7 +862,6 @@ function renderLayerBar() {
           queryPoint(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
         }
       }
-      renderLayerBar();
       updateLegend();
     });
   });
