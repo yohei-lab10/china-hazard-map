@@ -845,7 +845,7 @@ function renderLayerBar() {
     debugPanel.style.cssText = 'background:#000; color:#0f0; font-family:monospace; font-size:11px; padding:8px 16px; white-space:pre-wrap; border-bottom:2px solid #f00;';
     bar.parentNode.insertBefore(debugPanel, bar.nextSibling);
   }
-  debugPanel.textContent = '[DEBUG] renderLayerBar呼び出し回数=' + __renderLayerBarCallCount + '\n' + debugLines.join('\n') + '\n[前回のクリック] ' + __lastClickLog;
+  debugPanel.textContent = '[DEBUG / VERSION: GLOBALLOCK-V7] renderLayerBar呼び出し回数=' + __renderLayerBarCallCount + '\n' + debugLines.join('\n') + '\n[前回のクリック] ' + __lastClickLog;
   bar.querySelectorAll('.layer-chip').forEach(btn => {
     btn.addEventListener('click', (e) => {
       // 【2026年9月再修正】ボタン単位のdebounceでは、再描画で新しいボタン要素に
