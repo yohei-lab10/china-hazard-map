@@ -817,7 +817,10 @@ function initMap() {
   layerGroups.waterHazard = L.layerGroup();
 }
 
+let __renderLayerBarCallCount = 0;
+let __lastClickLog = '(まだクリックされていません)';
 function renderLayerBar() {
+  __renderLayerBarCallCount++;
   const bar = document.getElementById('layerBar');
   // 【2026年9月修正】チップの見た目を activeLayers(別管理の状態)ではなく、
   // 地図に実際にレイヤーが乗っているか(map.hasLayer、Leaflet側の実際の状態)で
@@ -842,10 +845,12 @@ function renderLayerBar() {
     debugPanel.style.cssText = 'background:#000; color:#0f0; font-family:monospace; font-size:11px; padding:8px 16px; white-space:pre-wrap; border-bottom:2px solid #f00;';
     bar.parentNode.insertBefore(debugPanel, bar.nextSibling);
   }
-  debugPanel.textContent = '[DEBUG]\n' + debugLines.join('\n');
+  debugPanel.textContent = '[DEBUG] renderLayerBar呼び出し回数=' + __renderLayerBarCallCount + '\n' + debugLines.join('\n') + '\n[前回のクリック] ' + __lastClickLog;
   bar.querySelectorAll('.layer-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.key;
+      const beforeActive = activeLayers.has(key);
+      const beforeHasLayer = map.hasLayer(layerGroups[key]);
       if (activeLayers.has(key)) {
         activeLayers.delete(key);
         map.removeLayer(layerGroups[key]);
@@ -853,6 +858,7 @@ function renderLayerBar() {
         activeLayers.add(key);
         map.addLayer(layerGroups[key]);
       }
+      __lastClickLog = key + 'をタップ / クリック前(activeLayers=' + beforeActive + ', hasLayer=' + beforeHasLayer + ') → クリック直後(activeLayers=' + activeLayers.has(key) + ', hasLayer=' + map.hasLayer(layerGroups[key]) + ')';
       // 評価バッジ(地震・台風・雷・水害)のいずれかをON/OFFしたら、地点検索の結果表示を
       // 直前の検索地点で再計算する。全てOFFになった場合は非表示にする。
       if (BADGE_LAYER_KEYS.includes(key)) {
