@@ -327,7 +327,7 @@
   .risk-legend-bar {
     display: flex; height: 10px; border-radius: 5px; overflow: hidden;
   }
-  .risk-legend-bar span { flex: 1; }
+  .risk-legend-bar span { flex: 1; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); }
   .risk-legend-marker {
     position: absolute; top: 0; transform: translateX(-50%);
     font-size: 9px; line-height: 1; color: var(--text-primary); pointer-events: none;
@@ -607,7 +607,7 @@ const NO_DATA_COLOR = '#9AA3AF';
 // ヒートマップ用グラデーション。下部の5段階凡例(WARNING_TIER_COLORS: Low→Extreme)と
 // 色を完全に一致させるため、同じ5色を均等配置している(以前は独自の緑→黄→赤の3色で、
 // 低強度側が凡例の黄色と合わず緑色に見えるズレがあった)。
-const HAZARD_GRADIENT = { 0.0: '#D9A22C', 0.25: '#D9722C', 0.5: '#C13A2E', 0.75: '#7A3B8C', 1.0: '#1A2130' };
+const HAZARD_GRADIENT = { 0.0: '#D9A22C', 0.25: '#D9722C', 0.5: '#C13A2E', 0.75: '#7A3B8C', 1.0: '#C13A7A' };
 
 // Bounding box used as a cheap first-pass filter before the coastline polygon test
 const CHINA_LAND_BBOX = { minlat: 18, maxlat: 41, minlon: 97, maxlon: 123 };
@@ -860,10 +860,11 @@ function updateLegend() {
         evaluation is produced. This is not an indication of low typhoon hazard. Please retry later.
       </div>`;
     }
-    // Water Hazardのみ、地図の色分けに使う気候シナリオの切替ボタンを併記する。
-    // 選択してもWater Hazardスコア(地点検索・レポート)は変わらない。地図の色だけが変わる。
+    // 【2026年9月改訂】気候シナリオの切替は検索結果バッジ側だけに絞った(地図の凡例には
+    // 置かない)。地図の色を切り替えたい場合は、いずれかの地点を検索してバッジ上部の
+    // ボタンを操作すれば、mapRainfallWarmingは共通なので地図の色も同時に変わる。
+    // 未検索の状態では全国ヒートマップの色を現在気候以外に切り替える手段が無くなる点に注意。
     const climateToggle = l.key === 'waterHazard' ? `
-      ${climateChipsHtml()}
       <div style="color:var(--text-faint); font-size:10.5px; margin-top:3px;">
         Rainfall projected using IPCC AR6 Clausius-Clapeyron scaling (+7%/°C). The Water Hazard score
         shown in point search and PDF reports always uses current-climate observations.
@@ -1119,7 +1120,7 @@ function colorForWeight(w) {
       return `rgb(${r},${g},${b})`;
     }
   }
-  return '#1A2130';
+  return '#C13A7A';
 }
 
 // inLandBbox(陸地・沿岸のみ表示)でフィルタすると軌跡の一部が虫食いになるため、
@@ -1164,7 +1165,7 @@ function splitContiguousRuns(items, predicate) {
 // 下限34ktはr34_km(34kt到達半径)の定義そのものと一致するため、区間の帯の外縁=r34と
 // なり、計算が単純化される(距離補間が不要になる)という副次的な利点もある。
 const TYPHOON_CATEGORY_BOUNDS_KT = [34, 64, 85, 105]; // JMA: 台風/強い台風/非常に強い台風/猛烈な台風
-const TYPHOON_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#1A2130']; // JMAの4階級専用(他ハザードの5階級とは別)
+const TYPHOON_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#C13A7A']; // JMAの4階級専用(他ハザードの5階級とは別)
 const TYPHOON_TIER_LABELS = ['Typhoon', 'Strong Typhoon', 'Very Strong Typhoon', 'Violent Typhoon']; // JMA英語表記
 // 台風ごとの実際の暴風域半径(r34_km)がデータにある場合は、それを使って中心からの
 // 線形補間で風速を推定する(2026年8月改訂: 台風によって暴風域の大きさが11〜581km、
@@ -2049,7 +2050,7 @@ function renderWaterHeatmap(warmingC) {
 // 気象庁の震度階級配色を参考にした地震用5段階(黄→橙→赤→濃い赤→赤紫)
 const EARTHQUAKE_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F', '#7A2E6B'];
 // 気象庁の統一「警戒レベル」配色を参考にした台風・雷・洪水共通5段階(黄→橙→赤→紫→黒)
-const WARNING_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#7A3B8C', '#1A2130'];
+const WARNING_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#7A3B8C', '#C13A7A'];
 
 // 5段階配色のグラデーション凡例(温度計ふう)+データ欠損(灰色)の説明をHTMLで生成する共通関数
 
