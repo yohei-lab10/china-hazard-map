@@ -3459,10 +3459,20 @@ mapContainer.addEventListener('contextmenu', (e) => e.preventDefault());
 // ============================================================
 const LOGIN_HASH = '86c8a40a47fda90ba216685c709760cbb66836da2a351e7ffe969d51a7a6937c';
 const LOGIN_STORAGE_KEY = 'chinaHazardMapAuthed_v1';
+// 【2026年9月】crypto.subtleはHTTPS(またはlocalhost)でしか使えず、index.htmlを
+// file://として直接プレビューすると undefined になる。GitHub Pages(https)では
+// 問題ないが、手元でファイルを直接開いて確認する場合にログインできず「何も
+// 起きない」ように見えるため、その場合だけ平文比較にフォールバックする。
+const LOGIN_ID_FALLBACK = 'msichina';
+const LOGIN_PW_FALLBACK = 'msichina';
 
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hasSecureCrypto() {
+  return typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function';
 }
 
 function unlockApp() {
@@ -3495,9 +3505,18 @@ function unlockApp() {
     e.preventDefault();
     const id = idInput.value.trim();
     const pw = pwInput.value;
-    const hash = await sha256Hex(`${id}:${pw}`);
 
-    if (hash === LOGIN_HASH) {
+    let matched;
+    if (hasSecureCrypto()) {
+      const hash = await sha256Hex(`${id}:${pw}`);
+      matched = (hash === LOGIN_HASH);
+    } else {
+      // file://などの非セキュアコンテキスト用フォールバック(平文比較)。
+      console.warn('crypto.subtleが使えない環境(file://など)のため、簡易的な平文比較でログイン判定しています。');
+      matched = (id === LOGIN_ID_FALLBACK && pw === LOGIN_PW_FALLBACK);
+    }
+
+    if (matched) {
       try { localStorage.setItem(LOGIN_STORAGE_KEY, '1'); } catch (e) { /* 記憶できなくても閲覧は許可する */ }
       unlockApp();
     } else {
