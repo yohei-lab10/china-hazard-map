@@ -1,4 +1,4 @@
- <!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -371,9 +371,148 @@
     display: block; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
     font-weight: 600; letter-spacing: 0.4px; color: var(--navy); cursor: pointer;
   }
+
+  /* ============================================================
+     ログインゲート(2026年9月追加)
+     静的サイト(GitHub Pages)のためブラウザ側の確認のみ。ページソースを
+     直接読める人には効果が無い点に注意(本格的な保護にはCloudflare Access等が要る)。
+     パスワードは平文でソースに残さず、SHA-256ハッシュとの比較で判定する。
+     ============================================================ */
+  #loginGate {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(217,162,44,0.10), transparent 45%),
+      radial-gradient(circle at 80% 75%, rgba(44,78,124,0.35), transparent 50%),
+      linear-gradient(160deg, #0B1220 0%, #131B2C 45%, #1A2130 100%);
+    overflow: hidden;
+  }
+  #loginGate.hidden { display: none; }
+  #loginGate .scan-ring {
+    position: absolute; border: 1px solid rgba(217,162,44,0.14); border-radius: 50%;
+    left: 50%; top: 50%; transform: translate(-50%, -50%);
+    animation: scanPulse 4.5s ease-out infinite;
+  }
+  #loginGate .scan-ring.r2 { animation-delay: 1.5s; }
+  #loginGate .scan-ring.r3 { animation-delay: 3s; }
+  @keyframes scanPulse {
+    0%   { width: 40px; height: 40px; opacity: 0.9; }
+    100% { width: 900px; height: 900px; opacity: 0; }
+  }
+  #loginGate .grid-overlay {
+    position: absolute; inset: 0; opacity: 0.5;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: radial-gradient(circle at 50% 40%, black 0%, transparent 72%);
+  }
+  .login-card {
+    position: relative; z-index: 1; width: 100%; max-width: 380px; margin: 0 20px;
+    padding: 36px 32px 32px;
+    background: rgba(19, 27, 44, 0.72);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    animation: loginCardIn 0.5s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes loginCardIn {
+    from { opacity: 0; transform: translateY(14px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .login-mark {
+    width: 40px; height: 40px; border-radius: 10px; margin: 0 auto 18px;
+    background: linear-gradient(135deg, #D9A22C, #D9722C);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 20px rgba(217,162,44,0.35);
+  }
+  .login-mark svg { width: 20px; height: 20px; }
+  .login-kicker {
+    text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    font-weight: 600; letter-spacing: 2.5px; color: #D9A22C; margin-bottom: 8px;
+  }
+  .login-title {
+    text-align: center; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 20px;
+    color: #FFFFFF; margin-bottom: 4px; letter-spacing: -0.2px;
+  }
+  .login-sub {
+    text-align: center; font-size: 12.5px; color: rgba(255,255,255,0.45); margin-bottom: 26px;
+  }
+  .login-field { margin-bottom: 14px; }
+  .login-field label {
+    display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.8px;
+    color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 6px;
+  }
+  .login-field input {
+    width: 100%; box-sizing: border-box; padding: 11px 13px; font-size: 14.5px;
+    font-family: 'JetBrains Mono', monospace; color: #fff;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 9px; outline: none; transition: border-color 0.15s, background 0.15s;
+  }
+  .login-field input:focus {
+    border-color: #D9A22C; background: rgba(255,255,255,0.09);
+  }
+  .login-submit {
+    width: 100%; margin-top: 6px; padding: 12px; border: none; border-radius: 9px;
+    font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;
+    color: #1A2130; cursor: pointer;
+    background: linear-gradient(135deg, #E8B94A, #D9722C);
+    box-shadow: 0 6px 16px rgba(217,162,44,0.3);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .login-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(217,162,44,0.4); }
+  .login-submit:active { transform: translateY(0); }
+  .login-error {
+    margin-top: 12px; font-size: 12px; color: #F0A38C; text-align: center;
+    min-height: 16px; opacity: 0; transition: opacity 0.15s;
+  }
+  .login-error.show { opacity: 1; }
+  .login-card.shake { animation: loginShake 0.4s; }
+  @keyframes loginShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(7px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(3px); }
+  }
+  .login-foot {
+    margin-top: 22px; text-align: center; font-size: 10.5px; color: rgba(255,255,255,0.28);
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #loginGate .scan-ring { animation: none; display: none; }
+    .login-card { animation: none; }
+  }
 </style>
 </head>
 <body>
+<div id="loginGate">
+  <div class="scan-ring"></div>
+  <div class="scan-ring r2"></div>
+  <div class="scan-ring r3"></div>
+  <div class="grid-overlay"></div>
+  <form class="login-card" id="loginForm" autocomplete="off">
+    <div class="login-mark">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v6c0 5 4 8.5 9 9 5-.5 9-4 9-9V7l-9-5z" fill="#1A2130"/></svg>
+    </div>
+    <div class="login-kicker">RESTRICTED ACCESS</div>
+    <div class="login-title">China Natural Catastrophe Risk Map</div>
+    <div class="login-sub">社内関係者専用 &mdash; IDとパスワードを入力してください</div>
+    <div class="login-field">
+      <label for="loginId">ID</label>
+      <input type="text" id="loginId" autocomplete="username" spellcheck="false" />
+    </div>
+    <div class="login-field">
+      <label for="loginPw">Password</label>
+      <input type="password" id="loginPw" autocomplete="current-password" />
+    </div>
+    <button type="submit" class="login-submit">Unlock &nbsp;&rarr;</button>
+    <div class="login-error" id="loginError">IDまたはパスワードが違います</div>
+    <div class="login-foot">&copy; <span id="loginYear"></span> YM @MSIG</div>
+  </form>
+</div>
 <div id="app">
   <div>
     <div class="masthead-top">
@@ -3303,6 +3442,75 @@ map.on('dragstart zoomstart', cancelLongPress);
 
 // ブラウザの右クリックメニュー(PC)が独自の長押し検索と競合しないよう抑止する
 mapContainer.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ============================================================
+// ログインゲート(2026年9月追加)
+// 【重要】これは静的サイト向けの簡易的な閲覧制限であり、本格的なアクセス制御ではない。
+// ページのソースを直接読める人には効果が無い(パスワードそのものではなく
+// SHA-256ハッシュを埋め込んでいるが、ハッシュ自体も総当たりで破られ得る)。
+// 「知らない人が偶然URLを開いて閲覧してしまう」ことを防ぐ程度の位置づけ。
+// 本格的な保護が必要な場合はCloudflare Access等、サーバー側の仕組みを検討すること。
+//
+// 初期認証情報: ID=msichina / Password=msichina
+// 変更する場合は、新しい「id:password」文字列のSHA-256を計算し、
+// LOGIN_HASH を差し替える(ブラウザのコンソールで以下を実行すると得られる):
+//   crypto.subtle.digest('SHA-256', new TextEncoder().encode('新ID:新パスワード'))
+//     .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+// ============================================================
+const LOGIN_HASH = '86c8a40a47fda90ba216685c709760cbb66836da2a351e7ffe969d51a7a6937c';
+const LOGIN_STORAGE_KEY = 'chinaHazardMapAuthed_v1';
+
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function unlockApp() {
+  const gate = document.getElementById('loginGate');
+  gate.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+(function initLoginGate() {
+  const gate = document.getElementById('loginGate');
+  const form = document.getElementById('loginForm');
+  const idInput = document.getElementById('loginId');
+  const pwInput = document.getElementById('loginPw');
+  const errorEl = document.getElementById('loginError');
+  const yearEl = document.getElementById('loginYear');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  // 前回ログイン済みならスキップ(ブラウザ・端末ごとに記憶。共有PCでは注意)
+  try {
+    if (localStorage.getItem(LOGIN_STORAGE_KEY) === '1') {
+      unlockApp();
+      return;
+    }
+  } catch (e) { /* localStorage不可の環境ではスキップせず毎回ログインを求める */ }
+
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => idInput && idInput.focus(), 350);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = idInput.value.trim();
+    const pw = pwInput.value;
+    const hash = await sha256Hex(`${id}:${pw}`);
+
+    if (hash === LOGIN_HASH) {
+      try { localStorage.setItem(LOGIN_STORAGE_KEY, '1'); } catch (e) { /* 記憶できなくても閲覧は許可する */ }
+      unlockApp();
+    } else {
+      const card = form; // .login-card
+      errorEl.classList.add('show');
+      card.classList.remove('shake');
+      void card.offsetWidth; // reflow強制でアニメーションを再トリガー
+      card.classList.add('shake');
+      pwInput.value = '';
+      pwInput.focus();
+    }
+  });
+})();
 </script>
 </body>
 </html>
