@@ -73,18 +73,9 @@
     font-family: 'Inter', sans-serif; font-weight: 800; font-size: 17px;
     color: var(--text-primary); letter-spacing: -0.3px; line-height: 1.22;
   }
-  /* 【2026年9月追加】既定は1行のみ表示(省略記号)、展開時のみ折り返しを許可する */
-  .brand-text:not(.expanded) .brand-title {
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
   .brand-sub {
     font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.8px;
     color: var(--text-faint); text-transform: uppercase; white-space: nowrap;
-  }
-  .brand-text:not(.expanded) .brand-sub { display: none; }
-  .brand-toggle {
-    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 600;
-    letter-spacing: 0.5px; color: var(--navy-soft); cursor: pointer; margin-top: 1px;
   }
   .methodology-btn {
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.5px;
@@ -544,10 +535,9 @@
   <div>
     <div class="masthead-top">
       <div class="brand" id="brandHome" title="Return to home">
-        <div class="brand-text" id="brandText">
+        <div class="brand-text">
           <div class="brand-title">China Natural Catastrophe Risk Map</div>
           <div class="brand-sub">Historical Peril &amp; Hazard Layers</div>
-          <span class="brand-toggle" id="brandToggle">Show more</span>
         </div>
       </div>
       <div class="header-actions">
@@ -829,8 +819,14 @@ function initMap() {
 
 function renderLayerBar() {
   const bar = document.getElementById('layerBar');
+  // 【2026年9月修正】チップの見た目を activeLayers(別管理の状態)ではなく、
+  // 地図に実際にレイヤーが乗っているか(map.hasLayer、Leaflet側の実際の状態)で
+  // 決めるようにした。地震・台風のチップが、実際にはデータが表示されているのに
+  // 「押されていない」見た目のままになる不具合の報告があり、原因はコードの
+  // 読み合わせでは特定できなかったため、別々の状態を持たずLeafletの実態を
+  // そのまま見る形にして、構造的にズレが起きないようにした。
   bar.innerHTML = LAYERS.map(l => {
-    const active = activeLayers.has(l.key);
+    const active = map.hasLayer(layerGroups[l.key]);
     return `<button class="layer-chip${active ? ' active' : ''}" style="${active ? `background:${l.color};border-color:${l.color};` : ''}" data-key="${l.key}">
       <span class="dot" style="background:${active ? '#fff' : l.color};"></span>${l.label}
     </button>`;
@@ -973,15 +969,6 @@ document.getElementById('brandHome').addEventListener('click', () => {
   window.location.href = window.location.pathname;
 });
 
-// 【2026年9月追加】ヘッダーは既定で1行(タイトルのみ・省略記号)に折りたたみ、
-// サブタイトルは「Show more」を押した時だけ表示する。brand全体がホームに戻る
-// クリック領域を兼ねているため、トグル自体はstopPropagationでそれを打ち消す。
-document.getElementById('brandToggle').addEventListener('click', (e) => {
-  e.stopPropagation();
-  const el = document.getElementById('brandText');
-  const expanded = el.classList.toggle('expanded');
-  document.getElementById('brandToggle').textContent = expanded ? 'Show less' : 'Show more';
-});
 
 // 【2026年9月追加】フッター(凡例の説明文・著作権)も既定で折りたたみ、status-bar
 // (1行)だけを常時表示する。ヘッダーと同じ「Show more」の言葉・挙動に揃えている。
@@ -2338,6 +2325,34 @@ const RAINFALL_RETURN_PERIODS_YR = [10, 50, 100];
 const RAINFALL_CC_PCT_PER_DEG = 7; // %/℃(Clausius-Clapeyron関係)
 // マップ・地点検索・レポートで共有する配列。ここを変えるだけで4箇所に反映される。
 const RAINFALL_WARMING_SCENARIOS = [0, 1.5, 2, 3]; // ℃(0=現在の観測ベース)
+
+// 【2026年9月追加】水害バッジ・レポートの両方から使う共通ヘルパー。
+// 外水(fluvial)・高潮(surge)・窪み係数(depression)は気候シナリオの影響を受けない
+// (降雨強度だけがIPCC AR6係数で変わる設計、p.24)ため、これらは1回だけ計算した値を
+// 再利用し、シナリオごとに変わる降雨強度(pluvial)だけを再計算する。
+// ヘッダーの総合スコア(badge本体・レポートの表紙)は従来どおり常に現在気候(warming=0)
+// のままで、この関数はあくまで「参考として他シナリオだとどうなるか」を出すためのもの。
+function waterHazardByScenario(lat, lon, fluvial, surge, depressionFactorObj, weight, tierLabels) {
+  return RAINFALL_WARMING_SCENARIOS.map(w => {
+    const rain = rainfallIntensityScore(lat, lon, w);
+    const pluvial = rain === null ? null : Math.max(0, Math.min(1, rain * depressionFactorObj.factor));
+    const combined = combineWaterHazard(fluvial, pluvial, surge);
+    if (!combined) return { warming: w, finalRisk: null, tierLabel: null, dominant: null };
+    const finalRisk = Math.min(1.0, combined.base * weight);
+    const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
+    return { warming: w, finalRisk, tierLabel: tierLabels[tier], dominant: combined.dominant };
+  });
+}
+
+function waterScenarioSummaryHtml(scenarios) {
+  const parts = scenarios.map(s => {
+    const label = s.warming === 0 ? 'Current' : `+${s.warming}°C`;
+    const value = s.finalRisk === null ? 'n/a' : `${s.tierLabel} (${s.finalRisk.toFixed(2)})`;
+    return `${label} ${value}`;
+  });
+  return parts.join(' · ');
+}
+
 // レポートのシナリオ曲線・凡例で共用する配色(RAINFALL_WARMING_SCENARIOSと同じ順・同じ数)
 const CURVE_COLORS_RPT = ['#378ADD', '#1D9E75', '#EF9F27', '#D85A30'];
 // 【2026年9月改訂】地点検索用のrainfallSelectedWarmingと、全国ヒートマップ用の
@@ -2492,12 +2507,16 @@ async function queryPoint(lat, lon) {
       const finalRisk = Math.min(1.0, waterCombined.base * weight);
       const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
       const rainfallFreq = rainfallReturnPeriodInfo(lat, lon);
+      // 【2026年9月追加】ヘッダーの総合スコアは従来どおり現在気候のまま。
+      // 参考として、+1.5/+2/+3℃だとどうなるかも一緒に計算しておく。
+      const byScenario = waterHazardByScenario(lat, lon, fluvial, surge, depression, weight, tierLabels);
       waterBadge = {
         label: `${tierLabels[tier]} water hazard (${finalRisk.toFixed(2)})`,
         color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk,
         dominant: waterCombined.dominant,
         caveat: waterCaveatText(waterCombined.missing),
         freqInfo: rainfallFreq, freqHtmlFn: rainfallFreqHtml,
+        byScenario,
       };
     }
 
@@ -2540,6 +2559,8 @@ async function queryPoint(lat, lon) {
           ${waterBadge.dominant ? `<div class="result-elev" style="margin-top:5px;">Dominant mechanism: ${waterBadge.dominant}</div>` : ''}
           ${waterBadge.caveat ? `<div class="result-elev" style="margin-top:5px;color:var(--risk-severe);font-weight:600;">${waterBadge.caveat}</div>` : ''}
           <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text} (factored into the score above)</div>
+          ${waterBadge.byScenario ? `<div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9.5px; opacity:0.85;">By climate scenario: ${waterScenarioSummaryHtml(waterBadge.byScenario)}</div>
+          <div class="result-elev" style="margin-top:2px; font-family:'JetBrains Mono', monospace; font-size:9px; opacity:0.6;">Shown for reference only — the score above always uses Current.</div>` : ''}
         ` : ''}
       `;
     } else {
@@ -2935,11 +2956,15 @@ async function computeReportData(lat, lon) {
     const weight = floodWeightAt(lat, lon);
     const finalRisk = Math.min(1.0, reportCombined.base * weight);
     const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
+    // 【2026年9月追加】レポートの表紙スコアは従来どおり現在気候のまま。
+    // 参考として、4シナリオ(Current/+1.5/+2/+3℃)分をまとめてレポートに載せる。
+    const byScenario = waterHazardByScenario(lat, lon, reportFluvial, reportSurge, reportDepression, weight, TIER_LABELS_RPT);
     water = {
       label: `${TIER_LABELS_RPT[tier]} water hazard (${finalRisk.toFixed(2)})`,
       color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk,
       dominant: reportCombined.dominant,
       caveat: waterCaveatText(reportCombined.missing),
+      byScenario,
     };
   }
 
@@ -3259,6 +3284,16 @@ async function renderReportView(results) {
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.water.color).bg}; color:${rptBadgeColors(r.data.water.color).text};">${r.data.water.label}</span>
         ${r.data.water.dominant ? `<div class="rpt-comment">Dominant mechanism at this location: <b>${r.data.water.dominant}</b>.</div>` : ''}
         ${r.data.water.caveat ? `<div class="rpt-comment" style="color:#C13A2E;font-weight:700;">${r.data.water.caveat}</div>` : ''}
+        ${r.data.water.byScenario ? `
+        <div class="rpt-kv" style="margin-top:8px;">
+          ${r.data.water.byScenario.map(sc => `
+            <div class="rpt-kv-item">
+              <div class="rpt-kv-k">${sc.warming === 0 ? 'Current' : '+' + sc.warming + '°C'}</div>
+              <div class="rpt-kv-v">${sc.finalRisk === null ? 'n/a' : sc.finalRisk.toFixed(2)}</div>
+            </div>`).join('')}
+        </div>
+        <div class="rpt-desc" style="margin-top:2px;">Water hazard score under each climate scenario, shown for reference.
+          The headline score above always uses Current (observed) rainfall.</div>` : ''}
 
         ${r.data.rainfallCurves ? `
         <div style="margin-top:16px;">
