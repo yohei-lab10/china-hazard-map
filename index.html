@@ -61,21 +61,30 @@
     display: flex; align-items: flex-start; justify-content: space-between;
     padding: 16px 16px 12px; background: var(--panel); gap: 10px;
   }
-  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; }
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; cursor: pointer; }
   .seal-logo {
     width: 32px; height: 32px; border-radius: 6px; background: var(--navy);
     display: flex; align-items: center; justify-content: center;
     font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #fff; font-size: 12px;
     letter-spacing: -0.5px; flex-shrink: 0;
   }
-  .brand-text { display: flex; flex-direction: column; gap: 1px; }
+  .brand-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
   .brand-title {
     font-family: 'Inter', sans-serif; font-weight: 800; font-size: 17px;
     color: var(--text-primary); letter-spacing: -0.3px; line-height: 1.22;
   }
+  /* 【2026年9月追加】既定は1行のみ表示(省略記号)、展開時のみ折り返しを許可する */
+  .brand-text:not(.expanded) .brand-title {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .brand-sub {
     font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.8px;
     color: var(--text-faint); text-transform: uppercase; white-space: nowrap;
+  }
+  .brand-text:not(.expanded) .brand-sub { display: none; }
+  .brand-toggle {
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 600;
+    letter-spacing: 0.5px; color: var(--navy-soft); cursor: pointer; margin-top: 1px;
   }
   .methodology-btn {
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.5px;
@@ -332,10 +341,16 @@
     position: absolute; top: 0; transform: translateX(-50%);
     font-size: 9px; line-height: 1; color: var(--text-primary); pointer-events: none;
   }
+  /* 【2026年9月修正】justify-content:space-betweenは各ラベルの「自分の文字幅」を
+     基準に均等配置するだけで、上の色ブロック(5等分のflex:1)とは連動していなかった。
+     "Low"が左端に寄り、"Moderate"や"Extreme"のような長い単語ほど、対応する色の
+     真下からずれて見えていた。ラベル側も同じ5等分(flex:1)にし、それぞれを中央揃え
+     にすることで、色ブロックの真下に文字が来るようにする。 */
   .risk-legend-labels {
-    display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace;
+    display: flex; font-family: 'JetBrains Mono', monospace;
     font-size: 8px; color: var(--text-faint); margin-top: 0px;
   }
+  .risk-legend-labels span { flex: 1; text-align: center; }
   .result-freq {
     font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-muted);
     margin-top: 2px; line-height: 1.25;
@@ -526,10 +541,11 @@
 <div id="app">
   <div>
     <div class="masthead-top">
-      <div class="brand" id="brandHome" style="cursor:pointer;" title="Return to home">
-        <div class="brand-text">
+      <div class="brand" id="brandHome" title="Return to home">
+        <div class="brand-text" id="brandText">
           <div class="brand-title">China Natural Catastrophe Risk Map</div>
           <div class="brand-sub">Historical Peril &amp; Hazard Layers</div>
+          <span class="brand-toggle" id="brandToggle">Show more</span>
         </div>
       </div>
       <div class="header-actions">
@@ -711,7 +727,11 @@ let activeLayers = new Set();
 // ============================================================================
 const BASEMAP = {
   provider: 'carto-vector',   // 'carto-vector' | 'carto-raster' | 'esri-raster'
-  cartoApiKey: '',            // ← ここに取得したキーを入れる(空だとタイルが出ない)
+  cartoApiKey: 'cb1_3fun_1_56200e5c94e0e98337195b60', // 2026年9月 取得・設定済み
+  // 【2026年9月追加】CARTOはキー1つで複数のベーススタイルを提供している。
+  // 'positron' = 白基調(既定、可視化向け)/ 'voyager' = やや色付きのバランス型
+  // (道路・緑地に色が付く)/ 'dark-matter' = 黒基調のダークテーマ。
+  cartoStyle: 'positron',
 };
 
 function addRasterFallback(m, attribCarto) {
@@ -733,6 +753,14 @@ function addRasterFallback(m, attribCarto) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors', subdomains: 'abc', maxZoom: 19,
     }).addTo(m);
+    // 【2026年9月追加】CARTOキー未設定の間、OSM標準タイル(道路が黄色・公園が緑など
+    // 色数が多い)をCSSフィルタで脱色し、白基調に近づける簡易処置。CARTOのPositron
+    // スタイルそのものではないため完全に同じ見た目にはならない。tilePaneはL.tileLayer
+    // (ラスタータイル)専用で、ハザードのL.rectangle/L.heatLayerはoverlayPane側に
+    // 描画されるため、この処理はハザード表示の色には影響しない。実際の見え方は
+    // 未検証のため、気に入らなければ数値を調整するか、cartoApiKeyの設定に切り替えること。
+    const tilePane = m.getPane('tilePane');
+    if (tilePane) tilePane.style.filter = 'grayscale(0.5) brightness(1.12) contrast(0.92) saturate(0.6)';
   }
 }
 
@@ -752,7 +780,7 @@ function addBasemap(m) {
     try {
       // MapLibre GLのベクタータイルをLeafletのレイヤーとして重ねる。
       // ハザードのオーバーレイは従来どおりLeaflet側に描くため、他の実装は変更不要。
-      const styleUrl = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+      const styleUrl = `https://basemaps.cartocdn.com/gl/${BASEMAP.cartoStyle}-gl-style/style.json`
         + `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}`;
       L.maplibreGL({ style: styleUrl, attribution: attribCarto }).addTo(m);
     } catch (e) {
@@ -950,6 +978,16 @@ document.getElementById('methodologyBtn').addEventListener('click', () => {
 // クエリパラメータ(?v=3など)は保持せずベースURLに戻す。
 document.getElementById('brandHome').addEventListener('click', () => {
   window.location.href = window.location.pathname;
+});
+
+// 【2026年9月追加】ヘッダーは既定で1行(タイトルのみ・省略記号)に折りたたみ、
+// サブタイトルは「Show more」を押した時だけ表示する。brand全体がホームに戻る
+// クリック領域を兼ねているため、トグル自体はstopPropagationでそれを打ち消す。
+document.getElementById('brandToggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const el = document.getElementById('brandText');
+  const expanded = el.classList.toggle('expanded');
+  document.getElementById('brandToggle').textContent = expanded ? 'Show less' : 'Show more';
 });
 
 function escapeHtml(s) {
@@ -2645,7 +2683,7 @@ async function queryPoint(lat, lon) {
     L.rectangle(
       [[lat - halfLatOuter, lon - halfLonOuter], [lat + halfLatOuter, lon + halfLonOuter]],
       { color: '#6C7686', weight: 1, dashArray: '4 4', fill: false, interactive: false }
-    ).bindTooltip('Evaluated area (~3.15km)', { permanent: true, direction: 'top', className: 'extent-tooltip' })
+    ).bindTooltip('Evaluated area (~3.15km)', { permanent: true, direction: 'bottom', className: 'extent-tooltip' })
      .addTo(searchExtentLayer);
 
     const halfLatInner = metersToDegLat(DEPRESSION_HALF * GRID_CELL_M);
