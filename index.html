@@ -827,45 +827,61 @@ function initMap() {
 // 起因する取りこぼしが構造的に起こらない。
 function renderLayerBar() {
   const bar = document.getElementById('layerBar');
-  bar.innerHTML = LAYERS.map(l => {
-    return `<button class="layer-chip" data-key="${l.key}" data-color="${l.color}">
-      <span class="dot" style="background:${l.color};"></span>${l.label}
-    </button>`;
-  }).join('');
-  bar.querySelectorAll('.layer-chip').forEach(btn => {
+  bar.innerHTML = '';
+  // 【2026年9月・再修正】HTML文字列(innerHTML)経由でボタンを一括生成し、後から
+  // data-*属性を読み直す方式をやめた。DOM要素を1つずつ直接作り、各ボタンの
+  // 色・キーはJavaScriptの変数としてクロージャで直接持たせる(HTML属性の
+  // 往復を挟まない)ことで、4つのボタン間で挙動が変わる余地を完全に無くした。
+  LAYERS.forEach(l => {
+    const key = l.key;
+    const color = l.color;
+    const btn = document.createElement('button');
+    btn.className = 'layer-chip';
+    btn.dataset.key = key;
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = color;
+    btn.appendChild(dot);
+    btn.appendChild(document.createTextNode(l.label));
+    bar.appendChild(btn);
+
     btn.addEventListener('click', () => {
-      const key = btn.dataset.key;
-      const color = btn.dataset.color;
-      const dot = btn.querySelector('.dot');
-      // ボタン自身のクラスをその場でtoggleし、返ってきた新しい状態(true/false)を
-      // そのまま唯一の判断材料として使う。他の場所の状態は一切読みに行かない。
+      // 色の変更は例外処理の外で、真っ先に行う。この後の処理(地図・凡例更新)が
+      // 何かの理由で失敗しても、ボタンの色だけは確実に変わるようにするため。
       const nowActive = btn.classList.toggle('active');
       if (nowActive) {
         btn.style.background = color;
         btn.style.borderColor = color;
         dot.style.background = '#fff';
-        activeLayers.add(key);
-        map.addLayer(layerGroups[key]);
       } else {
         btn.style.background = '';
         btn.style.borderColor = '';
         dot.style.background = color;
-        activeLayers.delete(key);
-        map.removeLayer(layerGroups[key]);
       }
-      // 評価バッジ(地震・台風・雷・水害)のいずれかをON/OFFしたら、地点検索の結果表示を
-      // 直前の検索地点で再計算する。全てOFFになった場合は非表示にする。
-      if (BADGE_LAYER_KEYS.includes(key)) {
-        const anyBadgeActive = BADGE_LAYER_KEYS.some(k => activeLayers.has(k));
-        if (!anyBadgeActive) {
-          const resultEl = document.getElementById('searchResult');
-          resultEl.className = 'search-result';
-          resultEl.innerHTML = '';
-        } else if (lastQueriedLatLon) {
-          queryPoint(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
+      try {
+        if (nowActive) {
+          activeLayers.add(key);
+          map.addLayer(layerGroups[key]);
+        } else {
+          activeLayers.delete(key);
+          map.removeLayer(layerGroups[key]);
         }
+        if (BADGE_LAYER_KEYS.includes(key)) {
+          const anyBadgeActive = BADGE_LAYER_KEYS.some(k => activeLayers.has(k));
+          if (!anyBadgeActive) {
+            const resultEl = document.getElementById('searchResult');
+            resultEl.className = 'search-result';
+            resultEl.innerHTML = '';
+          } else if (lastQueriedLatLon) {
+            queryPoint(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
+          }
+        }
+        updateLegend();
+      } catch (err) {
+        // 何が起きても、ボタン自身の色はこの時点で既に変わっているはずなので、
+        // ここから先の処理(凡例更新など)が失敗しても見た目には影響しない。
+        console.error('layer-chip click error for', key, err);
       }
-      updateLegend();
     });
   });
 }
@@ -2567,8 +2583,8 @@ async function queryPoint(lat, lon) {
           ${waterBadge.caveat ? `<div class="result-elev" style="margin-top:5px;color:var(--risk-severe);font-weight:600;">${waterBadge.caveat}</div>` : ''}
           <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text} (factored into the score above)</div>
           <div class="extent-legend">
-            <span><span class="swatch" style="border-top:1.5px dashed #6C7686;"></span>Evaluated area (~3.15km)</span>
-            <span><span class="swatch" style="border-top:1.5px dotted #E8B94A;"></span>Depression check (~1.05km)</span>
+            <span><span class="swatch" style="border-top:1.5px dashed #5C6675;"></span>Evaluated area (~3.15km)</span>
+            <span><span class="swatch" style="border-top:1.5px dotted #1FA8D9;"></span>Depression check (~1.05km)</span>
           </div>
           ${mapRainfallWarming !== 0 ? `<div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9px; opacity:0.6;">Reflects the +${mapRainfallWarming}°C scenario selected below.</div>` : ''}
         ` : ''}
@@ -2677,19 +2693,25 @@ async function queryPoint(lat, lon) {
     // ズームレベルによって2つの枠の画面上の間隔が縮まり、ラベル同士が重なって
     // 見えなくなることがあった。地図上には枠(線)だけを残し、説明は地図の外
     // (検索結果パネル)に凡例として1行でまとめる方式に変更した。
+    // 【2026年9月改訂】窪み判定の枠を黄色(#E8B94A)にしていたが、severityバーの
+    // 「Low」も同系統の黄色で、背景タイルがLowの場所では枠が埋もれて見えなくなる
+    // 指摘を受けた。暖色グラデーション(金・橙・赤・紫・ピンク)のどれとも被らない
+    // 寒色(シアン)に変更し、さらに白い縁取り(先に少し太い白線を描いてから、
+    // その上に本来の色の線を重ねる)を追加して、どんな背景色の上でも見えるようにした。
+    function boundsFor(halfLat, halfLon) {
+      return [[lat - halfLat, lon - halfLon], [lat + halfLat, lon + halfLon]];
+    }
     const halfLatOuter = metersToDegLat(GRID_RADIUS_M);
     const halfLonOuter = metersToDegLon(GRID_RADIUS_M, lat);
-    L.rectangle(
-      [[lat - halfLatOuter, lon - halfLonOuter], [lat + halfLatOuter, lon + halfLonOuter]],
-      { color: '#6C7686', weight: 1, dashArray: '4 4', fill: false, interactive: false }
-    ).addTo(searchExtentLayer);
+    const outerBounds = boundsFor(halfLatOuter, halfLonOuter);
+    L.rectangle(outerBounds, { color: '#fff', weight: 3, dashArray: '4 4', fill: false, interactive: false, opacity: 0.9 }).addTo(searchExtentLayer);
+    L.rectangle(outerBounds, { color: '#5C6675', weight: 1, dashArray: '4 4', fill: false, interactive: false }).addTo(searchExtentLayer);
 
     const halfLatInner = metersToDegLat(DEPRESSION_HALF * GRID_CELL_M);
     const halfLonInner = metersToDegLon(DEPRESSION_HALF * GRID_CELL_M, lat);
-    L.rectangle(
-      [[lat - halfLatInner, lon - halfLonInner], [lat + halfLatInner, lon + halfLonInner]],
-      { color: '#E8B94A', weight: 1.5, dashArray: '2 3', fill: false, interactive: false }
-    ).addTo(searchExtentLayer);
+    const innerBounds = boundsFor(halfLatInner, halfLonInner);
+    L.rectangle(innerBounds, { color: '#fff', weight: 3.5, dashArray: '2 3', fill: false, interactive: false, opacity: 0.9 }).addTo(searchExtentLayer);
+    L.rectangle(innerBounds, { color: '#1FA8D9', weight: 1.5, dashArray: '2 3', fill: false, interactive: false }).addTo(searchExtentLayer);
 
     // 検索結果パネル(バッジ・標高情報等)の表示でmap要素の高さが変わるため、
     // Leafletが内部キャッシュしている古いサイズのままcenterがズレないよう、
