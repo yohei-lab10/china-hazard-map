@@ -86713,14 +86713,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          95.4671,
-          37.7963
+          95.4643,
+          37.7769
         ]
       },
       "properties": {
-        "mag": 5.2,
-        "place": "271 km SSE of Dunhuang, China",
-        "time": 1788455080769,
+        "mag": 5.1,
+        "place": "273 km SSE of Dunhuang, China",
+        "time": 1788455080655,
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000te21"
       }
