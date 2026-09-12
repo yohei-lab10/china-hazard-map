@@ -3,28 +3,30 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>China Natural Catastrophe Risk Map</title>
+<title>Catnet Hazard Map (China)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
   :root {
-    /* 【2026年9月改訂】本体アプリをログイン画面(案A・レーダー)と統一したダーク
-       テーマに変更。PDFレポート(#reportView以下)は印刷物として白背景を維持する
-       ため、別スコープの独自CSSのまま変更していない。 */
-    --bg: #10151F;
-    --panel: #1A2130;
-    --border: #2A3348;
-    --border-strong: #57668A;
-    --text-primary: #F1F3F6;
-    --text-muted: #9AA5B4;
-    --text-faint: #6C7686;
-    --navy: #3E6FB0;
-    --navy-soft: #5C8DD1;
-    --risk-low: #4CAF74;
-    --risk-mid: #E8B94A;
-    --risk-high: #E8823A;
-    --risk-severe: #E14A3D;
+    /* 【2026年9月改訂・再改訂】保険会社の実務ツールとしての明るいテーマに戻した。
+       ベースは白〜明るいグレー、アクセントは紺(ネイビー)。ヒートマップ/バッジの
+       配色は防災・保険業界で標準的な「緑(低リスク)→黄→橙→赤(高リスク)」の
+       リスクスペクトラムに統一。PDFレポート(#reportView以下)は印刷物として
+       白背景を維持するため、別スコープの独自CSSのまま変更していない。 */
+    --bg: #F3F4F6;
+    --panel: #FFFFFF;
+    --border: #E0E3E8;
+    --border-strong: #C7CCD4;
+    --text-primary: #1A2130;
+    --text-muted: #5C6675;
+    --text-faint: #94A0AF;
+    --navy: #1F3A5F;
+    --navy-soft: #2C4E7C;
+    --risk-low: #3F8F5F;
+    --risk-mid: #D9A22C;
+    --risk-high: #D9722C;
+    --risk-severe: #C13A2E;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; background: var(--bg); }
@@ -394,14 +396,14 @@
     position: fixed; inset: 0; z-index: 9999;
     display: flex; align-items: center; justify-content: center;
     background:
-      radial-gradient(circle at 20% 20%, rgba(217,162,44,0.10), transparent 45%),
-      radial-gradient(circle at 80% 75%, rgba(44,78,124,0.35), transparent 50%),
-      linear-gradient(160deg, #0B1220 0%, #131B2C 45%, #1A2130 100%);
+      radial-gradient(circle at 20% 15%, rgba(31,58,95,0.06), transparent 45%),
+      radial-gradient(circle at 80% 80%, rgba(31,58,95,0.05), transparent 50%),
+      linear-gradient(160deg, #F3F4F6 0%, #EDEFF2 100%);
     overflow: hidden;
   }
   #loginGate.hidden { display: none; }
   #loginGate .scan-ring {
-    position: absolute; border: 1px solid rgba(217,162,44,0.14); border-radius: 50%;
+    position: absolute; border: 1px solid rgba(31,58,95,0.08); border-radius: 50%;
     left: 50%; top: 50%; transform: translate(-50%, -50%);
     animation: scanPulse 4.5s ease-out infinite;
   }
@@ -414,18 +416,18 @@
   #loginGate .grid-overlay {
     position: absolute; inset: 0; opacity: 0.5;
     background-image:
-      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+      linear-gradient(rgba(31,58,95,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31,58,95,0.025) 1px, transparent 1px);
     background-size: 42px 42px;
     mask-image: radial-gradient(circle at 50% 40%, black 0%, transparent 72%);
   }
   .login-card {
     position: relative; z-index: 1; width: 100%; max-width: 380px; margin: 0 20px;
     padding: 36px 32px 32px;
-    background: rgba(19, 27, 44, 0.72);
-    border: 1px solid rgba(255,255,255,0.09);
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid var(--border);
     border-radius: 18px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+    box-shadow: 0 24px 60px rgba(26,33,48,0.12), inset 0 1px 0 rgba(255,255,255,0.6);
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
     animation: loginCardIn 0.5s cubic-bezier(0.16,1,0.3,1);
@@ -436,48 +438,49 @@
   }
   .login-mark {
     width: 40px; height: 40px; border-radius: 10px; margin: 0 auto 18px;
-    background: linear-gradient(135deg, #D9A22C, #D9722C);
+    background: linear-gradient(135deg, var(--navy), var(--navy-soft));
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 20px rgba(217,162,44,0.35);
+    box-shadow: 0 8px 20px rgba(31,58,95,0.30);
   }
   .login-mark svg { width: 20px; height: 20px; }
+  .login-mark svg path { fill: #FFFFFF; }
   .login-kicker {
     text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 10px;
-    font-weight: 600; letter-spacing: 2.5px; color: #D9A22C; margin-bottom: 8px;
+    font-weight: 600; letter-spacing: 2.5px; color: var(--navy); margin-bottom: 8px;
   }
   .login-title {
     text-align: center; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 20px;
-    color: #FFFFFF; margin-bottom: 4px; letter-spacing: -0.2px;
+    color: var(--text-primary); margin-bottom: 4px; letter-spacing: -0.2px;
   }
   .login-sub {
-    text-align: center; font-size: 12.5px; color: rgba(255,255,255,0.45); margin-bottom: 26px;
+    text-align: center; font-size: 12.5px; color: var(--text-muted); margin-bottom: 26px;
   }
   .login-field { margin-bottom: 14px; }
   .login-field label {
     display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.8px;
-    color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 6px;
+    color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;
   }
   .login-field input {
     width: 100%; box-sizing: border-box; padding: 11px 13px; font-size: 14.5px;
-    font-family: 'JetBrains Mono', monospace; color: #fff;
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+    font-family: 'JetBrains Mono', monospace; color: var(--text-primary);
+    background: var(--bg); border: 1px solid var(--border);
     border-radius: 9px; outline: none; transition: border-color 0.15s, background 0.15s;
   }
   .login-field input:focus {
-    border-color: #D9A22C; background: rgba(255,255,255,0.09);
+    border-color: var(--navy); background: #FFFFFF;
   }
   .login-submit {
     width: 100%; margin-top: 6px; padding: 12px; border: none; border-radius: 9px;
     font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;
-    color: #1A2130; cursor: pointer;
-    background: linear-gradient(135deg, #E8B94A, #D9722C);
-    box-shadow: 0 6px 16px rgba(217,162,44,0.3);
+    color: #FFFFFF; cursor: pointer;
+    background: linear-gradient(135deg, var(--navy), var(--navy-soft));
+    box-shadow: 0 6px 16px rgba(31,58,95,0.28);
     transition: transform 0.12s, box-shadow 0.12s;
   }
-  .login-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(217,162,44,0.4); }
+  .login-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(31,58,95,0.35); }
   .login-submit:active { transform: translateY(0); }
   .login-error {
-    margin-top: 12px; font-size: 12px; color: #F0A38C; text-align: center;
+    margin-top: 12px; font-size: 12px; color: var(--risk-severe); text-align: center;
     min-height: 16px; opacity: 0; transition: opacity 0.15s;
   }
   .login-error.show { opacity: 1; }
@@ -490,7 +493,7 @@
     80% { transform: translateX(3px); }
   }
   .login-foot {
-    margin-top: 22px; text-align: center; font-size: 10.5px; color: rgba(255,255,255,0.28);
+    margin-top: 22px; text-align: center; font-size: 10.5px; color: var(--text-faint);
     font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;
   }
   @media (prefers-reduced-motion: reduce) {
@@ -519,7 +522,7 @@
       <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v6c0 5 4 8.5 9 9 5-.5 9-4 9-9V7l-9-5z" fill="#1A2130"/></svg>
     </div>
     <div class="login-kicker">RESTRICTED ACCESS</div>
-    <div class="login-title">China Natural Catastrophe Risk Map</div>
+    <div class="login-title">Catnet Hazard Map (China)</div>
     <div class="login-sub">社内関係者専用 &mdash; IDとパスワードを入力してください</div>
     <div class="login-field">
       <label for="loginId">ID</label>
@@ -539,8 +542,8 @@
     <div class="masthead-top">
       <div class="brand" id="brandHome" title="Return to home">
         <div class="brand-text">
-          <div class="brand-title">China Natural Catastrophe Risk Map</div>
-          <div class="brand-sub">Historical Peril &amp; Hazard Layers</div>
+          <div class="brand-title">Catnet Hazard Map (China)</div>
+          <div class="brand-sub">China Disaster Risk Information System</div>
         </div>
       </div>
       <div class="header-actions">
@@ -619,9 +622,9 @@ const NO_DATA_COLOR = '#9AA3AF';
 
 // Risk-intensity gradient used inside every hazard heatmap (severity, independent of peril type)
 // ヒートマップ用グラデーション。下部の5段階凡例(WARNING_TIER_COLORS: Low→Extreme)と
-// 色を完全に一致させるため、同じ5色を均等配置している(以前は独自の緑→黄→赤の3色で、
-// 低強度側が凡例の黄色と合わず緑色に見えるズレがあった)。
-const HAZARD_GRADIENT = { 0.0: '#D9A22C', 0.25: '#D9722C', 0.5: '#C13A2E', 0.75: '#7A3B8C', 1.0: '#C13A7A' };
+// 色を完全に一致させるため、同じ5色を均等配置している。保険・防災業界で標準的な
+// 「緑(低リスク)→黄→橙→赤(高リスク)」のリスクスペクトラムに統一している。
+const HAZARD_GRADIENT = { 0.0: '#3F8F5F', 0.25: '#D9A22C', 0.5: '#D9722C', 0.75: '#C13A2E', 1.0: '#8C1F1F' };
 
 // Bounding box used as a cheap first-pass filter before the coastline polygon test
 const CHINA_LAND_BBOX = { minlat: 18, maxlat: 41, minlon: 97, maxlon: 123 };
@@ -1152,8 +1155,8 @@ async function fetchPointsSafe(path) {
 // HAZARD_GRADIENTの色停止点(0/0.25/0.5/0.75/1.0)の間を線形補間して、weight(0〜1)に対応する
 // 1色を返す。台風の軌跡を線(ポリライン)で描くために使う(ヒートマップの色と統一するため)。
 const HAZARD_GRADIENT_STOPS = [
-  [0.0, [0xD9, 0xA2, 0x2C]], [0.25, [0xD9, 0x72, 0x2C]], [0.5, [0xC1, 0x3A, 0x2E]],
-  [0.75, [0x7A, 0x3B, 0x8C]], [1.0, [0x1A, 0x21, 0x30]],
+  [0.0, [0x3F, 0x8F, 0x5F]], [0.25, [0xD9, 0xA2, 0x2C]], [0.5, [0xD9, 0x72, 0x2C]],
+  [0.75, [0xC1, 0x3A, 0x2E]], [1.0, [0x8C, 0x1F, 0x1F]],
 ];
 function colorForWeight(w) {
   const cw = Math.max(0, Math.min(1, w));
@@ -1167,7 +1170,7 @@ function colorForWeight(w) {
       return `rgb(${r},${g},${b})`;
     }
   }
-  return '#C13A7A';
+  return '#8C1F1F';
 }
 
 // inLandBbox(陸地・沿岸のみ表示)でフィルタすると軌跡の一部が虫食いになるため、
@@ -1212,7 +1215,7 @@ function splitContiguousRuns(items, predicate) {
 // 下限34ktはr34_km(34kt到達半径)の定義そのものと一致するため、区間の帯の外縁=r34と
 // なり、計算が単純化される(距離補間が不要になる)という副次的な利点もある。
 const TYPHOON_CATEGORY_BOUNDS_KT = [34, 64, 85, 105]; // JMA: 台風/強い台風/非常に強い台風/猛烈な台風
-const TYPHOON_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#C13A7A']; // JMAの4階級専用(他ハザードの5階級とは別)
+const TYPHOON_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F']; // JMAの4階級専用(他ハザードの5階級とは別)。34kt下限が既に暴風域相当のため緑(安全域)は設けず、共通スペクトラムの黄〜暗赤側4色を使う
 const TYPHOON_TIER_LABELS = ['Typhoon', 'Strong Typhoon', 'Very Strong Typhoon', 'Violent Typhoon']; // JMA英語表記
 // 台風ごとの実際の暴風域半径(r34_km)がデータにある場合は、それを使って中心からの
 // 線形補間で風速を推定する(2026年8月改訂: 台風によって暴風域の大きさが11〜581km、
@@ -2065,9 +2068,9 @@ function renderWaterHeatmap(warmingC) {
 // ==== 地点検索: 各ハザードの5段階配色ロジック(標高以外はローカルデータのみで計算、追加通信なし) ====
 
 // 気象庁の震度階級配色を参考にした地震用5段階(黄→橙→赤→濃い赤→赤紫)
-const EARTHQUAKE_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F', '#7A2E6B'];
+const EARTHQUAKE_TIER_COLORS = ['#3F8F5F', '#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F'];
 // 気象庁の統一「警戒レベル」配色を参考にした台風・雷・洪水共通5段階(黄→橙→赤→紫→黒)
-const WARNING_TIER_COLORS = ['#D9A22C', '#D9722C', '#C13A2E', '#7A3B8C', '#C13A7A'];
+const WARNING_TIER_COLORS = ['#3F8F5F', '#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F'];
 
 // 5段階配色のグラデーション凡例(温度計ふう)+データ欠損(灰色)の説明をHTMLで生成する共通関数
 
