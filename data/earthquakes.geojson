@@ -86724,6 +86724,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000te21"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000th1q",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130.3787,
+          29.3244
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "101 km S of Yudomari, Japan",
+        "time": 1789245178910,
+        "depth_km": 45.513,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000th1q"
+      }
     }
   ]
 }
