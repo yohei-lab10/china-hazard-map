@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Catnet Hazard Map (China)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
@@ -61,7 +61,7 @@
   /* Header */
   .masthead-top {
     display: flex; align-items: flex-start; justify-content: space-between;
-    padding: 16px 16px 12px; background: var(--panel); gap: 10px;
+    padding: max(16px, env(safe-area-inset-top)) 16px 12px; background: var(--panel); gap: 10px;
   }
   .brand { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; cursor: pointer; }
   .seal-logo {
