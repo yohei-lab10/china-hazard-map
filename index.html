@@ -2347,19 +2347,12 @@ function floodTileColor(lat, lon) {
 
 
 // so failed lookups are retried automatically before surfacing an error.
-// ==== Point lookup: elevation + comparison with 8 surrounding points ====
+// ==== Point lookup: elevation ====
 // Open-Elevation supports CORS for direct browser calls (unlike the free tier of
 // Open-Topo-Data, which requires a paid plan for CORS). It's occasionally flaky,
 // so failed lookups are retried automatically before surfacing an error.
 const OPEN_ELEVATION_URL = 'https://api.open-elevation.com/api/v1/lookup';
 const ELEVATION_MAX_RETRIES = 2;
-const DIRS = [
-  { name: 'N', dLat: 1, dLon: 0 }, { name: 'NE', dLat: 1, dLon: 1 },
-  { name: 'E', dLat: 0, dLon: 1 }, { name: 'SE', dLat: -1, dLon: 1 },
-  { name: 'S', dLat: -1, dLon: 0 }, { name: 'SW', dLat: -1, dLon: -1 },
-  { name: 'W', dLat: 0, dLon: -1 }, { name: 'NW', dLat: 1, dLon: -1 },
-];
-const SEARCH_RADIUS_M = 100;
 
 // 検索地点周辺を細かい格子(グリッド)状にサンプリングして面で塗るための設定。
 // 【2026年9月改訂】標高がローカルの150mタイル(AW3D30)になり、1マスあたりの
@@ -2511,10 +2504,7 @@ async function queryPoint(lat, lon) {
   lastQueriedLatLon = { lat, lon };
   syncReportLocationFromSearch(lat, lon);
 
-  const dLat = metersToDegLat(SEARCH_RADIUS_M);
-  const dLon = metersToDegLon(SEARCH_RADIUS_M, lat);
   const locations = [{ latitude: lat, longitude: lon }];
-  DIRS.forEach(d => locations.push({ latitude: lat + d.dLat * dLat, longitude: lon + d.dLon * dLon }));
 
   // 500m圏内の9x9グリッド(各マス約125m四方)の中心座標を用意
   const cellDLat = metersToDegLat(GRID_CELL_M);
@@ -2633,7 +2623,7 @@ async function queryPoint(lat, lon) {
         ${activeLayers.has('waterHazard') ? `
           ${waterBadge.dominant ? `<div class="result-elev" style="margin-top:5px;">Dominant mechanism: ${waterBadge.dominant}</div>` : ''}
           ${waterBadge.caveat ? `<div class="result-elev" style="margin-top:5px;color:var(--risk-severe);font-weight:600;">${waterBadge.caveat}</div>` : ''}
-          <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text} (factored into the score above)</div>
+          <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text}</div>
           <div class="extent-legend">
             <span><span class="swatch" style="border-top:1.5px dashed #5C6675;"></span>Evaluated area (~3.15km)</span>
             <span><span class="swatch" style="border-top:1.5px dotted #1FA8D9;"></span>Depression check (~1.05km)</span>
@@ -2982,10 +2972,7 @@ const TIER_LABELS_RPT = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
 
 // 1地点分の4ハザード+降雨曲線+標高地形データをまとめて計算する(activeLayersに依存しない)
 async function computeReportData(lat, lon) {
-  const dLat = metersToDegLat(SEARCH_RADIUS_M);
-  const dLon = metersToDegLon(SEARCH_RADIUS_M, lat);
   const locations = [{ latitude: lat, longitude: lon }];
-  DIRS.forEach(d => locations.push({ latitude: lat + d.dLat * dLat, longitude: lon + d.dLon * dLon }));
   const reportBlock = await loadElevationBlock(lat, lon, 30);
   let elevations = await elevationsFromTiles(reportBlock, locations);
   if (!elevations) elevations = await fetchElevations(locations);
