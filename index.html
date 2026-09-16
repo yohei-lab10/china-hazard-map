@@ -227,6 +227,23 @@
   #reportView .rpt-comment { font-size: 10.5px; color: #52514e; line-height: 1.6; margin-top: 8px; }
   #reportView .rpt-mono { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; line-height: 1.75; }
 
+  /* --- 台風JMA階級の帯(図解)。長文説明の代わりに該当階級を強調する。2026年9月追加 --- */
+  #reportView .rpt-tiers { display: flex; gap: 4px; margin-top: 10px; }
+  #reportView .rpt-tier { flex: 1; text-align: center; padding: 6px 3px; border-radius: 5px; background: #f2f1ec; }
+  #reportView .rpt-tier-kt { font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #b4b2ac; }
+  #reportView .rpt-tier-nm { font-size: 9.5px; font-weight: 700; color: #6b6a63; margin-top: 2px; }
+  #reportView .rpt-tier.active { background: #FBEADC; }
+  #reportView .rpt-tier.active .rpt-tier-nm { color: #9A5A22; }
+
+  /* --- 水害3機構の内訳チップ(図解)。支配的な機構を強調する。2026年9月追加 --- */
+  #reportView .rpt-wchips { display: flex; gap: 8px; margin-top: 10px; }
+  #reportView .rpt-wchip { flex: 1; background: #f2f1ec; border-radius: 7px; padding: 8px 6px; text-align: center; }
+  #reportView .rpt-wchip-nm { font-size: 9.5px; color: #6b6a63; font-weight: 600; }
+  #reportView .rpt-wchip-v { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; display: block; margin-top: 3px; color: #26215C; }
+  #reportView .rpt-wchip.dom { background: #26215C; }
+  #reportView .rpt-wchip.dom .rpt-wchip-nm { color: #C9C6E8; }
+  #reportView .rpt-wchip.dom .rpt-wchip-v { color: #F0B15A; }
+
   /* --- 数値を並べる小さなキー・バリュー --- */
   #reportView .rpt-kv { display: flex; gap: 26px; margin: 10px 0 4px; flex-wrap: wrap; }
   #reportView .rpt-kv-item { }
@@ -2842,32 +2859,32 @@ document.getElementById('searchBtn').addEventListener('click', () => {
 // 直接呼び出す専用の計算パイプラインをここに用意する(DOM更新やactiveLayersには依存しない)。
 let reportLocations = [{ name: '', lat: '', lon: '' }];
 
-const HAZARD_DESCRIPTIONS = {
-  earthquake: 'Based on the USGS earthquake catalog (M5.0+, 1976 onward). '
-    + 'Each past earthquake within 100km is weighted by its magnitude and its distance from the site, '
-    + 'and the strongest effective influence is reported. '
-    + 'This reflects observed seismicity, not fault-based ground motion modelling, '
-    + 'so it may understate hazard on faults that have been quiet during the observation period.',
-  typhoon: 'Based on IBTrACS best-track data (NOAA/NCEI). '
-    + 'Storms whose 34kt wind field reached this location are classified on the JMA scale '
-    + '(Typhoon / Strong / Very Strong / Violent), and the strongest historical impact is reported. '
-    + 'Frequency is estimated separately from the number of Category 1+ passages. '
-    + 'Wind fields are reconstructed from track and radius data, not from a wind simulation.',
-  lightning: 'Based on WWLLN / WGLC lightning stroke density climatology (multi-year average). '
-    + 'The value expresses how active this location is relative to the rest of mainland China. '
-    + 'It describes long-term average activity, not the probability of a strike on a specific structure.',
-  water: 'Three flood mechanisms are evaluated separately and the most severe one is reported: '
-    + 'river flooding (proximity and scale of nearby rivers, and how high the site sits above them), '
-    + 'surface water flooding (extreme rainfall intensity combined with how low-lying the site is '
-    + 'relative to its surroundings), and coastal storm surge (elevation against a surge level that '
-    + 'decays inland). Proximity to a river confluence, where flows converge and water levels rise more readily, '
-    + 'increases the river flooding term modestly. Past flood records adjust the result modestly upward. '
-    + 'Elevation comes from JAXA AW3D30 at 150m resolution, so street-level drainage is not represented; '
-    + 'this is a screening indicator, not a hydrodynamic flood simulation.',
-  overall: 'The highest of the four hazard scores. '
-    + 'The four are not averaged, because a frequent but low-severity peril and a rare but '
-    + 'catastrophic one are not interchangeable. The breakdown below shows which peril drives the result. '
-    + 'This is a hazard indicator, not an expected loss estimate.',
+// 【2026年9月】レポートの多言語対応にともない、各ハザードの説明文はHAZARD_DESCRIPTIONS_I18N
+// (英/日/中・簡潔版)に統合した。長い方法論の詳細は本文からは外し、免責事項(rptFooter)で
+// 包括的にカバーする。台風のJMA階級・水害の3機構は、下記の図解(rptTyphoonTiers/
+// rptWaterMechChips)で表現するため、説明文からは詳細を割愛している。
+const HAZARD_DESCRIPTIONS_I18N = {
+  en: {
+    earthquake: 'USGS catalog, M5.0+, 1976 to present. Weighted by magnitude and distance within 100km; strongest effective influence shown.',
+    typhoon: 'IBTrACS best-track data. Storms are classified on the JMA scale below; strongest historical impact at this point shown.',
+    lightning: 'WWLLN / WGLC stroke density climatology — relative activity within mainland China.',
+    water: 'Highest of three mechanisms is shown:',
+    overall: 'Highest of the four hazard scores (not averaged — a frequent, low-severity peril and a rare, catastrophic one are not interchangeable). This is a hazard indicator, not an expected loss estimate.',
+  },
+  ja: {
+    earthquake: 'USGS地震カタログ(M5.0以上、1976年〜)。周辺100km以内の地震をマグニチュードと距離で重み付けし、最も影響の大きい値を表示。',
+    typhoon: 'IBTrACSのベストトラックデータ。下記のJMA階級で分類し、この地点での観測史上最大の影響を表示。',
+    lightning: 'WWLLN/WGLCの落雷密度気候値 — 中国本土内での相対的な活発さ。',
+    water: '3つの機構のうち最も深刻な値を表示:',
+    overall: '4種のハザードスコアのうち最大値(平均はしない — 高頻度・低損害のハザードと稀・甚大なハザードは同列に扱えないため)。これはハザード指標であり、予想損害額の見積もりではない。',
+  },
+  zh: {
+    earthquake: '基于USGS地震目录(M5.0以上,1976年至今)。对100公里范围内的地震按震级与距离加权,显示影响最大的数值。',
+    typhoon: '基于IBTrACS最佳路径数据。按下方JMA等级分类,显示该地点历史上影响最大的一次。',
+    lightning: 'WWLLN/WGLC雷电密度气候值——反映中国大陆范围内的相对活跃程度。',
+    water: '显示三种机制中最严重的数值:',
+    overall: '四类灾害得分中的最高值(不取平均——高频低损灾害与罕见但严重的灾害不可等同看待)。本指标为灾害指标,并非预期损失估算。',
+  },
 };
 
 // 地点検索(queryPoint)の結果、またはREPORTSパネルを開いたタイミングで呼ばれる。
@@ -2898,6 +2915,17 @@ function renderReportPanel() {
       </label>
       <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text-muted); white-space:nowrap;">
         <input type="radio" name="reportCoordSystem" value="bd09" style="width:14px;height:14px;">BD-09 (百度)
+      </label>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px 14px; margin-bottom:10px;">
+      <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text-muted); white-space:nowrap;">
+        <input type="radio" name="reportLang" value="en" checked style="width:14px;height:14px;">English
+      </label>
+      <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text-muted); white-space:nowrap;">
+        <input type="radio" name="reportLang" value="ja" style="width:14px;height:14px;">日本語
+      </label>
+      <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--text-muted); white-space:nowrap;">
+        <input type="radio" name="reportLang" value="zh" style="width:14px;height:14px;">中文
       </label>
     </div>
     <div id="reportLocList"></div>
@@ -2970,8 +2998,142 @@ function rainfallGumbelParamsAt(lat, lon) {
 
 const TIER_LABELS_RPT = ['Low', 'Moderate', 'High', 'Severe', 'Extreme'];
 
+// 【2026年9月】レポート多言語対応。TIER_LABELS_RPTはレポート専用(他箇所からの参照なし)
+// なので言語版を追加。一方TYPHOON_TIER_LABELS(1251行目)は地図上のポップアップ等
+// レポート以外からも参照される共有定数のため変更せず、レポート用の別名を用意する。
+const TIER_LABELS_RPT_I18N = {
+  en: ['Low', 'Moderate', 'High', 'Severe', 'Extreme'],
+  ja: ['低', '中程度', '高', '深刻', '極めて深刻'],
+  zh: ['低', '中等', '高', '严重', '极高'],
+};
+const TYPHOON_TIER_LABELS_RPT_I18N = {
+  en: ['Typhoon', 'Strong Typhoon', 'Very Strong Typhoon', 'Violent Typhoon'],
+  ja: ['台風', '強い台風', '非常に強い台風', '猛烈な台風'],
+  zh: ['台风', '强台风', '强烈台风', '猛烈台风'],
+};
+const TYPHOON_TIER_KT = ['34kt+', '64kt+', '85kt+', '105kt+'];
+
+// レポート画面のUI文言・注記類。地図本体のUIとは独立させ、ここだけを見れば
+// レポートに出てくる固定文言の全言語版が揃うようにする。
+// 注: 台風のバッジ詳細(valueLabel、例:「Strong Typhoon, ~65kt at this point」)と
+// 水害の窪み係数コメント(depLabel.text)は、地図ポップアップと共有している既存関数
+// (typhoonRiskInfo / depressionFactorLabel)がそのまま英語で生成するため、
+// ja/zhレポートでもこの部分だけは英語のまま残る。多言語化するには、それらの
+// 共有関数自体を言語対応させる必要があり、地図UI側への影響を見極めた上で
+// 別途判断すべき変更のため、今回は対象外としている。
+const RPT_I18N = {
+  en: {
+    title: 'Natural Catastrophe Risk Report', country: 'China',
+    overallHazard: 'Overall hazard',
+    drivenBy: (who, tied) => `Driven by <b>${who}</b> — ${tied ? 'tied as the highest of the four perils' : 'the highest of the four perils'}.`,
+    perilNames: { earthquake: 'Earthquake', typhoon: 'Typhoon', lightning: 'Lightning', water: 'Water' },
+    sectionTitles: { earthquake: 'Earthquake', typhoon: 'Typhoon', lightning: 'Lightning', water: 'Water hazard' },
+    hazardLabel: (kind, tier, value) => ({
+      earthquake: `${tier} earthquake hazard (${value})`,
+      typhoon: `${tier} hazard (${value})`,
+      lightning: `${tier} lightning hazard (${value})`,
+      water: `${tier} water hazard (${value})`,
+    }[kind]),
+    noDataEq: 'No M5.0+ earthquake within 100km',
+    noDataLightning: 'No significant lightning density nearby',
+    typhoonFreq: (yrs, total) => `Category 1+ passages occur on average once every ~${yrs} years, based on ${total} years of track data.`,
+    waterMechLabels: { river: 'River flooding', surface: 'Surface water', surge: 'Storm surge' },
+    dominantMech: (name) => `Dominant mechanism: <b>${name}</b>.`,
+    scCurrent: 'Current', scNote: 'Score under each climate scenario (reference only — headline score always uses Current rainfall).',
+    rainfallTitle: 'Rainfall intensity',
+    rainfallBody: (yrs) => `Average annual maximum 24h rainfall; return periods from a Gumbel fit to the annual maxima.${yrs && yrs < 50 ? ` The 50- and 100-year figures extrapolate beyond the ${yrs}-year record.` : ''}`,
+    observedLbl: (yrs) => `Observed (${yrs || '—'}yr avg)`, yearLbl: (T) => `${T}-year`,
+    cmaNote: 'For reference: CMA classifies 50mm+ as rainstorm, 100mm+ as heavy rainstorm, 250mm+ as extreme rainstorm.',
+    currentNote: (pct) => `Score always uses the Current 50-year value; +1.5°C/+2°C shown for reference only (IPCC AR6 scaling, ~${pct}%/°C).`,
+    terrainTitle: 'Terrain around the site (approx. 1.05km)',
+    terrainBody: 'Terrain sampled from 150m elevation tiles around the site. Vertical scale exaggerated for visibility.',
+    elevation: 'Elevation', terrainNoteSuffix: 'considering the surrounding ~1.05km (roughly 450m in each direction from the site) — factored into the score above.',
+    portfolioTitle: 'Portfolio summary', portfolioSub: (n) => `${n} locations, ranked by overall hazard. Detailed pages follow in the same order as entered.`,
+    colLocation: 'Location', colCoords: 'Coordinates', colOverall: 'Overall', colDriver: 'Driver',
+    dataUsedTitle: (d) => `Data used for this assessment (generated ${d}).`,
+    provenance: { earthquakes: 'Earthquakes', typhoons: 'Typhoons', lightning: 'Lightning', rainfall: 'Rainfall', elevation: 'Elevation' },
+    multiYearMean: 'multi-year mean', gumbelNote: 'CHIRPS annual maxima, Gumbel fit (see per-site year count)', resampledNote: 'JAXA AW3D30, resampled to 150 m',
+    disclaimerTitle: 'Disclaimer.',
+    disclaimerBody: 'Screening-level hazard indicators from public historical and climatological data. Not a guarantee of future events, not an expected loss estimate, and not a sole basis for underwriting, pricing, or coverage decisions. Scores are relative within mainland China only. Rainfall figures beyond the observation period are statistical extrapolations. Elevation/terrain figures are for reference and not used directly in the scores.',
+    copyright: (y) => `© ${y} YM @MSIG. All rights reserved.`,
+  },
+  ja: {
+    title: '自然災害リスクレポート', country: '中国',
+    overallHazard: '総合ハザード',
+    drivenBy: (who, tied) => `支配ハザード:<b>${who}</b> — ${tied ? '4種のうち同率で最大' : '4種のうち最大'}。`,
+    perilNames: { earthquake: '地震', typhoon: '台風', lightning: '雷', water: '水害' },
+    sectionTitles: { earthquake: '地震', typhoon: '台風', lightning: '雷', water: '水害' },
+    hazardLabel: (kind, tier, value) => ({
+      earthquake: `地震ハザード:${tier}(${value})`,
+      typhoon: `台風ハザード:${tier}(${value})`,
+      lightning: `雷ハザード:${tier}(${value})`,
+      water: `水害ハザード:${tier}(${value})`,
+    }[kind]),
+    noDataEq: '半径100km以内にM5.0以上の地震なし',
+    noDataLightning: '周辺に有意な落雷密度なし',
+    typhoonFreq: (yrs, total) => `Category 1以上の通過:約${yrs}年に1回(${total}年分のデータ)。`,
+    waterMechLabels: { river: '外水氾濫', surface: '内水氾濫', surge: '高潮' },
+    dominantMech: (name) => `支配的機構:<b>${name}</b>。`,
+    scCurrent: '現在', scNote: '気候シナリオ別のスコア(参考値 — 見出しスコアは常に現在の降雨を使用)。',
+    rainfallTitle: '降雨強度',
+    rainfallBody: (yrs) => `年間最大24時間降水量の平均値。年最大値にGumbel分布をフィットし再現期間を算出。${yrs && yrs < 50 ? `50年・100年の値は${yrs}年の記録を超える外挿。` : ''}`,
+    observedLbl: (yrs) => `観測値(${yrs || '—'}年平均)`, yearLbl: (T) => `${T}年確率`,
+    cmaNote: '参考:中国気象局は50mm以上を暴雨、100mm以上を大暴雨、250mm以上を特大暴雨と分類。',
+    currentNote: (pct) => `スコアは常に現在の50年確率値を使用。+1.5℃/+2℃は参考値(IPCC AR6換算、約${pct}%/℃)。`,
+    terrainTitle: '敷地周辺の地形(約1.05km)',
+    terrainBody: '敷地周辺の地形を150m標高タイルからサンプリング。見やすさのため鉛直方向を誇張。',
+    elevation: '標高', terrainNoteSuffix: '周辺(半径約450m)の高所と比較 — 上記スコアに反映済み。',
+    portfolioTitle: 'ポートフォリオ概要', portfolioSub: (n) => `${n}拠点、総合ハザードの高い順。詳細ページは入力順で続く。`,
+    colLocation: '拠点', colCoords: '座標', colOverall: '総合', colDriver: '支配要因',
+    dataUsedTitle: (d) => `本評価に使用したデータ(生成日:${d})。`,
+    provenance: { earthquakes: '地震', typhoons: '台風', lightning: '雷', rainfall: '降雨', elevation: '標高' },
+    multiYearMean: '年の多年平均', gumbelNote: 'CHIRPS年最大値、Gumbel分布フィット(地点ごとの年数は本文参照)', resampledNote: 'JAXA AW3D30、150mにリサンプリング',
+    disclaimerTitle: '免責事項。',
+    disclaimerBody: '本レポートは公開の過去実績・気候データに基づくスクリーニングレベルの指標です。将来の災害発生の保証、予想損害額の見積もり、または引受・保険料算定・補償内容決定の唯一の根拠となるものではありません。スコアは中国本土内での相対値です。観測期間を超える降雨の値は統計的な外挿です。標高・地形の数値は参考値であり、スコアの算出に直接使用されるものではありません。',
+    copyright: (y) => `© ${y} YM @MSIG. All rights reserved.`,
+  },
+  zh: {
+    title: '自然灾害风险报告', country: '中国',
+    overallHazard: '综合灾害等级',
+    drivenBy: (who, tied) => `主导灾害:<b>${who}</b> — ${tied ? '四类中并列最高' : '四类中的最高值'}。`,
+    perilNames: { earthquake: '地震', typhoon: '台风', lightning: '雷电', water: '水灾' },
+    sectionTitles: { earthquake: '地震', typhoon: '台风', lightning: '雷电', water: '水灾' },
+    hazardLabel: (kind, tier, value) => ({
+      earthquake: `地震灾害等级:${tier}(${value})`,
+      typhoon: `台风灾害等级:${tier}(${value})`,
+      lightning: `雷电灾害等级:${tier}(${value})`,
+      water: `水灾灾害等级:${tier}(${value})`,
+    }[kind]),
+    noDataEq: '100公里范围内无M5.0以上地震',
+    noDataLightning: '附近无显著雷电密度',
+    typhoonFreq: (yrs, total) => `Category 1级以上台风:平均约每${yrs}年一次(基于${total}年数据)。`,
+    waterMechLabels: { river: '河流洪水', surface: '内涝', surge: '风暴潮' },
+    dominantMech: (name) => `主导机制:<b>${name}</b>。`,
+    scCurrent: '当前', scNote: '各气候情景下的得分(仅供参考——总体得分始终采用当前降雨数据)。',
+    rainfallTitle: '降雨强度',
+    rainfallBody: (yrs) => `年最大24小时降水量的平均值;通过对年最大值拟合Gumbel分布得出重现期。${yrs && yrs < 50 ? `50年和100年数值超出${yrs}年观测记录进行外推。` : ''}`,
+    observedLbl: (yrs) => `观测值(${yrs || '—'}年平均)`, yearLbl: (T) => `${T}年一遇`,
+    cmaNote: '参考:中国气象局将50毫米以上定义为暴雨,100毫米以上为大暴雨,250毫米以上为特大暴雨。',
+    currentNote: (pct) => `得分始终采用当前的50年一遇数值;+1.5°C/+2°C仅供参考(依据IPCC AR6换算,约${pct}%/°C)。`,
+    terrainTitle: '场地周边地形(约1.05公里)',
+    terrainBody: '从150米标高瓦片采样场地周边地形。为便于观察,垂直方向已做夸张处理。',
+    elevation: '标高', terrainNoteSuffix: '相较于周边(半径约450米)高地——已计入上方得分。',
+    portfolioTitle: '投资组合概要', portfolioSub: (n) => `共${n}个地点,按综合灾害等级排序。详细页面按录入顺序排列。`,
+    colLocation: '地点', colCoords: '坐标', colOverall: '综合', colDriver: '主导因素',
+    dataUsedTitle: (d) => `本次评估所使用的数据(生成日期:${d})。`,
+    provenance: { earthquakes: '地震', typhoons: '台风', lightning: '雷电', rainfall: '降雨', elevation: '标高' },
+    multiYearMean: '年多年平均', gumbelNote: 'CHIRPS年最大值,Gumbel拟合(各地点年数详见正文)', resampledNote: 'JAXA AW3D30,重采样至150米',
+    disclaimerTitle: '免责声明。',
+    disclaimerBody: '本报告基于公开的历史及气候数据,提供筛查级别的灾害指标。不构成对未来事件的保证,不是预期损失估算,也不能作为核保、定价或承保决策的唯一依据。得分仅为中国大陆范围内的相对值。超出观测期的降雨数值为统计外推结果。标高与地形数据仅供参考,未直接用于得分计算。',
+    copyright: (y) => `© ${y} YM @MSIG. 保留所有权利。`,
+  },
+};
+
 // 1地点分の4ハザード+降雨曲線+標高地形データをまとめて計算する(activeLayersに依存しない)
-async function computeReportData(lat, lon) {
+async function computeReportData(lat, lon, lang) {
+  const T = RPT_I18N[lang] || RPT_I18N.en;
+  const tierWords = TIER_LABELS_RPT_I18N[lang] || TIER_LABELS_RPT_I18N.en;
+  const typhoonWords = TYPHOON_TIER_LABELS_RPT_I18N[lang] || TYPHOON_TIER_LABELS_RPT_I18N.en;
   const locations = [{ latitude: lat, longitude: lon }];
   const reportBlock = await loadElevationBlock(lat, lon, 30);
   let elevations = await elevationsFromTiles(reportBlock, locations);
@@ -3021,9 +3183,10 @@ async function computeReportData(lat, lon) {
   if (!reportCombined) {
     water = {
       label: reportRain === null && riverSpatialIndex && coastlinePointsIndex
-        ? 'No rainfall data (outside CHIRPS coverage)'
+        ? 'No rainfall data (outside CHIRPS coverage)' // 共有フォールバック文言(未評価時のみ・低頻度)。多言語化は別途判断
         : 'Water hazard not evaluated (data unavailable)',
       color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null,
+      mech: { river: reportFluvial, surface: reportPluvial, surge: reportSurge },
     };
   } else {
     const weight = floodWeightAt(lat, lon);
@@ -3033,9 +3196,10 @@ async function computeReportData(lat, lon) {
     // 参考として、4シナリオ(Current/+1.5/+2/+3℃)分をまとめてレポートに載せる。
     const byScenario = waterHazardByScenario(lat, lon, reportFluvial, reportSurge, reportDepression, weight, TIER_LABELS_RPT);
     water = {
-      label: `${TIER_LABELS_RPT[tier]} water hazard (${finalRisk.toFixed(2)})`,
+      label: T.hazardLabel('water', tierWords[tier], finalRisk.toFixed(2)),
       color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk,
-      dominant: reportCombined.dominant,
+      dominant: reportCombined.dominant, dominantKey: reportCombined.dominantKey,
+      mech: { river: reportFluvial, surface: reportPluvial, surge: reportSurge },
       caveat: waterCaveatText(reportCombined.missing),
       byScenario,
     };
@@ -3043,19 +3207,22 @@ async function computeReportData(lat, lon) {
 
   const eqInfo = earthquakeRiskInfo(lat, lon);
   const earthquake = eqInfo
-    ? { label: `${TIER_LABELS_RPT[eqInfo.tier]} earthquake hazard (${eqInfo.valueLabel})`, color: eqInfo.color, colors: EARTHQUAKE_TIER_COLORS, ratio: eqInfo.ratio }
-    : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS, ratio: null };
+    ? { label: T.hazardLabel('earthquake', tierWords[eqInfo.tier], eqInfo.valueLabel), color: eqInfo.color, colors: EARTHQUAKE_TIER_COLORS, ratio: eqInfo.ratio }
+    : { label: T.noDataEq, color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS, ratio: null };
 
   const tyInfo = typhoonRiskInfo(lat, lon);
   const tyFreq = typhoonReturnPeriodInfo(lat, lon);
+  // tyInfo.valueLabel(例: "Strong Typhoon, ~65kt at this point (×10 in 11yrs)")は
+  // 地図ポップアップと共有のtyphoonRiskInfo()が英語で生成するため、ja/zhでも英語のまま。
+  // 階級名そのものは下のrptTyphoonTiers図解で言語に応じて表示する。
   const typhoon = tyInfo
-    ? { label: `${TYPHOON_TIER_LABELS[tyInfo.tier]} hazard (${tyInfo.valueLabel})`, color: tyInfo.color, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS, ratio: tyInfo.ratio, freq: tyFreq }
-    : { label: typhoonNoDataLabel(), color: NO_DATA_COLOR, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS, ratio: null, freq: tyFreq };
+    ? { label: T.hazardLabel('typhoon', typhoonWords[tyInfo.tier], tyInfo.valueLabel), color: tyInfo.color, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS, tier: tyInfo.tier, ratio: tyInfo.ratio, freq: tyFreq }
+    : { label: typhoonNoDataLabel(), color: NO_DATA_COLOR, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS, tier: null, ratio: null, freq: tyFreq };
 
   const ltInfo = lightningRiskInfo(lat, lon);
   const lightning = ltInfo
-    ? { label: `${TIER_LABELS_RPT[ltInfo.tier]} lightning hazard (${ltInfo.valueLabel})`, color: ltInfo.color, colors: WARNING_TIER_COLORS, ratio: ltInfo.ratio }
-    : { label: 'No significant lightning density nearby', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
+    ? { label: T.hazardLabel('lightning', tierWords[ltInfo.tier], ltInfo.valueLabel), color: ltInfo.color, colors: WARNING_TIER_COLORS, ratio: ltInfo.ratio }
+    : { label: T.noDataLightning, color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null };
 
   // 降雨再現期間: Current/+1.5/+2/+3℃の4シナリオをまとめて計算(グラフ用)
   const gumbel = rainfallGumbelParamsAt(lat, lon);
@@ -3074,10 +3241,10 @@ async function computeReportData(lat, lon) {
   // また地震(稀・全損もあり得る)と雷(高頻度・小損害)は損失の起き方が異なり、
   // 平均すると「他が低いから薄まる」という誤った緩和が起きる。
   const perilList = [
-    { key: 'earthquake', label: 'Earthquake', ratio: earthquake.ratio },
-    { key: 'typhoon', label: 'Typhoon', ratio: typhoon.ratio },
-    { key: 'lightning', label: 'Lightning', ratio: lightning.ratio },
-    { key: 'water', label: 'Water', ratio: water.ratio },
+    { key: 'earthquake', label: T.perilNames.earthquake, ratio: earthquake.ratio },
+    { key: 'typhoon', label: T.perilNames.typhoon, ratio: typhoon.ratio },
+    { key: 'lightning', label: T.perilNames.lightning, ratio: lightning.ratio },
+    { key: 'water', label: T.perilNames.water, ratio: water.ratio },
   ];
   const scored = perilList.filter(x => typeof x.ratio === 'number' && !isNaN(x.ratio));
   let overall = null;
@@ -3089,12 +3256,13 @@ async function computeReportData(lat, lon) {
     // 表示上の丸め(小数第2位)と一致させるので、0.999と1.000のような差では並記しない。
     const drivers = scored.filter(x => Math.abs(x.ratio - top.ratio) < 0.005).map(x => x.label);
     const tier = Math.min(4, Math.max(0, Math.ceil(top.ratio * 5) - 1));
+    const joinWord = lang === 'ja' ? '、' : (lang === 'zh' ? '、' : ', ');
     overall = {
       ratio: top.ratio,
       tier,
-      label: TIER_LABELS_RPT[tier],
+      label: tierWords[tier],
       drivenBy: drivers.length > 1
-        ? `${drivers.slice(0, -1).join(', ')} and ${drivers[drivers.length - 1]}`
+        ? `${drivers.slice(0, -1).join(joinWord)}${lang === 'en' ? ' and ' : lang === 'ja' ? 'と' : '和'}${drivers[drivers.length - 1]}`
         : drivers[0],
       driverCount: drivers.length,
       colors: WARNING_TIER_COLORS,
@@ -3146,6 +3314,7 @@ async function generateIntegratedReport() {
   status.textContent = 'Computing hazard data…';
 
   const system = document.querySelector('input[name="reportCoordSystem"]:checked').value;
+  const lang = document.querySelector('input[name="reportLang"]:checked').value;
 
   try {
     await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js');
@@ -3160,14 +3329,14 @@ async function generateIntegratedReport() {
       if ((lat < -90 || lat > 90) && lon >= -90 && lon <= 90) [lat, lon] = [lon, lat];
       if (system === 'gcj02') { const c = gcj02ToWgs84(lat, lon); lat = c.lat; lon = c.lon; }
       else if (system === 'bd09') { const c = bd09ToWgs84(lat, lon); lat = c.lat; lon = c.lon; }
-      const data = await computeReportData(lat, lon);
+      const data = await computeReportData(lat, lon, lang);
       results.push({ name: loc.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`, lat, lon, data });
     }
 
     if (results.length === 0) { status.textContent = 'No valid coordinates entered.'; btn.disabled = false; return; }
 
     status.textContent = 'Rendering charts…';
-    await renderReportView(results);
+    await renderReportView(results, lang);
 
     status.textContent = 'Building PDF…';
     const { jsPDF } = window.jspdf;
@@ -3198,7 +3367,8 @@ async function generateIntegratedReport() {
   }
 }
 
-async function renderReportView(results) {
+async function renderReportView(results, lang) {
+  const T = RPT_I18N[lang] || RPT_I18N.en;
   let view = document.getElementById('reportView');
   if (!view) {
     view = document.createElement('div');
@@ -3212,22 +3382,22 @@ async function renderReportView(results) {
       <div class="rpt-head">
         <div class="rpt-brand">
           <div class="rpt-logo">LOGO</div>
-          <div class="rpt-title">Natural Catastrophe Risk Report</div>
+          <div class="rpt-title">${T.title}</div>
         </div>
-        <div class="rpt-meta">${today}<br>WGS84 · CHINA</div>
+        <div class="rpt-meta">${today}<br>WGS84 · ${lang === 'en' ? T.country.toUpperCase() : T.country}</div>
       </div>`;
 
   // データの版・観測期間。どのデータで判定した結果なのかが後から追えるようにする。
   const provenanceRows = [
-    ['Earthquakes', dataRanges.earthquake || 'unavailable'],
-    ['Typhoons', dataRanges.typhoonHazard || 'unavailable'],
-    ['Lightning', dataRanges.lightning + ' multi-year mean'],
-    ['Rainfall', 'CHIRPS annual maxima, Gumbel fit (see per-site year count)'],
-    ['Elevation', 'JAXA AW3D30, resampled to 150 m'],
+    [T.provenance.earthquakes, dataRanges.earthquake || 'unavailable'],
+    [T.provenance.typhoons, dataRanges.typhoonHazard || 'unavailable'],
+    [T.provenance.lightning, dataRanges.lightning + ' ' + T.multiYearMean],
+    [T.provenance.rainfall, T.gumbelNote],
+    [T.provenance.elevation, T.resampledNote],
   ];
   const rptProvenance = `
       <div class="rpt-footer">
-        <b>Data used for this assessment (generated ${today}).</b>
+        <b>${T.dataUsedTitle(today)}</b>
         ${provenanceRows.map(([k, v]) => `${k}: ${v}.`).join(' ')}
         ${earthquakeFallbackLive ? '<b> Warning: the pre-generated earthquake catalog could not be loaded, so the earthquake figure reflects only the past 30 days and understates the hazard.</b>' : ''}
         <div style="margin-top:5px;">
@@ -3237,14 +3407,35 @@ async function renderReportView(results) {
 
   const rptFooter = rptProvenance + `
       <div class="rpt-footer">
-        <b>Disclaimer.</b> This report presents screening-level hazard indicators derived from public
-        historical and climatological datasets. It is not a guarantee of future events, not an expected
-        loss estimate, and not a sole basis for underwriting, pricing, or coverage decisions.
-        Scores are relative within mainland China and are not comparable to indices published elsewhere.
-        Rainfall return periods beyond the observation period are statistical extrapolations.
-        Elevation and terrain figures are reference values and are not used directly in the hazard scores.
-        <div class="rpt-copyright">© ${new Date().getFullYear()} YM @MSIG. All rights reserved.</div>
+        <b>${T.disclaimerTitle}</b> ${T.disclaimerBody}
+        <div class="rpt-copyright">${T.copyright(new Date().getFullYear())}</div>
       </div>`;
+
+  // --- 台風JMA階級の帯グラフ(図解)。長い説明文の代わりに、該当する階級を強調表示する。 ---
+  const typhoonTierBand = (ty) => {
+    if (typeof ty.tier !== 'number') return '';
+    const words = TYPHOON_TIER_LABELS_RPT_I18N[lang] || TYPHOON_TIER_LABELS_RPT_I18N.en;
+    return `<div class="rpt-tiers">${words.map((w, i) => `
+      <div class="rpt-tier${i === ty.tier ? ' active' : ''}">
+        <div class="rpt-tier-kt">${TYPHOON_TIER_KT[i]}</div>
+        <div class="rpt-tier-nm">${w}</div>
+      </div>`).join('')}</div>`;
+  };
+
+  // --- 水害3機構の内訳チップ(図解)。長い説明文の代わりに、支配的な機構を強調表示する。 ---
+  const waterMechChips = (w) => {
+    if (!w.mech) return '';
+    const chip = (key, label, val) => `
+      <div class="rpt-wchip${w.dominantKey === key ? ' dom' : ''}">
+        <div class="rpt-wchip-nm">${label}</div>
+        <div class="rpt-wchip-v">${typeof val === 'number' ? val.toFixed(2) : '—'}</div>
+      </div>`;
+    return `<div class="rpt-wchips">
+      ${chip('fluvial', T.waterMechLabels.river, w.mech.river)}
+      ${chip('pluvial', T.waterMechLabels.surface, w.mech.surface)}
+      ${chip('surge', T.waterMechLabels.surge, w.mech.surge)}
+    </div>`;
+  };
 
   // --- 複合ハザードのヒーローブロック + 内訳 ---
   const heroBlock = (o) => {
@@ -3264,12 +3455,12 @@ async function renderReportView(results) {
       <div class="rpt-hero" style="border-left-color:${o.color};">
         <div class="rpt-hero-top">
           <div>
-            <div class="rpt-hero-k">Overall hazard</div>
+            <div class="rpt-hero-k">${T.overallHazard}</div>
             <div class="rpt-hero-v" style="color:${o.color};">${o.label}</div>
           </div>
           <div class="rpt-hero-score" style="color:${o.color};">${o.ratio.toFixed(2)}</div>
         </div>
-        <div class="rpt-hero-driver">Driven by <b>${o.drivenBy}</b> — ${o.driverCount > 1 ? 'tied as the highest of the four perils' : 'the highest of the four perils'}.</div>
+        <div class="rpt-hero-driver">${T.drivenBy(o.drivenBy, o.driverCount > 1)}</div>
         <div class="rpt-bd">${rows}</div>
       </div>`;
   };
@@ -3304,18 +3495,18 @@ async function renderReportView(results) {
     summaryHtml = `
     <div class="rpt-page">
       ${rptHead()}
-      <div class="rpt-sum-title">Portfolio summary</div>
-      <div class="rpt-sum-sub">${results.length} locations, ranked by overall hazard. Detailed pages follow in the same order as entered.</div>
+      <div class="rpt-sum-title">${T.portfolioTitle}</div>
+      <div class="rpt-sum-sub">${T.portfolioSub(results.length)}</div>
       <table class="rpt-tbl">
         <thead>
           <tr>
-            <th></th><th>Location</th><th>Coordinates</th><th>Overall</th><th>Driver</th>
+            <th></th><th>${T.colLocation}</th><th>${T.colCoords}</th><th>${T.colOverall}</th><th>${T.colDriver}</th>
             <th class="num">EQ</th><th class="num">TY</th><th class="num">LT</th><th class="num">WA</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <div class="rpt-desc" style="margin-top:14px;">${HAZARD_DESCRIPTIONS.overall}</div>
+      <div class="rpt-desc" style="margin-top:14px;">${HAZARD_DESCRIPTIONS_I18N[lang].overall}</div>
       ${rptFooter}
     </div>`;
   }
@@ -3329,93 +3520,82 @@ async function renderReportView(results) {
       ${heroBlock(r.data.overall)}
 
       <div class="rpt-section">
-        <div class="rpt-h">Earthquake</div>
-        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.earthquake}</div>
+        <div class="rpt-h">${T.sectionTitles.earthquake}</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].earthquake}</div>
         ${rptLegendBar(r.data.earthquake.colors, r.data.earthquake.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.earthquake.color).bg}; color:${rptBadgeColors(r.data.earthquake.color).text};">${r.data.earthquake.label}</span>
       </div>
 
       <div class="rpt-section">
-        <div class="rpt-h">Typhoon</div>
-        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.typhoon}</div>
-        ${rptLegendBar(r.data.typhoon.colors, r.data.typhoon.ratio)}
-        <span class="rpt-badge" style="background:${rptBadgeColors(r.data.typhoon.color).bg}; color:${rptBadgeColors(r.data.typhoon.color).text};">${r.data.typhoon.label}</span>
-        ${r.data.typhoon.freq && r.data.typhoon.freq.observed ? `<div class="rpt-comment">Category 1+ passages occur on average once every ~${r.data.typhoon.freq.returnPeriod.toFixed(1)} years, based on ${r.data.typhoon.freq.totalYears} years of track data.</div>` : ''}
+        <div class="rpt-h">${T.sectionTitles.typhoon}</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].typhoon}</div>
+        ${typhoonTierBand(r.data.typhoon)}
+        <div style="margin-top:10px;"><span class="rpt-badge" style="background:${rptBadgeColors(r.data.typhoon.color).bg}; color:${rptBadgeColors(r.data.typhoon.color).text};">${r.data.typhoon.label}</span></div>
+        ${r.data.typhoon.freq && r.data.typhoon.freq.observed ? `<div class="rpt-comment">${T.typhoonFreq(r.data.typhoon.freq.returnPeriod.toFixed(1), r.data.typhoon.freq.totalYears)}</div>` : ''}
       </div>
 
       <div class="rpt-section">
-        <div class="rpt-h">Lightning</div>
-        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.lightning}</div>
+        <div class="rpt-h">${T.sectionTitles.lightning}</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].lightning}</div>
         ${rptLegendBar(r.data.lightning.colors, r.data.lightning.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.lightning.color).bg}; color:${rptBadgeColors(r.data.lightning.color).text};">${r.data.lightning.label}</span>
       </div>
 
       <div class="rpt-section">
-        <div class="rpt-h">Water hazard</div>
-        <div class="rpt-desc">${HAZARD_DESCRIPTIONS.water}</div>
-        ${rptLegendBar(r.data.water.colors, r.data.water.ratio)}
-        <span class="rpt-badge" style="background:${rptBadgeColors(r.data.water.color).bg}; color:${rptBadgeColors(r.data.water.color).text};">${r.data.water.label}</span>
-        ${r.data.water.dominant ? `<div class="rpt-comment">Dominant mechanism at this location: <b>${r.data.water.dominant}</b>.</div>` : ''}
+        <div class="rpt-h">${T.sectionTitles.water}</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].water}</div>
+        ${waterMechChips(r.data.water)}
+        <div style="margin-top:10px;"><span class="rpt-badge" style="background:${rptBadgeColors(r.data.water.color).bg}; color:${rptBadgeColors(r.data.water.color).text};">${r.data.water.label}</span></div>
+        ${r.data.water.dominant ? `<div class="rpt-comment">${T.dominantMech(r.data.water.dominant)}</div>` : ''}
         ${r.data.water.caveat ? `<div class="rpt-comment" style="color:#C13A2E;font-weight:700;">${r.data.water.caveat}</div>` : ''}
         ${r.data.water.byScenario ? `
         <div class="rpt-kv" style="margin-top:8px;">
           ${r.data.water.byScenario.map(sc => `
             <div class="rpt-kv-item">
-              <div class="rpt-kv-k">${sc.warming === 0 ? 'Current' : '+' + sc.warming + '°C'}</div>
+              <div class="rpt-kv-k">${sc.warming === 0 ? T.scCurrent : '+' + sc.warming + '°C'}</div>
               <div class="rpt-kv-v">${sc.finalRisk === null ? 'n/a' : sc.finalRisk.toFixed(2)}</div>
             </div>`).join('')}
         </div>
-        <div class="rpt-desc" style="margin-top:2px;">Water hazard score under each climate scenario, shown for reference.
-          The headline score above always uses Current (observed) rainfall.</div>` : ''}
+        <div class="rpt-desc" style="margin-top:2px;">${T.scNote}</div>` : ''}
 
         ${r.data.rainfallCurves ? `
         <div style="margin-top:16px;">
-          <div class="rpt-h" style="font-size:9.5px;">Rainfall intensity</div>
-          <div class="rpt-desc">
-            Observed level is the average annual maximum 24-hour rainfall over the observation period.
-            Return-period values estimate the depth exceeded on average once every N years, obtained by
-            fitting a Gumbel distribution to the annual maxima.
-            ${r.data.yearsUsed && r.data.yearsUsed < 50 ? `The 50- and 100-year figures extrapolate well beyond the ${r.data.yearsUsed}-year record and carry substantial uncertainty.` : ''}
-          </div>
+          <div class="rpt-h" style="font-size:9.5px;">${T.rainfallTitle}</div>
+          <div class="rpt-desc">${T.rainfallBody(r.data.yearsUsed)}</div>
           <div class="rpt-kv">
             ${typeof r.data.rainfallTypical === 'number' ? `
             <div class="rpt-kv-item">
-              <div class="rpt-kv-k">Observed (${r.data.yearsUsed || '—'}yr avg)</div>
+              <div class="rpt-kv-k">${T.observedLbl(r.data.yearsUsed)}</div>
               <div class="rpt-kv-v">${r.data.rainfallTypical.toFixed(0)} mm</div>
             </div>` : ''}
-            ${RAINFALL_RETURN_PERIODS_YR.map((T, ti) => `
+            ${RAINFALL_RETURN_PERIODS_YR.map((yr, ti) => `
             <div class="rpt-kv-item">
-              <div class="rpt-kv-k">${T}-year</div>
+              <div class="rpt-kv-k">${T.yearLbl(yr)}</div>
               <div class="rpt-kv-v">${r.data.rainfallCurves[0].values[ti].toFixed(0)} mm</div>
             </div>`).join('')}
           </div>
-          <div class="rpt-desc" style="margin-top:2px;">
-            For context, the China Meteorological Administration classifies 50mm+ in 24h as 暴雨 (rainstorm),
-            100mm+ as 大暴雨, and 250mm+ as 特大暴雨. These thresholds are shown for reference and are not
-            used to derive the score.
-          </div>
-          <div class="rpt-desc" style="margin-top:2px;">
-            The Water Hazard score above always uses the <b>Current</b> (observed) 50-year value shown below —
-            it does not change with the +1.5°C / +2°C scenarios, which are shown for reference only,
-            scaled using IPCC AR6 Clausius-Clapeyron (~${RAINFALL_CC_PCT_PER_DEG}%/°C).
-          </div>
+          <div class="rpt-desc" style="margin-top:2px;">${T.cmaNote}</div>
+          <div class="rpt-desc" style="margin-top:2px;">${T.currentNote(RAINFALL_CC_PCT_PER_DEG)}</div>
           <div style="margin:10px 0 4px;"><canvas id="rptChart${i}" width="640" height="220"></canvas></div>
           <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:9.5px; color:#52514e;">
             ${RAINFALL_WARMING_SCENARIOS.map((w, wi) => `
-            <span><span style="display:inline-block;width:8px;height:8px;background:${CURVE_COLORS_RPT[wi]};border-radius:2px;margin-right:4px;"></span>${w === 0 ? 'Current' : '+' + w + '°C'}</span>`).join('')}
+            <span><span style="display:inline-block;width:8px;height:8px;background:${CURVE_COLORS_RPT[wi]};border-radius:2px;margin-right:4px;"></span>${w === 0 ? T.scCurrent : '+' + w + '°C'}</span>`).join('')}
           </div>
         </div>` : ''}
 
+        <!-- 標高・3D地形図: ユーザー確認済みにつき描画方法(Plotly surface)は変更しない。
+             周囲の説明文のみ多言語化する。depLabel.textは地図ポップアップと共有の
+             depressionFactorLabel()が英語で返すため、ja/zhでもこの部分だけ英語のまま。 -->
         <div style="margin-top:16px;">
-          <div class="rpt-h" style="font-size:9.5px;">Terrain around the site (approx. 1.05km)</div>
-          <div class="rpt-desc">Terrain across the area surrounding the site, sampled from 150m elevation tiles. The black marker shows the searched location; colour and height both represent elevation in metres. The vertical scale is exaggerated so that gentle relief remains visible. Elevation is a surface model and includes buildings and vegetation.</div>
+          <div class="rpt-h" style="font-size:9.5px;">${T.terrainTitle}</div>
+          <div class="rpt-desc">${T.terrainBody}</div>
           <div class="rpt-kv">
             <div class="rpt-kv-item">
-              <div class="rpt-kv-k">Elevation</div>
+              <div class="rpt-kv-k">${T.elevation}</div>
               <div class="rpt-kv-v">${r.data.centerElev.toFixed(1)} m</div>
             </div>
           </div>
-          <div class="rpt-desc" style="margin-top:2px;">${r.data.depLabel.text}, considering the surrounding ~1.05km (roughly 450m in each direction from the site) — factored into the surface water flooding score above.</div>
+          <div class="rpt-desc" style="margin-top:2px;">${r.data.depLabel.text}, ${T.terrainNoteSuffix}</div>
           <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
         </div>
       </div>
