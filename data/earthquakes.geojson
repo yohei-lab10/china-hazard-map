@@ -86742,6 +86742,24 @@
         "depth_km": 45.513,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000th1q"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000ths9",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.4963,
+          37.7078
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "281 km SSE of Dunhuang, China",
+        "time": 1789537923328,
+        "depth_km": 10.46,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000ths9"
+      }
     }
   ]
 }
