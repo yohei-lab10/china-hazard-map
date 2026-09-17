@@ -26,6 +26,7 @@ TARGETS = [
     ("N036E099.tif", "青海湖・南西"),
     ("N037E100.tif", "青海湖・北東"),
     ("N037E099.tif", "青海湖・北西"),
+    ("N033E118.tif", "洪澤湖(標高約12m)"),
 ]
 
 
@@ -62,7 +63,7 @@ def diagnose(path, label):
     # タイル名の南西角の緯度(整数度)+0.5をタイル中心緯度とみなし、
     # 経度方向だけ cos(緯度) で補正する(緯度方向は場所によらず一定)。
     fname = os.path.basename(path)
-    tile_lat = int(fname[1:3])
+    tile_lat = int(fname[1:4])
     if fname[0].upper() == "S":
         tile_lat = -tile_lat
     block_deg = 12 / 720  # = 1/60度
