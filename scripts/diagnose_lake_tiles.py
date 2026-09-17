@@ -72,7 +72,7 @@ def diagnose(path, label):
     block_area_km2 = block_side_lat_km * block_side_lon_km
 
     area_at_1_0 = 0.0
-    for th in (0.1, 0.3, 0.5, 1.0):
+    for th in (0.1, 0.3, 0.5, 1.0, 1.5, 2.0, 3.0):
         flat = stds < th
         n = int(flat.sum())
         med = np.median(means[flat]) if n else float("nan")
