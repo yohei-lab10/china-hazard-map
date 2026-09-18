@@ -20,10 +20,6 @@ name: Update Hazard Data
         description: "Run WGLC lightning climatology update (downloads ~27MB NetCDF, climate data — rarely needs to change)"
         type: boolean
         default: false
-      run_lake_diagnostic:
-        description: "Diagnose elevation tile flatness at known lakes (Tai/Qinghai) — read-only, no data written"
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -172,21 +168,3 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: update lightning.geojson [auto]"
           git pull --rebase origin main
           git push
-
-  # 【2026年9月追加】湖沼を外水氾濫に組み込む設計検討のための、読み取り専用の
-  # 診断ジョブ。data/には一切書き込まない(commit・pushのステップが無い)。
-  # 太湖・青海湖を含むタイルの標高値の「局所的な平坦さ(標準偏差)」を確認し、
-  # fetch_lakes.py の水域判定方式(絶対値0m基準か、標準偏差基準か)を決めるための
-  # 実測材料を得ることが目的。検証が終わったらこのジョブ自体を削除してよい。
-  diagnose-lakes:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_lake_diagnostic == 'true'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: pip install rasterio numpy
-      - name: Diagnose lake tiles
-        run: python scripts/diagnose_lake_tiles.py
