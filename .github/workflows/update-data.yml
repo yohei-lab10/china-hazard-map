@@ -20,6 +20,14 @@ name: Update Hazard Data
         description: "Run WGLC lightning climatology update (downloads ~27MB NetCDF, climate data — rarely needs to change)"
         type: boolean
         default: false
+      run_lakes:
+        description: "Regenerate data/lakes.geojson from HydroLAKES (downloads ~763MB, one-time — rarely needs to change once generated)"
+        type: boolean
+        default: false
+      hydrolakes_url:
+        description: "HydroLAKES shapefile (.zip) URL — check https://www.hydrosheds.org/products/hydrolakes for the current link. Required only when run_lakes is checked."
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -166,5 +174,36 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/lightning.geojson
           git diff --staged --quiet || git commit -m "chore: update lightning.geojson [auto]"
+          git pull --rebase origin main
+          git push
+
+  # 【2026年9月追加】外水氾濫(機構1)に湖沼を組み込むための、HydroLAKESからの
+  # 一括抽出ジョブ。太湖・洪澤湖・青海湖を標高タイルから「発見」しようとした
+  # 従来の試み(diagnose_lake_tiles.py)は、単一の閾値では成立しないことが
+  # 実測で判明したため撤去し、既知の湖沼データベース(HydroLAKES、CC BY 4.0)
+  # から直接抽出する方式に切り替えた。詳細はfetch_lakes.pyのdocstring参照。
+  #
+  # HydroLAKESの配布ファイル(約763MB)はこのジョブの実行中だけ使い、
+  # リポジトリにはコミットしない。data/lakes.geojsonとして出力される、
+  # 面積と間引いた湖岸点群だけを持つ小さいファイルだけがコミットされる。
+  update-lakes:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_lakes == 'true' && github.event.inputs.hydrolakes_url != ''
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install geopandas
+      - name: Fetch lakes
+        run: python scripts/fetch_lakes.py --hydrolakes-url "${{ github.event.inputs.hydrolakes_url }}" --out data/lakes.geojson
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/lakes.geojson
+          git diff --staged --quiet || git commit -m "chore: generate lakes.geojson from HydroLAKES [auto]"
           git pull --rebase origin main
           git push
