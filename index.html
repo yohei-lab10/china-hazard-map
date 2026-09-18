@@ -1595,47 +1595,69 @@ function nearbyRiverFeatures(lat, lon) {
   return Array.from(candidateIdx).map(i => riversGeojsonCacheGlobal.features[i]);
 }
 
-// Overpass API(OpenStreetMap)で、指定地点周辺の湖・貯水池をその場に問い合わせる。
-// HydroLAKES(全世界820MBの事前ダウンロードが必要)を避けるための代替手段。
-// 地点検索1回につき1回だけ呼び出し、169マス全体で結果を使い回す(通信回数を抑えるため)。
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+// 湖沼データ(data/lakes.geojson、HydroLAKES由来、Country=="China"・面積0.1km²以上、
+// 24,518件)。外水氾濫の候補として河川と同じ枠組みで扱う。
+//
+// 【2026年9月・経緯】当初はOverpass API(OpenStreetMap)にその場で問い合わせる
+// fetchNearbyLakePoints()を用意していたが、実際にはどこからも呼ばれておらず
+// (死んでいたコード)、外水氾濫は河川のみが対象のままだった。太湖の湖畔で
+// 外水氾濫スコアが0.00になる指摘を受けて調査した結果が経緯。
+// 標高タイル(150m)から「水面のように平坦なブロック」を検出する方式も試したが、
+// 太湖では実測面積との誤差5%で良好だった一方、洪澤湖のような周辺が平坦な農地に
+// 囲まれた低地の湖では単一の閾値で太湖・青海湖の両方を満たせないことが実測で
+// 判明し、断念した。最終的にHydroLAKES(HydroRIVERS/rivers.geojsonと同じ
+// Lehner氏らのプロジェクト、CC BY 4.0)からの静的抽出に切り替えた
+// (scripts/fetch_lakes.py参照)。これにより面積は自前で計算する必要がなく、
+// ライブAPI呼び出しも無くなり、地図表示・レポートいずれの再現性も上がった。
+let lakesGeojsonCacheGlobal = null;
+let lakeSpatialIndex = null; // Map<"latCell_lonCell", number[]>(lakesデータのインデックス、featuresの添字)
+const LAKE_INDEX_CELL_DEG = 0.02; // 河川と同じ格子サイズ(約2.2km四方)
 
-async function fetchNearbyLakePoints(lat, lon, radiusM) {
-  const query = `[out:json][timeout:25];(way["natural"="water"]["water"~"lake|reservoir|oxbow"](around:${radiusM},${lat},${lon});relation["natural"="water"]["water"~"lake|reservoir|oxbow"](around:${radiusM},${lat},${lon}););out geom;`;
-  try {
-    const res = await fetch(OVERPASS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: query,
+function buildLakeSpatialIndex(lakesGeojson) {
+  const index = new Map();
+  if (!lakesGeojson) return index;
+  lakesGeojson.features.forEach((f, idx) => {
+    const coords = f.geometry?.coordinates;
+    if (!coords) return;
+    const seenCells = new Set();
+    coords.forEach(([lon, lat]) => {
+      const cellKey = `${Math.floor(lat / LAKE_INDEX_CELL_DEG)}_${Math.floor(lon / LAKE_INDEX_CELL_DEG)}`;
+      if (seenCells.has(cellKey)) return;
+      seenCells.add(cellKey);
+      if (!index.has(cellKey)) index.set(cellKey, []);
+      index.get(cellKey).push(idx);
     });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const points = [];
-    (data.elements || []).forEach(el => {
-      if (el.geometry) {
-        el.geometry.forEach(g => points.push([g.lat, g.lon]));
-      } else if (el.members) {
-        el.members.forEach(m => {
-          if (m.geometry) m.geometry.forEach(g => points.push([g.lat, g.lon]));
-        });
-      }
-    });
-    return points;
-  } catch (e) {
-    // Overpass APIが混雑・失敗している場合は、湖の要素なしとして扱う(検索自体は継続する)
-    return [];
-  }
+  });
+  return index;
 }
 
-// 距離(km) → 最寄りの頂点との最短距離(度)を概算距離(km)に変換する簡易ヘルパー
-function pointToLineDistanceKm(lat, lon, coords) {
-  // 簡易実装: 線を構成する各頂点との距離のうち最小値を採用する(頂点間の補間はしない近似)
-  let minDist = Infinity;
-  coords.forEach(([clon, clat]) => {
-    const d = haversineKm(lat, lon, clat, clon);
-    if (d < minDist) minDist = d;
-  });
-  return minDist;
+function nearbyLakeFeatures(lat, lon) {
+  if (!lakeSpatialIndex || !lakesGeojsonCacheGlobal) return [];
+  const baseLat = Math.floor(lat / LAKE_INDEX_CELL_DEG);
+  const baseLon = Math.floor(lon / LAKE_INDEX_CELL_DEG);
+  const candidateIdx = new Set();
+  for (let dLat = -1; dLat <= 1; dLat++) {
+    for (let dLon = -1; dLon <= 1; dLon++) {
+      const bucket = lakeSpatialIndex.get(`${baseLat + dLat}_${baseLon + dLon}`);
+      if (bucket) bucket.forEach(i => candidateIdx.add(i));
+    }
+  }
+  return Array.from(candidateIdx).map(i => lakesGeojsonCacheGlobal.features[i]);
+}
+
+// 湖沼の規模係数。河川のriverOrderFactor(HydroRIVERSのorder、Strahler次数)に
+// 相当するが、湖にはorderという概念が無いため、HydroLAKESが持つ実面積(km²)を
+// 直接使う。上位3段階は中国の湖沼面積分類(全国湖沼調査、公式・文献)に準拠。
+// 100km²未満(実際にヒットする対象の大半)は公式分類の外側なので、河川のorder
+// 区分と同じ考え方(10倍刻みで大まかに区切る)で社内基準を設けた。
+function lakeAreaFactor(areaKm2) {
+  if (typeof areaKm2 !== 'number') return 0.3;  // 面積不明(社内基準、riverOrderFactorのorder欠損時と同じ位置づけ)
+  if (areaKm2 > 1000) return 1.0;   // 特大型湖泊(公式・文献)
+  if (areaKm2 >= 500) return 0.85;  // 大型湖泊(公式・文献)
+  if (areaKm2 >= 100) return 0.7;   // 中型湖泊(公式・文献)
+  if (areaKm2 >= 10) return 0.55;   // 100km²未満・10km²以上(社内基準)
+  if (areaKm2 >= 1) return 0.4;     // 10km²未満・1km²以上(社内基準)
+  return 0.3;                        // 1km²未満(社内基準)
 }
 
 // ==== 標高タイル(AW3D30 150m)の読み込み ====
@@ -1915,7 +1937,9 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev) {
   // 0 は「評価した結果、近くに川が無かった」という判定であり、取得失敗とは意味が違う。
   // 0 を返すと combineWaterHazard が正当な候補として最大値比較に入れてしまい、
   // 取得失敗が「評価済みの安全判定」として合成される。
-  if (!riverSpatialIndex || !riversGeojsonCacheGlobal) return null;
+  // 【2026年9月追加】湖沼(data/lakes.geojson)は河川と対等な候補として扱う。
+  // 河川・湖のどちらも読み込めていない場合のみnullを返す(片方だけでも評価は成立する)。
+  if ((!riverSpatialIndex || !riversGeojsonCacheGlobal) && (!lakeSpatialIndex || !lakesGeojsonCacheGlobal)) return null;
   let best = 0;
   nearbyRiverFeatures(lat, lon).forEach(f => {
     const coords = f.geometry?.coordinates;
@@ -1929,6 +1953,25 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev) {
     if (elevGet && centerElev !== null) {
       const riverElev = elevGet(nv.lat, nv.lon);
       if (typeof riverElev === 'number') relief = centerElev - riverElev;
+    }
+    const score = prox * scale * riverReliefFactor(relief);
+    if (score > best) best = score;
+  });
+  // 湖沼も同じ距離減衰・比高係数を使い、規模係数だけlakeAreaFactor(面積km²)に差し替える。
+  // 「河川か湖か」ではなく、どちらであれ近くの外水がどれだけ危険かという同じ問いなので、
+  // 両方を候補としてまとめて評価し、大きい方(=より危険な方)を採用する。
+  nearbyLakeFeatures(lat, lon).forEach(f => {
+    const coords = f.geometry?.coordinates;
+    if (!coords) return;
+    const nv = nearestVertexOnRiver(lat, lon, coords); // 頂点群への最近傍探索は湖でも共通利用できる
+    if (!nv || nv.distKm > 2) return;
+    const prox = riverProximityScore(nv.distKm * 1000);
+    if (prox === 0) return;
+    const scale = lakeAreaFactor(f.properties?.area_km2);
+    let relief = null;
+    if (elevGet && centerElev !== null) {
+      const lakeElev = elevGet(nv.lat, nv.lon);
+      if (typeof lakeElev === 'number') relief = centerElev - lakeElev;
     }
     const score = prox * scale * riverReliefFactor(relief);
     if (score > best) best = score;
@@ -2095,10 +2138,11 @@ function waterCaveatText(missing) {
 let mapRainfallWarming = 0;
 
 async function buildWaterHazard() {
-  const [rainfallGeojson, elevationGeojson, riversGeojson, coastline, confluences] = await Promise.all([
+  const [rainfallGeojson, elevationGeojson, riversGeojson, lakesGeojson, coastline, confluences] = await Promise.all([
     fetchGeojsonSafe('data/rainfall_risk.geojson'),
     fetchGeojsonSafe('data/elevation_risk.geojson'),
     fetchGeojsonSafe('data/rivers.geojson'),
+    fetchGeojsonSafe('data/lakes.geojson'),
     fetchPointsSafe('data/coastline_points.json'),
     fetchPointsSafe('data/river_confluences.json'),
   ]);
@@ -2106,6 +2150,8 @@ async function buildWaterHazard() {
   elevationGeojsonCacheGlobal = elevationGeojson;
   riversGeojsonCacheGlobal = riversGeojson;
   riverSpatialIndex = buildRiverSpatialIndex(riversGeojson);
+  lakesGeojsonCacheGlobal = lakesGeojson;
+  lakeSpatialIndex = buildLakeSpatialIndex(lakesGeojson);
   coastlinePointsIndex = buildCoastlineIndex(coastline && coastline.points);
   confluenceIndex = buildCoastlineIndex(confluences && confluences.points);
 
@@ -3305,6 +3351,34 @@ async function loadScriptOnce(src) {
   });
 }
 
+// 【2026年9月追加】A4分割PDFの改ページ位置を決めるためのヘルパー2つ。
+// rptSafeBreakZonesは「途中で切ってはいけない」主要ブロックの縦範囲(canvasのpx単位、
+// html2canvasのscaleと揃える)を集める。rptAdjustBreakは、機械的な297mm境界がその
+// 範囲の内部に来る場合、ブロックの直前まで切り上げてブロックごと次ページへ送る。
+function rptSafeBreakZones(pageEl, scale) {
+  const rootTop = pageEl.getBoundingClientRect().top;
+  const zones = [];
+  pageEl.querySelectorAll('.rpt-hero, .rpt-section, .rpt-sum-title, .rpt-sum-sub, .rpt-tbl, .rpt-footer').forEach(el => {
+    const r = el.getBoundingClientRect();
+    zones.push([(r.top - rootTop) * scale, (r.bottom - rootTop) * scale]);
+  });
+  zones.sort((a, b) => a[0] - b[0]);
+  return zones;
+}
+
+function rptAdjustBreak(idealCut, zones, cursor) {
+  for (const [top, bottom] of zones) {
+    if (idealCut > top + 2 && idealCut < bottom - 2) {
+      // ブロックの開始位置まで戻して丸ごと次ページに送る。ただし、そのブロック自体が
+      // A4 1ページより大きく、切り上げると空ページに近くなってしまう場合は諦めて
+      // そのまま機械的な位置で切る(まれな極端ケース: 巨大な表やチャートなど)。
+      if (top > cursor + 60) return top;
+      return idealCut;
+    }
+  }
+  return idealCut;
+}
+
 async function generateIntegratedReport() {
   const btn = document.getElementById('reportGenerateBtn');
   const status = document.getElementById('reportStatus');
@@ -3340,20 +3414,47 @@ async function generateIntegratedReport() {
 
     status.textContent = 'Building PDF…';
     const { jsPDF } = window.jspdf;
+    const A4_W_MM = 210, A4_H_MM = 297;
+    const HTML2CANVAS_SCALE = 2;
     let pdf = null;
     const pages = document.querySelectorAll('#reportView .rpt-page');
     for (let i = 0; i < pages.length; i++) {
-      // scale:2 で高解像度化。各拠点1ページぶんの全内容を、改ページなしで1枚の縦長ページに収める
-      const canvas = await html2canvas(pages[i], { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-      const imgData = canvas.toDataURL('image/png');
-      const pageWidthMm = 210; // A4幅に合わせ、縦は内容量に応じて可変(1枚に収める)
-      const pageHeightMm = canvas.height * (pageWidthMm / canvas.width);
-      if (!pdf) {
-        pdf = new jsPDF({ unit: 'mm', format: [pageWidthMm, pageHeightMm] });
-      } else {
-        pdf.addPage([pageWidthMm, pageHeightMm]);
+      // 【2026年9月改訂】従来は各拠点1ページぶんの全内容を改ページなしで1枚の縦長ページに
+      // 収めていたが、実際の印刷・配布物としてA4に合わない問題があったため、標準A4
+      // (210×297mm)単位で複数ページに分割する方式に変更した。
+      // 単純に297mm相当のピクセル数で機械的に切ると、セクションやグラフの途中で
+      // 分断されてしまう(過去にwindow.print()方式を諦めた理由と同じ問題)。
+      // そのため、主要ブロック(.rpt-hero/.rpt-section/表など)の実際の描画位置を
+      // 事前に取得しておき、297mm境界がブロックの内部に来る場合はブロックの直前まで
+      // 切り上げ、そのブロックを丸ごと次ページへ送る。
+      const canvas = await html2canvas(pages[i], { scale: HTML2CANVAS_SCALE, backgroundColor: '#ffffff', useCORS: true });
+      const zones = rptSafeBreakZones(pages[i], HTML2CANVAS_SCALE);
+      const pxPerMm = canvas.width / A4_W_MM;
+      const idealSliceHeightPx = pxPerMm * A4_H_MM;
+
+      let cursor = 0;
+      while (cursor < canvas.height - 1) {
+        let cut = Math.min(canvas.height, cursor + idealSliceHeightPx);
+        if (cut < canvas.height) cut = rptAdjustBreak(cut, zones, cursor);
+        const sh = Math.max(1, Math.round(cut - cursor));
+
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width;
+        slice.height = Math.round(idealSliceHeightPx); // 常にA4比率の高さを確保し、最後の余白は白紙にする
+        const sctx = slice.getContext('2d');
+        sctx.fillStyle = '#ffffff';
+        sctx.fillRect(0, 0, slice.width, slice.height);
+        sctx.drawImage(canvas, 0, cursor, canvas.width, sh, 0, 0, canvas.width, sh);
+
+        const imgData = slice.toDataURL('image/png');
+        if (!pdf) {
+          pdf = new jsPDF({ unit: 'mm', format: [A4_W_MM, A4_H_MM] });
+        } else {
+          pdf.addPage([A4_W_MM, A4_H_MM]);
+        }
+        pdf.addImage(imgData, 'PNG', 0, 0, A4_W_MM, A4_H_MM);
+        cursor = cut;
       }
-      pdf.addImage(imgData, 'PNG', 0, 0, pageWidthMm, pageHeightMm);
     }
     pdf.save(`hazard-report-${new Date().toISOString().slice(0, 10)}.pdf`);
 
