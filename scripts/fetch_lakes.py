@@ -61,10 +61,10 @@ import json
 import os
 import sys
 import tempfile
-import urllib.request
 import zipfile
 
 import geopandas as gpd
+import requests
 
 # 中国本土の標高タイルが存在する範囲と同じバウンディングボックス(緩衝込み)。
 # 国境をまたぐ湖(例: 中露国境のハンカ湖)は、これで一律に「重なっていれば含む」扱いにする。
@@ -77,10 +77,38 @@ SIMPLIFY_TOLERANCE_DEG = 0.005  # 約500m。湖岸点群を間引く許容誤差
 def download_and_extract(url, workdir):
     """HydroLAKESのzipをダウンロードして展開し、.shpのパスを返す。
     zip自体は展開後すぐに削除してディスクを節約する(TemporaryDirectory全体は
-    呼び出し元のwithブロックを抜けた時点でOSが自動削除する)。"""
+    呼び出し元のwithブロックを抜けた時点でOSが自動削除する)。
+
+    【2026年9月】urllib.request.urlretrieve()はPython標準の素っ気ない
+    User-Agent("Python-urllib/3.x")を送るため、配信元(data.hydrosheds.org)に
+    403 Forbiddenで弾かれることが実測で判明した。requestsでブラウザ相当の
+    User-Agentを付け、ストリーミングダウンロード(820MBを一度にメモリへ
+    載せない)に変更した。"""
     zip_path = os.path.join(workdir, 'hydrolakes.zip')
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                      'AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/120.0.0.0 Safari/537.36'
+    }
     print(f'ダウンロード中: {url}')
-    urllib.request.urlretrieve(url, zip_path)
+    with requests.get(url, headers=headers, stream=True, timeout=120) as resp:
+        resp.raise_for_status()
+        total = int(resp.headers.get('content-length', 0))
+        written = 0
+        last_pct = -1
+        with open(zip_path, 'wb') as f:
+            for chunk in resp.iter_content(chunk_size=1024 * 1024):
+                if not chunk:
+                    continue
+                f.write(chunk)
+                written += len(chunk)
+                if total:
+                    pct = int(written * 100 / total)
+                    if pct != last_pct and pct % 10 == 0:
+                        print(f'  {pct}% ({written / (1024*1024):.0f}MB / {total / (1024*1024):.0f}MB)')
+                        last_pct = pct
+    print(f'ダウンロード完了: {os.path.getsize(zip_path) / (1024*1024):.0f}MB')
+
     print(f'展開中: {zip_path}')
     with zipfile.ZipFile(zip_path) as z:
         z.extractall(workdir)
