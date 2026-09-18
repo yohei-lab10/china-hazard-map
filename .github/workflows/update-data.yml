@@ -196,7 +196,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dependencies
-        run: pip install geopandas
+        run: pip install geopandas requests
       - name: Fetch lakes
         run: python scripts/fetch_lakes.py --hydrolakes-url "${{ github.event.inputs.hydrolakes_url }}" --out data/lakes.geojson
       - name: Commit and push if changed
