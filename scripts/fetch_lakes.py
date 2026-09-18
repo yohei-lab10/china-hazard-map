@@ -148,6 +148,20 @@ def main():
         gdf = gdf[gdf['Lake_area'] >= args.min_area_km2]
         print(f'面積{args.min_area_km2}km²以上: {len(gdf):,} 件')
 
+        # 【2026年9月追加】バウンディングボックスだけでは、ロシア(バイカル湖)・
+        # カザフスタン(バルハシ湖)・キルギス(イシク・クル湖)のような、国境付近の
+        # 巨大な国外の湖まで拾ってしまうことが実測で判明した。HydroLAKESの
+        # Country属性で中国に限定する(越境する湖は代表点1点の帰属国に一括で
+        # 割り当てられる仕様のため、国境をまたぐ湖の扱いが多少荒くなる点は
+        # 許容する)。
+        if 'Country' not in gdf.columns:
+            print(f'エラー: 想定した列名 "Country" が見つかりません。'
+                  f'実際の列: {list(gdf.columns)}', file=sys.stderr)
+            return 1
+        before = len(gdf)
+        gdf = gdf[gdf['Country'] == 'China']
+        print(f'Country=="China"で絞り込み: {before:,} 件 → {len(gdf):,} 件')
+
         features = []
         for _, row in gdf.iterrows():
             geom = row.geometry
