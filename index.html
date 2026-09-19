@@ -1932,7 +1932,7 @@ function nearestVertexOnRiver(lat, lon, coords) {
   return best ? { distKm: bestD, lat: best.lat, lon: best.lon } : null;
 }
 
-function fluvialScoreAt(lat, lon, elevGet, centerElev) {
+function fluvialScoreAt(lat, lon, elevGet, centerElev, meta) {
   // 【2026年9月】河川データが読み込めていない場合は 0 ではなく null を返す。
   // 0 は「評価した結果、近くに川が無かった」という判定であり、取得失敗とは意味が違う。
   // 0 を返すと combineWaterHazard が正当な候補として最大値比較に入れてしまい、
@@ -1941,6 +1941,7 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev) {
   // 河川・湖のどちらも読み込めていない場合のみnullを返す(片方だけでも評価は成立する)。
   if ((!riverSpatialIndex || !riversGeojsonCacheGlobal) && (!lakeSpatialIndex || !lakesGeojsonCacheGlobal)) return null;
   let best = 0;
+  let bestSource = null; // 'river' | 'lake'。呼び出し側がラベル("River flooding"等)を出し分けるために使う。
   nearbyRiverFeatures(lat, lon).forEach(f => {
     const coords = f.geometry?.coordinates;
     if (!coords) return;
@@ -1955,7 +1956,7 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev) {
       if (typeof riverElev === 'number') relief = centerElev - riverElev;
     }
     const score = prox * scale * riverReliefFactor(relief);
-    if (score > best) best = score;
+    if (score > best) { best = score; bestSource = 'river'; }
   });
   // 湖沼も同じ距離減衰・比高係数を使い、規模係数だけlakeAreaFactor(面積km²)に差し替える。
   // 「河川か湖か」ではなく、どちらであれ近くの外水がどれだけ危険かという同じ問いなので、
@@ -1974,8 +1975,9 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev) {
       if (typeof lakeElev === 'number') relief = centerElev - lakeElev;
     }
     const score = prox * scale * riverReliefFactor(relief);
-    if (score > best) best = score;
+    if (score > best) { best = score; bestSource = 'lake'; }
   });
+  if (meta) meta.source = bestSource;
   // 河川が近くにない地点では合流部があっても意味がないため、加算ではなく乗算にする
   return best > 0 ? Math.min(1, best * confluenceFactor(lat, lon)) : 0;
 }
@@ -2093,15 +2095,20 @@ function elevFromGridProps(props) {
 // (記録の代表点は影響範囲の重心で、面積の中央値が約73,000km²=270km四方と粗いため)。
 const FLOOD_WEIGHT_MAX_UPLIFT = 0.2;
 
-function combineWaterHazard(fluvial, pluvial, surge) {
+function combineWaterHazard(fluvial, pluvial, surge, fluvialSource) {
+  // 【2026年9月追加】fluvialは河川・湖沼どちらの候補が勝ったかで意味が変わるため、
+  // fluvialScoreAt()のmeta.sourceをここに渡してラベルを出し分ける。
+  // 呼び出し側が省略した場合(未対応の呼び出し箇所・湖沼データ未読込など)は
+  // 従来通り「River flooding」を既定値にする(後方互換)。
+  const fluvialLabel = fluvialSource === 'lake' ? 'Lake flooding' : 'River flooding';
   const parts = [
-    { key: 'fluvial', label: 'River flooding', value: fluvial },
+    { key: 'fluvial', label: fluvialLabel, value: fluvial },
     { key: 'pluvial', label: 'Surface water flooding', value: pluvial },
     { key: 'surge', label: 'Coastal storm surge', value: surge },
   ].filter(p => typeof p.value === 'number');
   // 評価できなかった機構(value が数値でないもの)を記録し、呼び出し側で明示させる
   const missing = [
-    { label: 'river flooding', value: fluvial },
+    { label: fluvialSource === 'lake' ? 'lake flooding' : 'river flooding', value: fluvial },
     { label: 'surface water flooding', value: pluvial },
     { label: 'coastal storm surge', value: surge },
   ].filter(p => typeof p.value !== 'number').map(p => p.label);
@@ -2468,11 +2475,11 @@ const RAINFALL_WARMING_SCENARIOS = [0, 1.5, 2, 3]; // ℃(0=現在の観測ベ�
 // 再利用し、シナリオごとに変わる降雨強度(pluvial)だけを再計算する。
 // ヘッダーの総合スコア(badge本体・レポートの表紙)は従来どおり常に現在気候(warming=0)
 // のままで、この関数はあくまで「参考として他シナリオだとどうなるか」を出すためのもの。
-function waterHazardByScenario(lat, lon, fluvial, surge, depressionFactorObj, weight, tierLabels) {
+function waterHazardByScenario(lat, lon, fluvial, surge, depressionFactorObj, weight, tierLabels, fluvialSource) {
   return RAINFALL_WARMING_SCENARIOS.map(w => {
     const rain = rainfallIntensityScore(lat, lon, w);
     const pluvial = rain === null ? null : Math.max(0, Math.min(1, rain * depressionFactorObj.factor));
-    const combined = combineWaterHazard(fluvial, pluvial, surge);
+    const combined = combineWaterHazard(fluvial, pluvial, surge, fluvialSource);
     if (!combined) return { warming: w, finalRisk: null, tierLabel: null, dominant: null };
     const finalRisk = Math.min(1.0, combined.base * weight);
     const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
@@ -2618,9 +2625,10 @@ async function queryPoint(lat, lon) {
       subGridAround(gridElevations, gridSide, GRID_STEPS, GRID_STEPS, DEPRESSION_HALF));
     const depLabel = depressionFactorLabel(depression);
     const pluvial = noRainDataHere ? null : Math.max(0, Math.min(1, pluvialRain * depression.factor));
-    const fluvial = fluvialScoreAt(lat, lon, elevBlock && elevBlock.ok ? elevBlock.get : null, centerElev);
+    const fluvialMeta = {}; // fluvialScoreAtが河川/湖沼どちらを採用したかを受け取る(ラベル出し分け用)
+    const fluvial = fluvialScoreAt(lat, lon, elevBlock && elevBlock.ok ? elevBlock.get : null, centerElev, fluvialMeta);
     const surge = surgeScoreAt(lat, lon, centerElev);
-    const waterCombined = combineWaterHazard(fluvial, pluvial, surge);
+    const waterCombined = combineWaterHazard(fluvial, pluvial, surge, fluvialMeta.source);
 
     let waterBadge;
     if (!waterCombined) {
@@ -3221,9 +3229,10 @@ async function computeReportData(lat, lon, lang) {
   const reportDepLabel = depressionFactorLabel(reportDepression);
   const reportRain = rainfallIntensityScore(lat, lon);
   const reportPluvial = reportRain === null ? null : Math.max(0, Math.min(1, reportRain * reportDepression.factor));
-  const reportFluvial = fluvialScoreAt(lat, lon, reportBlock && reportBlock.ok ? reportBlock.get : null, centerElev);
+  const reportFluvialMeta = {}; // fluvialScoreAtが河川/湖沼どちらを採用したかを受け取る(ラベル出し分け用)
+  const reportFluvial = fluvialScoreAt(lat, lon, reportBlock && reportBlock.ok ? reportBlock.get : null, centerElev, reportFluvialMeta);
   const reportSurge = surgeScoreAt(lat, lon, centerElev);
-  const reportCombined = combineWaterHazard(reportFluvial, reportPluvial, reportSurge);
+  const reportCombined = combineWaterHazard(reportFluvial, reportPluvial, reportSurge, reportFluvialMeta.source);
 
   let water;
   if (!reportCombined) {
@@ -3240,7 +3249,7 @@ async function computeReportData(lat, lon, lang) {
     const tier = Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1));
     // 【2026年9月追加】レポートの表紙スコアは従来どおり現在気候のまま。
     // 参考として、4シナリオ(Current/+1.5/+2/+3℃)分をまとめてレポートに載せる。
-    const byScenario = waterHazardByScenario(lat, lon, reportFluvial, reportSurge, reportDepression, weight, TIER_LABELS_RPT);
+    const byScenario = waterHazardByScenario(lat, lon, reportFluvial, reportSurge, reportDepression, weight, TIER_LABELS_RPT, reportFluvialMeta.source);
     water = {
       label: T.hazardLabel('water', tierWords[tier], finalRisk.toFixed(2)),
       color: WARNING_TIER_COLORS[tier], colors: WARNING_TIER_COLORS, ratio: finalRisk,
