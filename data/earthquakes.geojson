@@ -86760,6 +86760,24 @@
         "depth_km": 10.46,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000ths9"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tipl",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          129.3406,
+          28.3947
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "14 km WNW of Naze, Japan",
+        "time": 1789889302965,
+        "depth_km": 68.834,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tipl"
+      }
     }
   ]
 }
