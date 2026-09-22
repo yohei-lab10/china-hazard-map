@@ -86778,6 +86778,24 @@
         "depth_km": 68.834,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tipl"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tixp",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          132.0805,
+          32.5978
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "38 km E of Nobeoka, Japan",
+        "time": 1789997912404,
+        "depth_km": 42.736,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tixp"
+      }
     }
   ]
 }
