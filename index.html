@@ -1935,7 +1935,7 @@ function nearestVertexOnRiver(lat, lon, coords) {
   return best ? { distKm: bestD, lat: best.lat, lon: best.lon } : null;
 }
 
-function fluvialScoreAt(lat, lon, elevGet, centerElev, meta) {
+function fluvialScoreAt(lat, lon, elevGet, centerElev, meta, riverCandidates, lakeCandidates) {
   // 【2026年9月】河川データが読み込めていない場合は 0 ではなく null を返す。
   // 0 は「評価した結果、近くに川が無かった」という判定であり、取得失敗とは意味が違う。
   // 0 を返すと combineWaterHazard が正当な候補として最大値比較に入れてしまい、
@@ -1943,9 +1943,16 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev, meta) {
   // 【2026年9月追加】湖沼(data/lakes.geojson)は河川と対等な候補として扱う。
   // 河川・湖のどちらも読み込めていない場合のみnullを返す(片方だけでも評価は成立する)。
   if ((!riverSpatialIndex || !riversGeojsonCacheGlobal) && (!lakeSpatialIndex || !lakesGeojsonCacheGlobal)) return null;
+  // 【2026年9月・性能改善】riverCandidates/lakeCandidatesを省略した場合はこれまで通り
+  // (lat, lon)から都度取得するが、呼び出し側(地点検索の441マスのグリッド描画)が
+  // 検索中心1点ぶんだけ先に取得して使い回せば、大きな湖(例: 太湖・453点)に対する
+  // nearestVertexOnRiver()の線形探索を441回ではなく1回ぶんの候補取得で済ませられる。
+  // 太湖近辺で検索するとPCブラウザの反応が悪くなる、という報告を受けて追加した。
+  const rivers = riverCandidates || nearbyRiverFeatures(lat, lon);
+  const lakes = lakeCandidates || nearbyLakeFeatures(lat, lon);
   let best = 0;
   let bestSource = null; // 'river' | 'lake'。呼び出し側がラベル("River flooding"等)を出し分けるために使う。
-  nearbyRiverFeatures(lat, lon).forEach(f => {
+  rivers.forEach(f => {
     const coords = f.geometry?.coordinates;
     if (!coords) return;
     const nv = nearestVertexOnRiver(lat, lon, coords);
@@ -1964,7 +1971,7 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev, meta) {
   // 湖沼も同じ距離減衰・比高係数を使い、規模係数だけlakeAreaFactor(面積km²)に差し替える。
   // 「河川か湖か」ではなく、どちらであれ近くの外水がどれだけ危険かという同じ問いなので、
   // 両方を候補としてまとめて評価し、大きい方(=より危険な方)を採用する。
-  nearbyLakeFeatures(lat, lon).forEach(f => {
+  lakes.forEach(f => {
     const coords = f.geometry?.coordinates;
     if (!coords) return;
     const nv = nearestVertexOnRiver(lat, lon, coords); // 頂点群への最近傍探索は湖でも共通利用できる
@@ -2755,6 +2762,13 @@ async function queryPoint(lat, lon) {
     if (activeLayers.has('waterHazard')) {
       const waterGridLayer = L.layerGroup();
       const gridVals = gridElevations;
+      // 【2026年9月・性能改善】441マス全てが検索地点(lat, lon)周辺 約1km以内にあるため、
+      // 候補となる河川・湖はマスごとにほぼ変わらない。ここで検索地点1点ぶんだけ候補を
+      // 取得し、441マス全てで使い回す(fluvialScoreAtへ渡す)。太湖のような大きな湖
+      // (湖岸453点)の近くで検索するとPCブラウザの反応が悪化する、という報告を受けて
+      // 追加した最適化。
+      const localRiverCandidates = nearbyRiverFeatures(lat, lon);
+      const localLakeCandidates = nearbyLakeFeatures(lat, lon);
       gridCells.forEach((cell, idx) => {
         const cellElev = gridVals[idx];
         if (typeof cellElev !== 'number') return;
@@ -2770,7 +2784,7 @@ async function queryPoint(lat, lon) {
         const cellDep = depressionFactor(cellElev,
           subGridAround(gridVals, GRID_STEPS * 2 + 1, Math.floor(idx / (GRID_STEPS * 2 + 1)), idx % (GRID_STEPS * 2 + 1), DEPRESSION_HALF));
         const cellPluvial = cellRain === null ? null : Math.max(0, Math.min(1, cellRain * cellDep.factor));
-        const cellFluvial = fluvialScoreAt(cell.lat, cell.lon, elevBlock && elevBlock.ok ? elevBlock.get : null, cellElev);
+        const cellFluvial = fluvialScoreAt(cell.lat, cell.lon, elevBlock && elevBlock.ok ? elevBlock.get : null, cellElev, null, localRiverCandidates, localLakeCandidates);
         const cellSurge = surgeScoreAt(cell.lat, cell.lon, cellElev);
         const cellCombined = combineWaterHazard(cellFluvial, cellPluvial, cellSurge);
         if (!cellCombined) return; // データなしのマスは何も描かない
