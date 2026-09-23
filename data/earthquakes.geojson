@@ -86796,6 +86796,24 @@
         "depth_km": 42.736,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tixp"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tj4y",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          128.8944,
+          29.0367
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "88 km NNW of Uken, Japan",
+        "time": 1790073982312,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tj4y"
+      }
     }
   ]
 }
