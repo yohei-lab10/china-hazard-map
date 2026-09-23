@@ -28,6 +28,14 @@ name: Update Hazard Data
         description: "HydroLAKES shapefile (.zip) URL — check https://www.hydrosheds.org/products/hydrolakes for the current link. Required only when run_lakes is checked."
         type: string
         default: ""
+      run_freeze:
+        description: "Run freeze hazard (frozen pipe risk) update from NASA POWER — climate data, rarely needs to change once generated"
+        type: boolean
+        default: false
+      run_freeze_calibration:
+        description: "TEMPORARY: run calibrate_freeze_thresholds.py to derive absolute FDD tier thresholds from past damage events. Remove this input+job once thresholds are finalized."
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -51,6 +59,24 @@ permissions:
 # scripts/fetch_elevation.py を AW3D30(data/elevation_tiles/)を読む実装に
 # 書き換えてから、ジョブを復活させること。それまでは手動生成したファイルを
 # GitHub Web UI から直接差し替える運用とする。
+# ============================================================================
+
+# ============================================================================
+# 【2026年9月追加】凍結ハザード(水道管凍結・破裂リスク)の気候値レイヤーを追加。
+#
+# fetch_freeze.py が NASA POWER(認証・APIキー不要)から気温・風速・湿度・雲量を
+# 取得し、①累積結氷度日数 ②寒潮頻度(GB/T20484-2017) ④放射冷却頻度 を算出する。
+# グリッドは data/elevation_risk.geojson の1度グリッドを再利用するため、
+# 中国の陸域境界を本ジョブ側で再定義する必要はない。
+#
+# ③供暖境界(秦嶺・淮河線)は data/heating_boundary.geojson として別途一度限りで
+# 手動生成済みの静的ファイルであり、本ジョブでは更新しない
+# (lakes.geojsonが一度生成すればよいのと同じ扱い)。
+#
+# 実行時間の見積り: 中国陸域の1度グリッド点数(elevation_risk.geojsonの
+# 地点数)× NASA POWER APIの応答時間(1点あたり数秒、リトライ・
+# インターバル込み)。降雨強度(10年分で約1.6時間)より対象期間が長い
+# (デフォルト20年)ため、余裕を持ってtimeoutを180分に設定。
 # ============================================================================
 
 jobs:
@@ -207,3 +233,46 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: generate lakes.geojson from HydroLAKES [auto]"
           git pull --rebase origin main
           git push
+
+  # 【2026年9月追加】凍結ハザード(水道管凍結・破裂リスク)。詳細は上のコメントブロックと
+  # scripts/fetch_freeze.py のdocstring参照。NASA POWERは認証・APIキー不要のため
+  # hydrolakes_urlのような外部URL入力は不要。
+  update-freeze:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_freeze == 'true'
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install requests
+      - name: Fetch freeze hazard grid
+        run: python scripts/fetch_freeze.py --elevation data/elevation_risk.geojson --out data/freeze_risk.geojson
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/freeze_risk.geojson
+          git diff --staged --quiet || git commit -m "chore: update freeze_risk.geojson [auto]"
+          git pull --rebase origin main
+          git push
+
+  # 【一時ジョブ・要削除】①FDDの絶対閾値を過去の実被害事例から逆算するための
+  # 較正専用ジョブ。何もリポジトリにコミットしない(ログ出力を見るだけ)。
+  # 閾値が確定したら、この入力(run_freeze_calibration)とこのジョブ、および
+  # scripts/calibrate_freeze_thresholds.py 自体を削除してよい。
+  calibrate-freeze:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_freeze_calibration == 'true'
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install requests
+      - name: Run calibration (see output below in this step's log)
+        run: python scripts/calibrate_freeze_thresholds.py
