@@ -100,25 +100,38 @@ def _valid(v):
 
 
 def event_fdd(daily):
-    """指定期間中のFDD(累積結氷度日数、期間合計、日最低気温ベース)と、
-    最低気温の最小値を返す。
+    """指定期間中のFDD(累積結氷度日数、期間合計、日最低気温ベース)、
+    最長連続結氷日数、および最低気温の最小値を返す。
     【2026年9月修正】日平均気温(T2M)ベースだと、日中に氷点を上回る南方の
     短時間冷え込み(例: 2016年広州)を完全に見逃すことが分かったため、
-    fetch_freeze.pyと同じく日最低気温(T2M_MIN)ベースに変更した。"""
+    fetch_freeze.pyと同じく日最低気温(T2M_MIN)ベースに変更した。
+    【2026年9月追加】FDD(合計値)だけでは「連続していたか」を区別できないため、
+    期間内の最長連続結氷日数も算出する(fetch_freeze.pyのcompute_indices()と
+    同じロジック)。"""
     t2m_min = daily.get("T2M_MIN", {})
+    dates_sorted = sorted(t2m_min.keys())
     fdd_total = 0.0
     coldest = None
-    for v in t2m_min.values():
-        if _valid(v) and v < 0:
+    current_len, max_len = 0, 0
+    for d in dates_sorted:
+        v = t2m_min.get(d)
+        if not _valid(v):
+            current_len = 0
+            continue
+        if v < 0:
             fdd_total += -v
-        if _valid(v) and (coldest is None or v < coldest):
+            current_len += 1
+            max_len = max(max_len, current_len)
+        else:
+            current_len = 0
+        if coldest is None or v < coldest:
             coldest = v
-    return fdd_total, coldest
+    return fdd_total, max_len, coldest
 
 
 def main():
-    print("=== 凍結ハザード ①FDD 較正結果 ===")
-    print("(既知の実被害事例における、期間中のFDD合計と最低気温)\n")
+    print("=== 凍結ハザード ①FDD・最長連続結氷日数 較正結果 ===")
+    print("(既知の実被害事例における、期間中のFDD合計・最長連続結氷日数・最低気温)\n")
     results = []
     for event, city, lat, lon, start, end in CALIBRATION_EVENTS:
         daily = fetch_power_daily(lat, lon, start, end)
@@ -126,16 +139,18 @@ def main():
         if daily is None:
             print(f"{event} / {city}: 取得失敗")
             continue
-        fdd, coldest = event_fdd(daily)
-        print(f"{event} / {city} ({start}-{end}): FDD={fdd:.1f}℃・日, 期間最低気温={coldest}℃")
-        results.append({"event": event, "city": city, "fdd": round(fdd, 1), "coldest": coldest})
+        fdd, max_consec, coldest = event_fdd(daily)
+        print(f"{event} / {city} ({start}-{end}): FDD={fdd:.1f}℃・日, "
+              f"最長連続結氷日数={max_consec}日, 期間最低気温={coldest}℃")
+        results.append({"event": event, "city": city, "fdd": round(fdd, 1),
+                         "max_consec_freeze_days": max_consec, "coldest": coldest})
 
-    print("\n--- 参考: これらの最小値を①「高リスク」ティアの下限として採用する案 ---")
-    if results:
-        min_fdd = min(r["fdd"] for r in results)
-        print(f"較正イベント中の最小FDD: {min_fdd:.1f}℃・日")
-        print("→ 実被害が報告された事例のうち最も『軽微』だったものと同水準以上を")
-        print("  高リスクとみなす、という設計になる(要: 人間による最終確認)。")
+    print("\n--- 参考 ---")
+    print("2026年9月の設計見直しにより、①(持続型)と②(寒潮強度=急変型)は")
+    print("別スコアとして算出し、最大値を取る方式にした。そのため①の絶対閾値は、")
+    print("①が主因と考えられる事例(FDD・最長連続結氷日数がともに大きい事例)を")
+    print("基準にすべきで、②が主因の事例(例: 広州のようにFDDが際立って小さい")
+    print("事例)は①の閾値較正からは除外するのが妥当(要: 人間による最終判断)。")
 
     with open("freeze_calibration_result.json", "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
