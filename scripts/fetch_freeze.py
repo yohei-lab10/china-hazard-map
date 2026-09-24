@@ -39,15 +39,24 @@ scripts/fetch_freeze.py
       別途一度限りで手動生成する(gen_heating_boundary.py 参照)。
       南方(境界より南)にのみ割増し係数として適用する想定。
 
-  ④ 放射冷却リスク
+  ④ 放射冷却リスク 【2026年9月改訂: 各条件を公式な気象基準に揃えた】
       放射性霜の気象学的な条件(快晴・弱風・乾燥な夜に地表が気温以上に
-      冷える現象)を近似:
-        - 雲量(CLOUD_AMT) < 0.3 (30%)
-        - 風速(WS2M) < 3 m/s
-        - 相対湿度(RH2M) < 50%
+      冷える現象)を、恣意的な数値ではなく既存の公式基準で近似:
+        - 快晴: 雲量(CLOUD_AMT) < 0.10 (気象庁の天気予報用語における
+          「快晴」= 雲量0〜1/10 に対応)
+        - 無風: 風速(WS2M) < 1.5 m/s (風力階級0〜1級。国際的なボーフォート
+          風力階級で、中国・日本とも共通)
+        - 乾燥: 最小湿度(RH2M) < 40% かつ 実効湿度 < 60%
+          (気象庁「乾燥注意報」の代表的な基準。実効湿度は当日を含む直近
+          数日の日平均湿度を減衰係数0.7で加重平均した指数で、木材=可燃物
+          の乾燥度を表す。ただしNASA POWERは日平均湿度までしか提供せず、
+          真の「その日の最低湿度」は取得できないため、「最小湿度」は
+          日平均湿度で代用する近似値である点に注意)
         - かつ日平均気温が 0〜5℃ の「氷点際どい」範囲
       を満たす日の年平均発生回数。気温データだけでは捉えられない、
       屋外露出配管の追加冷え込みリスクを補足する。
+      なお乾燥注意報は日本の気象庁の基準であり、中国気象局(CMA)には
+      対応する公式基準が見当たらなかったための代用である。
 
 【データソース】
   NASA POWER Daily Point API(認証・APIキー不要・無料)
@@ -86,9 +95,12 @@ COLD_WAVE_MIN_TEMP_C = 4.0
 COLD_WAVE_DROPS = [(1, 8.0), (2, 10.0), (3, 12.0)]  # (何日前と比較するか, 必要な降温幅℃)
 
 # ④放射冷却リスクの暫定閾値(要検証)
-RADIATIVE_CLOUD_MAX = 0.3   # CLOUD_AMTは0〜1のフラクション
-RADIATIVE_WIND_MAX_MS = 3.0
-RADIATIVE_RH_MAX_PCT = 50.0
+RADIATIVE_CLOUD_MAX = 0.10   # 快晴(雲量0〜1/10)。CLOUD_AMTは0〜1のフラクション
+RADIATIVE_WIND_MAX_MS = 1.5  # 風力階級0〜1級(ボーフォート風力階級)
+RADIATIVE_MIN_HUMIDITY_PCT = 40.0        # 「最小湿度」の代用(実際は日平均湿度)
+RADIATIVE_EFFECTIVE_HUMIDITY_PCT = 60.0  # 実効湿度(気象庁「乾燥注意報」代表値)
+EFFECTIVE_HUMIDITY_DECAY = 0.7           # 実効湿度の減衰係数(気象庁の一般的な値)
+EFFECTIVE_HUMIDITY_LOOKBACK_DAYS = 6     # 遡って加重平均に含める日数
 RADIATIVE_TEMP_RANGE_C = (0.0, 5.0)
 
 RETRY = 3
@@ -167,6 +179,31 @@ def _valid(v):
     return v is not None and v > -900
 
 
+def compute_effective_humidity_series(dates_sorted, rh2m, decay=EFFECTIVE_HUMIDITY_DECAY,
+                                       lookback_days=EFFECTIVE_HUMIDITY_LOOKBACK_DAYS):
+    """気象庁方式の実効湿度を日ごとに算出する。
+    実効湿度_t = Σ(r^i × H_{t-i}) / Σ(r^i)  (i=0..lookback_days、tは当日)
+    「当日と前日以前の日平均湿度を減衰係数で加重平均する」という定義通りの実装。
+    データ系列の先頭付近(遡れる日数が足りない日)は、実際に遡れた日数分だけで
+    正規化するため、常に有効な加重平均になる。"""
+    eff = {}
+    for idx, d in enumerate(dates_sorted):
+        weighted_sum, weight_total = 0.0, 0.0
+        for i in range(0, lookback_days + 1):
+            j = idx - i
+            if j < 0:
+                break
+            v = rh2m.get(dates_sorted[j])
+            if not _valid(v):
+                continue
+            w = decay ** i
+            weighted_sum += w * v
+            weight_total += w
+        if weight_total > 0:
+            eff[d] = weighted_sum / weight_total
+    return eff
+
+
 def compute_indices(daily):
     """1地点分の日次時系列から ①FDD ②寒潮頻度 ④放射冷却頻度 の年平均を算出。"""
     t2m = daily.get("T2M", {})
@@ -235,13 +272,18 @@ def compute_indices(daily):
     cold_wave_annual_freq = cold_wave_count / n_years
 
     # ④ 放射冷却リスク頻度
+    # 【2026年9月改訂】単純なRH<50%から、気象庁「乾燥注意報」に合わせた
+    # 「最小湿度」+「実効湿度」の2条件に変更。
+    effective_humidity = compute_effective_humidity_series(dates_sorted, rh2m)
     radiative_count = 0
     for d in dates_sorted:
         t, w, rh, c = t2m.get(d), ws2m.get(d), rh2m.get(d), cloud.get(d)
-        if not all(_valid(x) for x in (t, w, rh, c)):
+        eh = effective_humidity.get(d)
+        if not all(_valid(x) for x in (t, w, rh, c)) or eh is None:
             continue
         if (c < RADIATIVE_CLOUD_MAX and w < RADIATIVE_WIND_MAX_MS
-                and rh < RADIATIVE_RH_MAX_PCT
+                and rh < RADIATIVE_MIN_HUMIDITY_PCT
+                and eh < RADIATIVE_EFFECTIVE_HUMIDITY_PCT
                 and RADIATIVE_TEMP_RANGE_C[0] <= t <= RADIATIVE_TEMP_RANGE_C[1]):
             radiative_count += 1
     radiative_annual_freq = radiative_count / n_years
