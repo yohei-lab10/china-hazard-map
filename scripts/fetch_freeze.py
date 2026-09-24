@@ -82,12 +82,24 @@ RETRY_WAIT_SEC = 10
 REQUEST_TIMEOUT_SEC = 60
 INTER_REQUEST_SLEEP_SEC = 1.0  # NASA POWER側への負荷配慮
 
+# 【安全フィルタ】中国本土のおおよそのバウンディングボックス。
+# elevation_risk.geojsonをそのまま再利用する設計だが、実行結果を確認したところ
+# 北海道(例: 41.5N/143.5E)やフィリピン海(例: 20.5N/144.5E)など、明らかに
+# 中国国外の地点が同ファイルに含まれていることが判明した(elevation_risk.geojson
+# 側の生成ロジックに起因すると見られ、fetch_freeze.py固有の問題ではない可能性が
+# 高いが、要調査)。矩形なので国境の細部までは正確ではない(西方の隣国の一部を
+# わずかに含みうる)が、少なくとも今回確認された東側への漏れは経度の上限だけで
+# 確実に除外できるため、これを暫定的な安全策として追加する。
+CHINA_BBOX = {"lon_min": 73.0, "lon_max": 135.5, "lat_min": 18.0, "lat_max": 54.0}
+
 
 def load_grid_points(elevation_path):
-    """既存の elevation_risk.geojson から中国陸域の1度グリッド座標を読み込む。"""
+    """既存の elevation_risk.geojson から中国陸域の1度グリッド座標を読み込む。
+    ただし中国本土のバウンディングボックス外の点は除外する(CHINA_BBOX参照)。"""
     with open(elevation_path, "r", encoding="utf-8") as f:
         geojson = json.load(f)
     points = []
+    excluded = []
     for feat in geojson["features"]:
         geom = feat["geometry"]
         if geom["type"] == "Point":
@@ -98,7 +110,15 @@ def load_grid_points(elevation_path):
             lat = sum(c[1] for c in ring) / len(ring)
         else:
             continue
-        points.append((round(lon, 2), round(lat, 2)))
+        lon, lat = round(lon, 2), round(lat, 2)
+        if not (CHINA_BBOX["lon_min"] <= lon <= CHINA_BBOX["lon_max"]
+                and CHINA_BBOX["lat_min"] <= lat <= CHINA_BBOX["lat_max"]):
+            excluded.append((lon, lat))
+            continue
+        points.append((lon, lat))
+    if excluded:
+        print(f"[INFO] バウンディングボックス外として除外: {len(excluded)}地点 "
+              f"(例: {excluded[:5]})")
     return sorted(set(points))
 
 
