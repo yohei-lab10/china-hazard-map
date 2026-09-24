@@ -6,7 +6,10 @@ scripts/fetch_freeze.py
 
 【設計の要点】(china-hazard-map プロジェクト、2026年9月設計レビュー合意)
   ① 累積結氷度日数 (Freezing Degree Days, FDD)
-      FDD = Σ max(0, 0 - 日平均気温)  ※氷点下の日のみ加算し、年間積算を複数年平均
+      FDD = Σ max(0, 0 - 日最低気温)  ※氷点下の日のみ加算し、年間積算を複数年平均
+      2026年9月修正: 当初は日平均気温(T2M)ベースだったが、較正時に南方の
+      短時間冷え込み(夜間だけ氷点下、日中は氷点上)を完全に見逃すことが
+      判明したため、日最低気温(T2M_MIN)ベースに変更した。
       → 「凍結がどれだけ長く続くか」= 配管内の氷栓による圧力上昇という
         破裂の物理メカニズムに対応する主指標。
 
@@ -161,17 +164,22 @@ def compute_indices(daily):
     rh2m = daily.get("RH2M", {})
     cloud = daily.get("CLOUD_AMT", {})
 
-    dates_sorted = sorted(t2m.keys())
+    dates_sorted = sorted(t2m_min.keys())
     if not dates_sorted:
         return None
     n_years = len(set(d[:4] for d in dates_sorted))
     if n_years == 0:
         return None
 
-    # ① FDD
+    # ① FDD 【2026年9月修正】日平均気温(T2M)ベースから日最低気温(T2M_MIN)ベースに変更。
+    # 較正(2016年広州)で、日平均では0℃を下回らない一方、夜間だけ-1.66℃まで
+    # 下がっていたケースがFDD=0.0と判定されてしまうことが判明したため。
+    # 南方の被害は夜間だけの短時間の冷え込みで起きることが多く、日平均では
+    # それを完全に見逃してしまう。日最低気温を使うことで、その日のうちに
+    # 一度でも氷点下に達したかどうかを正しく反映する。
     fdd_total = 0.0
     for d in dates_sorted:
-        v = t2m.get(d)
+        v = t2m_min.get(d)
         if _valid(v) and v < 0:
             fdd_total += -v
     fdd_annual_mean = fdd_total / n_years
