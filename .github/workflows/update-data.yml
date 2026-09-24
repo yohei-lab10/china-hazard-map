@@ -16,10 +16,6 @@ name: Update Hazard Data
         description: "Run CHIRPS rainfall risk grid update"
         type: boolean
         default: false
-      run_lightning:
-        description: "Run WGLC lightning climatology update (downloads ~27MB NetCDF, climate data — rarely needs to change)"
-        type: boolean
-        default: false
       run_lakes:
         description: "Regenerate data/lakes.geojson from HydroLAKES (downloads ~763MB, one-time — rarely needs to change once generated)"
         type: boolean
@@ -178,28 +174,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/rainfall_risk.geojson data/rainfall_annual_max_cache.json
           git diff --staged --quiet || git commit -m "chore: update rainfall_risk.geojson [auto]"
-          git pull --rebase origin main
-          git push
-
-  update-lightning:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_lightning == 'true'
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: pip install xarray netCDF4 requests numpy
-      - name: Fetch lightning climatology risk grid
-        run: python scripts/fetch_lightning.py --out data/lightning.geojson
-      - name: Commit and push if changed
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/lightning.geojson
-          git diff --staged --quiet || git commit -m "chore: update lightning.geojson [auto]"
           git pull --rebase origin main
           git push
 
