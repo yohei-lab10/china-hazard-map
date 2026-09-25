@@ -662,9 +662,10 @@
 <script>
 // Peril identity colors (used for chip dots / markers — distinguishes hazard TYPE)
 const COLORS = {
-  earthquake: '#C13A2E',
-  typhoonHazard: '#2C4E7C',
   waterHazard: '#3F8F5F',
+  freeze: '#4FA8C9',
+  typhoonHazard: '#2C4E7C',
+  earthquake: '#C13A2E',
 };
 
 // Gray used to mark grid cells with no data (outside CHIRPS coverage etc.) — must never be
@@ -706,16 +707,18 @@ function isOnLand(lat, lon) {
 }
 
 const LAYERS = [
-  { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
-    note: 'Earthquakes: historical M5.0+ events across China, based on USGS earthquake catalog data. Marker size scales with magnitude.' },
-  { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
-    note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
     note: 'Water Hazard: evaluates three flood mechanisms separately — river flooding, surface water flooding, and coastal storm surge — and reports the most severe of the three, adjusted by past flood records. Map-wide view not shown (a national approximation was not reliable enough); search a point to see the evaluation, which uses 150m elevation tiles.' },
+  { key: 'freeze', label: 'Freeze Hazard', color: COLORS.freeze,
+    note: 'Freeze Hazard: risk of frozen/burst water pipes. Combines a sustained-cold score (freezing degree days, adjusted for radiative-cooling nights) and a sudden-cold-snap score (CMA cold wave alert tiers), taking the higher of the two, then applies a multiplier south of the Qinling–Huaihe heating line where buildings and pipes are typically not built for cold. A climatological estimate based on 2006–2025 data, not a forecast. Map-wide view not shown; search a point to see the evaluation.' },
+  { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
+    note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
+  { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
+    note: 'Earthquakes: historical M5.0+ events across China, based on USGS earthquake catalog data. Marker size scales with magnitude.' },
 ];
 
-// 地点検索で「評価バッジ+リスク凡例」を表示する4レイヤー
-const BADGE_LAYER_KEYS = ['earthquake', 'typhoonHazard', 'waterHazard'];
+// 地点検索で「評価バッジ+リスク凡例」を表示する4レイヤー(表示順: 水災・凍結・台風・地震)
+const BADGE_LAYER_KEYS = ['waterHazard', 'freeze', 'typhoonHazard', 'earthquake'];
 
 // 各データセットの提供者・ライセンス表記。無償公開データでも「出典の明示」は
 // ライセンス条件そのものであり、商用提供時は省略できない。画面(METHODOLOGY)と
@@ -729,15 +732,18 @@ const DATA_ATTRIBUTION = [
   ['Rivers', 'HydroRIVERS / HydroSHEDS — Lehner, B., Grill, G. (2013). hydrosheds.org'],
   ['Flood records', 'Dartmouth Flood Observatory, University of Colorado'],
   ['Lakes', '© OpenStreetMap contributors (Overpass API)'],
+  ['Freeze hazard', 'NASA POWER — NASA Langley Research Center; cold wave tiers per CMA GB/T 20484-2017'],
 ];
 
 const METHODOLOGY = [
-  { label: 'Earthquakes', color: COLORS.earthquake,
-    desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
-  { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
-    desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
   { label: 'Water Hazard', color: COLORS.waterHazard,
     desc: 'Three flood mechanisms are evaluated separately and the most severe one is reported: river flooding (distance to river, river scale, height above the river), surface water flooding (extreme rainfall intensity combined with how low-lying the site is relative to its surroundings), and coastal storm surge (elevation against a surge level that decays inland). Proximity to a river confluence increases the river flooding term modestly. Past flood records adjust the result upward by at most 20%. The point search reads 150m elevation tiles directly; the map-wide layer is an approximation that omits the local terrain terms. A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
+  { label: 'Freeze Hazard', color: COLORS.freeze,
+    desc: 'Source: NASA POWER daily climate data, 2006–2025. Two independent scores are computed and the higher one is used: a sustained-cold score (freezing degree days using daily minimum temperature, boosted on nights meeting radiative-cooling conditions — clear sky, calm wind, low humidity) and a sudden-cold-snap score (based on CMA cold wave alert tiers, GB/T 20484-2017). South of the Qinling–Huaihe heating line (approximated as 33°N), the result is further increased to reflect buildings and pipes generally not built for cold there. A climatological estimate, not a forecast.' },
+  { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
+    desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
+  { label: 'Earthquakes', color: COLORS.earthquake,
+    desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
   { label: 'Point Lookup', color: '#5C6675',
     desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
 ];
@@ -862,6 +868,7 @@ function initMap() {
   addBasemap(map);
 
   layerGroups.earthquake = L.layerGroup();
+  layerGroups.freeze = L.layerGroup();
   layerGroups.typhoonHazard = L.layerGroup();
   layerGroups.waterHazard = L.layerGroup();
 }
@@ -934,7 +941,7 @@ function renderLayerBar() {
 
 // レポートに「いつ時点の・何年分のデータで判定したか」を印字するために保持する。
 // 引受記録として、後から同じ判断を再現できる状態にしておく必要がある。
-let dataRanges = { typhoonHazard: null, earthquake: null };
+let dataRanges = { typhoonHazard: null, earthquake: null, freeze: '2006–2025' };
 // 地震データが事前生成ファイルではなく直近30日のライブ問い合わせにフォールバックしたか。
 // 50年分と30日分では評価の土台がまったく違うため、黙って切り替わってはいけない。
 let earthquakeFallbackLive = false;
@@ -1059,6 +1066,11 @@ function escapeHtml(s) {
 // 地震・台風・洪水の実データは、地点検索のタイル色付けにも再利用するためグローバルにキャッシュしておく
 let earthquakeGeojsonCache = null;
 let typhoonGeojsonCacheGlobal = null;
+
+// 凍結ハザード: freeze_risk.geojson(1度グリッド、fdd/max_consec_freeze_days/
+// cold_wave_freq/radiative_freqを持つ)と、供暖境界(秦嶺・淮河線)の緯度を保持する。
+let freezeGeojsonCacheGlobal = null;
+let heatingBoundaryLat = 33.0; // heating_boundary.geojson読み込み後に上書きされる暫定値
 
 // 【2026年9月】data/typhoons.geojson の取得に失敗したことを示すフラグ。
 // 以前は取得に失敗すると TYPHOON_SAMPLE(架空の4経路・tier2固定)を地図に描画しており、
@@ -1185,7 +1197,21 @@ async function fetchPointsSafe(path) {
   }
 }
 
-// HAZARD_GRADIENTの色停止点(0/0.25/0.5/0.75/1.0)の間を線形補間して、weight(0〜1)に対応する
+// 凍結ハザード: freeze_risk.geojson(1度グリッド)と heating_boundary.geojson
+// (秦嶺・淮河線、供暖境界)を読み込む。気候値のため起動時に一度だけ取得する。
+async function loadFreeze() {
+  const [freezeGeojson, boundaryGeojson] = await Promise.all([
+    fetchGeojsonSafe('data/freeze_risk.geojson'),
+    fetchGeojsonSafe('data/heating_boundary.geojson'),
+  ]);
+  freezeGeojsonCacheGlobal = freezeGeojson;
+  if (boundaryGeojson && boundaryGeojson.features && boundaryGeojson.features[0]) {
+    const coords = boundaryGeojson.features[0].geometry.coordinates;
+    if (coords && coords[0]) heatingBoundaryLat = coords[0][1]; // [lon, lat]の緯度
+  }
+}
+
+
 // 1色を返す。台風の軌跡を線(ポリライン)で描くために使う(ヒートマップの色と統一するため)。
 const HAZARD_GRADIENT_STOPS = [
   [0.0, [0x3F, 0x8F, 0x5F]], [0.25, [0xD9, 0xA2, 0x2C]], [0.5, [0xD9, 0x72, 0x2C]],
@@ -2361,6 +2387,61 @@ function typhoonReturnPeriodInfo(lat, lon) {
   };
 }
 
+// 凍結ハザード(水道管凍結・破裂リスク)。2026年9月の設計レビュー合意に基づく:
+//   Score_A(持続型) = normalize(①FDD, 較正済み絶対閾値) × (1 + β・④放射冷却頻度)
+//   Score_B(急変型) = ②寒潮頻度を0〜1に正規化(年間3回以上で頭打ち)
+//   基礎スコア = max(Score_A, Score_B)
+//   最終スコア = 基礎スコア × (南方[秦嶺・淮河線より南]なら (1+γ)、北方ならそのまま)
+// 【要検証】β・γ・寒潮頻度の頭打ち値(FREEZE_COLD_WAVE_FREQ_CAP)は現時点で仮置き。
+// 実データのヒストグラムを見てから調整する前提(降雨強度の設計時と同じプロセス)。
+// また②は現状、寒潮の「発生有無」の頻度のみで、蓝/黄/橙の重症度別カウントは
+// fetch_freeze.py側でまだ区別していない(将来の改善余地)。
+const FREEZE_FDD_TIER_BOUNDS = [15.2, 59.6, 110.3]; // 較正結果(2021年武漢/2016年南京/2008年長沙)
+const FREEZE_RADIATIVE_BETA = 0.3;        // 放射冷却頻度による補正の強さ(仮置き)
+const FREEZE_RADIATIVE_FREQ_CAP = 10;     // この頻度(年間回数)で補正が頭打ちになる(仮置き)
+const FREEZE_COLD_WAVE_FREQ_CAP = 3;      // 寒潮の年間頻度がこの回数で急変型スコア=1.0(仮置き)
+const FREEZE_SOUTH_MULTIPLIER = 0.3;      // 南方(供暖区外)への割増し係数γ(仮置き)
+
+function freezeScoreA(fdd, radiativeFreq) {
+  const b = FREEZE_FDD_TIER_BOUNDS;
+  let ratio;
+  if (fdd < b[0]) ratio = (fdd / b[0]) * 0.25;
+  else if (fdd < b[1]) ratio = 0.25 + ((fdd - b[0]) / (b[1] - b[0])) * 0.25;
+  else if (fdd < b[2]) ratio = 0.5 + ((fdd - b[1]) / (b[2] - b[1])) * 0.25;
+  else ratio = Math.min(1, 0.75 + ((fdd - b[2]) / b[2]) * 0.25);
+  const boost = 1 + FREEZE_RADIATIVE_BETA * Math.min(1, radiativeFreq / FREEZE_RADIATIVE_FREQ_CAP);
+  return Math.min(1, ratio * boost);
+}
+function freezeScoreB(coldWaveFreq) {
+  return Math.min(1, coldWaveFreq / FREEZE_COLD_WAVE_FREQ_CAP);
+}
+function freezeRiskInfo(lat, lon) {
+  if (!freezeGeojsonCacheGlobal) return null;
+  let nearest = null, nearestDist = Infinity;
+  freezeGeojsonCacheGlobal.features.forEach(f => {
+    const [flon, flat] = f.geometry.coordinates;
+    if (!degBboxFilter(lat, lon, flat, flon, 150)) return;
+    const d = haversineKm(lat, lon, flat, flon);
+    if (d < nearestDist) { nearestDist = d; nearest = f.properties; }
+  });
+  if (!nearest) return null;
+  const scoreA = freezeScoreA(nearest.fdd || 0, nearest.radiative_freq || 0);
+  const scoreB = freezeScoreB(nearest.cold_wave_freq || 0);
+  const base = Math.max(scoreA, scoreB);
+  const isSouth = lat < heatingBoundaryLat;
+  const ratio = isSouth ? Math.min(1, base * (1 + FREEZE_SOUTH_MULTIPLIER)) : base;
+  const tier = Math.min(4, Math.floor(ratio * 5));
+  return {
+    tier, ratio, color: WARNING_TIER_COLORS[tier], valueLabel: ratio.toFixed(2),
+    fdd: nearest.fdd, maxConsecFreezeDays: nearest.max_consec_freeze_days,
+    coldWaveFreq: nearest.cold_wave_freq, isSouth,
+  };
+}
+function freezeTileColor(lat, lon) {
+  const info = freezeRiskInfo(lat, lon);
+  return info ? info.color : null;
+}
+
 // 雷: 既知の落雷多発地点までの距離から密度を推定し5段階に変換
 // 洪水: 周辺80km以内で最も近い洪水記録の冠水面積を5段階に変換
 function floodTileColor(lat, lon) {
@@ -2620,14 +2701,16 @@ async function queryPoint(lat, lon) {
       };
     }
 
-    // 地震・台風・雷は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)が、
+    // 地震・台風・凍結は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)が、
     // 表示更新のタイミングは水害と揃えて1回にまとめている
+    // 表示順(チップ・バッジ・レポートとも統一): 水災・凍結・台風・地震
     const badges = [];
-    if (activeLayers.has('earthquake')) {
-      const info = earthquakeRiskInfo(lat, lon);
+    if (activeLayers.has('waterHazard')) badges.push(waterBadge);
+    if (activeLayers.has('freeze')) {
+      const info = freezeRiskInfo(lat, lon);
       badges.push(info
-        ? { label: `${tierLabels[info.tier]} earthquake hazard (${info.valueLabel})`, color: info.color, colors: EARTHQUAKE_TIER_COLORS, ratio: info.ratio }
-        : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS });
+        ? { label: `${tierLabels[info.tier]} freeze hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
+        : { label: 'No freeze hazard data nearby', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
     }
     if (activeLayers.has('typhoonHazard')) {
       const info = typhoonRiskInfo(lat, lon);
@@ -2639,7 +2722,12 @@ async function queryPoint(lat, lon) {
         freqInfo: freq, freqHtmlFn: typhoonFreqHtml,
       });
     }
-    if (activeLayers.has('waterHazard')) badges.push(waterBadge);
+    if (activeLayers.has('earthquake')) {
+      const info = earthquakeRiskInfo(lat, lon);
+      badges.push(info
+        ? { label: `${tierLabels[info.tier]} earthquake hazard (${info.valueLabel})`, color: info.color, colors: EARTHQUAKE_TIER_COLORS, ratio: info.ratio }
+        : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS });
+    }
 
     if (badges.length > 0) {
       resultEl.className = 'search-result visible';
@@ -2672,6 +2760,7 @@ async function queryPoint(lat, lon) {
     // (地震・台風はローカルデータのみ、追加通信なし)
     const hazardTileFns = {
       earthquake: earthquakeTileColor,
+      freeze: freezeTileColor,
       typhoonHazard: typhoonTileColor,
     };
 
@@ -2886,18 +2975,21 @@ const HAZARD_DESCRIPTIONS_I18N = {
     earthquake: 'USGS catalog, M5.0+, 1976 to present. Weighted by magnitude and distance within 100km; strongest effective influence shown.',
     typhoon: 'IBTrACS best-track data. Storms are classified on the JMA scale below; strongest historical impact at this point shown.',
     water: 'Highest of three mechanisms is shown:',
+    freeze: 'NASA POWER climate data, 2006–2025. Higher of a sustained-cold score and a sudden-cold-snap score (CMA cold wave tiers), increased south of the Qinling–Huaihe heating line.',
     overall: 'Highest of the four hazard scores (not averaged — a frequent, low-severity peril and a rare, catastrophic one are not interchangeable). This is a hazard indicator, not an expected loss estimate.',
   },
   ja: {
     earthquake: 'USGS地震カタログ(M5.0以上、1976年〜)。周辺100km以内の地震をマグニチュードと距離で重み付けし、最も影響の大きい値を表示。',
     typhoon: 'IBTrACSのベストトラックデータ。下記のJMA階級で分類し、この地点での観測史上最大の影響を表示。',
     water: '3つの機構のうち最も深刻な値を表示:',
+    freeze: 'NASA POWER気候データ(2006〜2025年)。持続型スコアと急変型スコア(中国気象局の寒潮階級)のうち高い方を採用し、秦嶺・淮河線より南では割増し。',
     overall: '4種のハザードスコアのうち最大値(平均はしない — 高頻度・低損害のハザードと稀・甚大なハザードは同列に扱えないため)。これはハザード指標であり、予想損害額の見積もりではない。',
   },
   zh: {
     earthquake: '基于USGS地震目录(M5.0以上,1976年至今)。对100公里范围内的地震按震级与距离加权,显示影响最大的数值。',
     typhoon: '基于IBTrACS最佳路径数据。按下方JMA等级分类,显示该地点历史上影响最大的一次。',
     water: '显示三种机制中最严重的数值:',
+    freeze: '基于NASA POWER气候数据(2006-2025年)。取持续低温得分与急剧寒潮得分(中国气象局寒潮等级)中的较高值,秦岭-淮河供暖线以南地区上调。',
     overall: '四类灾害得分中的最高值(不取平均——高频低损灾害与罕见但严重的灾害不可等同看待)。本指标为灾害指标,并非预期损失估算。',
   },
 };
@@ -3041,14 +3133,17 @@ const RPT_I18N = {
     title: 'Natural Catastrophe Risk Report', country: 'China',
     overallHazard: 'Overall hazard',
     drivenBy: (who, tied) => `Driven by <b>${who}</b> — ${tied ? 'tied as the highest of the four perils' : 'the highest of the four perils'}.`,
-    perilNames: { earthquake: 'Earthquake', typhoon: 'Typhoon', water: 'Water' },
-    sectionTitles: { earthquake: 'Earthquake', typhoon: 'Typhoon', water: 'Water hazard' },
+    perilNames: { earthquake: 'Earthquake', typhoon: 'Typhoon', water: 'Water', freeze: 'Freeze' },
+    sectionTitles: { earthquake: 'Earthquake', typhoon: 'Typhoon', water: 'Water hazard', freeze: 'Freeze hazard' },
     hazardLabel: (kind, tier, value) => ({
       earthquake: `${tier} earthquake hazard (${value})`,
       typhoon: `${tier} hazard (${value})`,
       water: `${tier} water hazard (${value})`,
+      freeze: `${tier} freeze hazard (${value})`,
     }[kind]),
     noDataEq: 'No M5.0+ earthquake within 100km',
+    noDataFreeze: 'No freeze hazard data nearby',
+    freezeSouthNote: 'South of the Qinling–Huaihe heating line — increased for buildings/pipes typically not built for cold.',
     typhoonFreq: (yrs, total) => `Category 1+ passages occur on average once every ~${yrs} years, based on ${total} years of track data.`,
     waterMechLabels: { river: 'River flooding', surface: 'Surface water', surge: 'Storm surge' },
     dominantMech: (name) => `Dominant mechanism: <b>${name}</b>.`,
@@ -3064,7 +3159,7 @@ const RPT_I18N = {
     portfolioTitle: 'Portfolio summary', portfolioSub: (n) => `${n} locations, ranked by overall hazard. Detailed pages follow in the same order as entered.`,
     colLocation: 'Location', colCoords: 'Coordinates', colOverall: 'Overall', colDriver: 'Driver',
     dataUsedTitle: (d) => `Data used for this assessment (generated ${d}).`,
-    provenance: { earthquakes: 'Earthquakes', typhoons: 'Typhoons', rainfall: 'Rainfall', elevation: 'Elevation' },
+    provenance: { earthquakes: 'Earthquakes', typhoons: 'Typhoons', rainfall: 'Rainfall', elevation: 'Elevation', freeze: 'Freeze hazard' },
     multiYearMean: 'multi-year mean', gumbelNote: 'CHIRPS annual maxima, Gumbel fit (see per-site year count)', resampledNote: 'JAXA AW3D30, resampled to 150 m',
     disclaimerTitle: 'Disclaimer.',
     disclaimerBody: 'Screening-level hazard indicators from public historical and climatological data. Not a guarantee of future events, not an expected loss estimate, and not a sole basis for underwriting, pricing, or coverage decisions. Scores are relative within mainland China only. Rainfall figures beyond the observation period are statistical extrapolations. Elevation/terrain figures are for reference and not used directly in the scores.',
@@ -3074,14 +3169,17 @@ const RPT_I18N = {
     title: '自然災害リスクレポート', country: '中国',
     overallHazard: '総合ハザード',
     drivenBy: (who, tied) => `支配ハザード:<b>${who}</b> — ${tied ? '4種のうち同率で最大' : '4種のうち最大'}。`,
-    perilNames: { earthquake: '地震', typhoon: '台風', water: '水害' },
-    sectionTitles: { earthquake: '地震', typhoon: '台風', water: '水害' },
+    perilNames: { earthquake: '地震', typhoon: '台風', water: '水害', freeze: '凍結' },
+    sectionTitles: { earthquake: '地震', typhoon: '台風', water: '水害', freeze: '凍結ハザード' },
     hazardLabel: (kind, tier, value) => ({
       earthquake: `地震ハザード:${tier}(${value})`,
       typhoon: `台風ハザード:${tier}(${value})`,
       water: `水害ハザード:${tier}(${value})`,
+      freeze: `凍結ハザード:${tier}(${value})`,
     }[kind]),
     noDataEq: '半径100km以内にM5.0以上の地震なし',
+    noDataFreeze: '周辺に凍結ハザードデータなし',
+    freezeSouthNote: '秦嶺・淮河線より南 — 建物・配管が寒冷地仕様でないことを考慮し割増し。',
     typhoonFreq: (yrs, total) => `Category 1以上の通過:約${yrs}年に1回(${total}年分のデータ)。`,
     waterMechLabels: { river: '外水氾濫', surface: '内水氾濫', surge: '高潮' },
     dominantMech: (name) => `支配的機構:<b>${name}</b>。`,
@@ -3097,7 +3195,7 @@ const RPT_I18N = {
     portfolioTitle: 'ポートフォリオ概要', portfolioSub: (n) => `${n}拠点、総合ハザードの高い順。詳細ページは入力順で続く。`,
     colLocation: '拠点', colCoords: '座標', colOverall: '総合', colDriver: '支配要因',
     dataUsedTitle: (d) => `本評価に使用したデータ(生成日:${d})。`,
-    provenance: { earthquakes: '地震', typhoons: '台風', rainfall: '降雨', elevation: '標高' },
+    provenance: { earthquakes: '地震', typhoons: '台風', rainfall: '降雨', elevation: '標高', freeze: '凍結ハザード' },
     multiYearMean: '年の多年平均', gumbelNote: 'CHIRPS年最大値、Gumbel分布フィット(地点ごとの年数は本文参照)', resampledNote: 'JAXA AW3D30、150mにリサンプリング',
     disclaimerTitle: '免責事項。',
     disclaimerBody: '本レポートは公開の過去実績・気候データに基づくスクリーニングレベルの指標です。将来の災害発生の保証、予想損害額の見積もり、または引受・保険料算定・補償内容決定の唯一の根拠となるものではありません。スコアは中国本土内での相対値です。観測期間を超える降雨の値は統計的な外挿です。標高・地形の数値は参考値であり、スコアの算出に直接使用されるものではありません。',
@@ -3107,14 +3205,17 @@ const RPT_I18N = {
     title: '自然灾害风险报告', country: '中国',
     overallHazard: '综合灾害等级',
     drivenBy: (who, tied) => `主导灾害:<b>${who}</b> — ${tied ? '四类中并列最高' : '四类中的最高值'}。`,
-    perilNames: { earthquake: '地震', typhoon: '台风', water: '水灾' },
-    sectionTitles: { earthquake: '地震', typhoon: '台风', water: '水灾' },
+    perilNames: { earthquake: '地震', typhoon: '台风', water: '水灾', freeze: '冻结' },
+    sectionTitles: { earthquake: '地震', typhoon: '台风', water: '水灾', freeze: '冻结灾害' },
     hazardLabel: (kind, tier, value) => ({
       earthquake: `地震灾害等级:${tier}(${value})`,
       typhoon: `台风灾害等级:${tier}(${value})`,
       water: `水灾灾害等级:${tier}(${value})`,
+      freeze: `冻结灾害等级:${tier}(${value})`,
     }[kind]),
     noDataEq: '100公里范围内无M5.0以上地震',
+    noDataFreeze: '附近无冻结灾害数据',
+    freezeSouthNote: '位于秦岭-淮河供暖线以南——建筑与管道通常未按防寒标准建造,故上调。',
     typhoonFreq: (yrs, total) => `Category 1级以上台风:平均约每${yrs}年一次(基于${total}年数据)。`,
     waterMechLabels: { river: '河流洪水', surface: '内涝', surge: '风暴潮' },
     dominantMech: (name) => `主导机制:<b>${name}</b>。`,
@@ -3130,7 +3231,7 @@ const RPT_I18N = {
     portfolioTitle: '投资组合概要', portfolioSub: (n) => `共${n}个地点,按综合灾害等级排序。详细页面按录入顺序排列。`,
     colLocation: '地点', colCoords: '坐标', colOverall: '综合', colDriver: '主导因素',
     dataUsedTitle: (d) => `本次评估所使用的数据(生成日期:${d})。`,
-    provenance: { earthquakes: '地震', typhoons: '台风', rainfall: '降雨', elevation: '标高' },
+    provenance: { earthquakes: '地震', typhoons: '台风', rainfall: '降雨', elevation: '标高', freeze: '冻结灾害' },
     multiYearMean: '年多年平均', gumbelNote: 'CHIRPS年最大值,Gumbel拟合(各地点年数详见正文)', resampledNote: 'JAXA AW3D30,重采样至150米',
     disclaimerTitle: '免责声明。',
     disclaimerBody: '本报告基于公开的历史及气候数据,提供筛查级别的灾害指标。不构成对未来事件的保证,不是预期损失估算,也不能作为核保、定价或承保决策的唯一依据。得分仅为中国大陆范围内的相对值。超出观测期的降雨数值为统计外推结果。标高与地形数据仅供参考,未直接用于得分计算。',
@@ -3220,6 +3321,12 @@ async function computeReportData(lat, lon, lang) {
     ? { label: T.hazardLabel('earthquake', tierWords[eqInfo.tier], eqInfo.valueLabel), color: eqInfo.color, colors: EARTHQUAKE_TIER_COLORS, ratio: eqInfo.ratio }
     : { label: T.noDataEq, color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS, ratio: null };
 
+  const frInfo = freezeRiskInfo(lat, lon);
+  const freeze = frInfo
+    ? { label: T.hazardLabel('freeze', tierWords[frInfo.tier], frInfo.valueLabel), color: frInfo.color, colors: WARNING_TIER_COLORS, ratio: frInfo.ratio,
+        fdd: frInfo.fdd, maxConsecFreezeDays: frInfo.maxConsecFreezeDays, coldWaveFreq: frInfo.coldWaveFreq, isSouth: frInfo.isSouth }
+    : { label: T.noDataFreeze, color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null, isSouth: false };
+
   const tyInfo = typhoonRiskInfo(lat, lon);
   const tyFreq = typhoonReturnPeriodInfo(lat, lon);
   // tyInfo.valueLabel(例: "Strong Typhoon, ~65kt at this point (×10 in 11yrs)")は
@@ -3242,13 +3349,15 @@ async function computeReportData(lat, lon, lang) {
     });
   }
 
-  // 複合ハザード: 3ハザードの最大値。平均や重み付き和にしないのは、重みに根拠が無いため。
-  // また地震(稀・全損もあり得る)と水害・台風は損失の起き方が異なり、
+  // 複合ハザード: 4ハザードの最大値。平均や重み付き和にしないのは、重みに根拠が無いため。
+  // また地震(稀・全損もあり得る)と水害・凍結・台風は損失の起き方が異なり、
   // 平均すると「他が低いから薄まる」という誤った緩和が起きる。
+  // 表示順(チップ・バッジ・レポートとも統一): 水災・凍結・台風・地震
   const perilList = [
-    { key: 'earthquake', label: T.perilNames.earthquake, ratio: earthquake.ratio },
-    { key: 'typhoon', label: T.perilNames.typhoon, ratio: typhoon.ratio },
     { key: 'water', label: T.perilNames.water, ratio: water.ratio },
+    { key: 'freeze', label: T.perilNames.freeze, ratio: freeze.ratio },
+    { key: 'typhoon', label: T.perilNames.typhoon, ratio: typhoon.ratio },
+    { key: 'earthquake', label: T.perilNames.earthquake, ratio: earthquake.ratio },
   ];
   const scored = perilList.filter(x => typeof x.ratio === 'number' && !isNaN(x.ratio));
   let overall = null;
@@ -3280,7 +3389,7 @@ async function computeReportData(lat, lon, lang) {
   // 再現期間の外挿値に対する基準として提示する。
   const rainfallTypical = gumbel ? gumbel.mu + 0.5772157 * gumbel.beta : null;
 
-  return { centerElev, depLabel: reportDepLabel, water, earthquake, typhoon,
+  return { centerElev, depLabel: reportDepLabel, water, earthquake, typhoon, freeze,
     rainfallCurves, rainfallTypical, overall, terrain,
     yearsUsed: gumbel ? gumbel.yearsUsed : null };
 }
@@ -3450,6 +3559,7 @@ async function renderReportView(results, lang) {
   const provenanceRows = [
     [T.provenance.earthquakes, dataRanges.earthquake || 'unavailable'],
     [T.provenance.typhoons, dataRanges.typhoonHazard || 'unavailable'],
+    [T.provenance.freeze, dataRanges.freeze + ' ' + T.multiYearMean],
     [T.provenance.rainfall, T.gumbelNote],
     [T.provenance.elevation, T.resampledNote],
   ];
@@ -3544,9 +3654,10 @@ async function renderReportView(results, lang) {
           <td class="mono">${x.r.lat.toFixed(3)}, ${x.r.lon.toFixed(3)}</td>
           <td>${o ? `<span class="rpt-pill" style="background:${bc.bg}; color:${bc.text};">${o.label} ${o.ratio.toFixed(2)}</span>` : '—'}</td>
           <td class="mono" style="font-size:10px;">${o ? o.drivenBy : '—'}</td>
-          ${cell(x.r.data.earthquake.ratio)}
-          ${cell(x.r.data.typhoon.ratio)}
           ${cell(x.r.data.water.ratio)}
+          ${cell(x.r.data.freeze.ratio)}
+          ${cell(x.r.data.typhoon.ratio)}
+          ${cell(x.r.data.earthquake.ratio)}
         </tr>`;
     }).join('');
     summaryHtml = `
@@ -3558,7 +3669,7 @@ async function renderReportView(results, lang) {
         <thead>
           <tr>
             <th></th><th>${T.colLocation}</th><th>${T.colCoords}</th><th>${T.colOverall}</th><th>${T.colDriver}</th>
-            <th class="num">EQ</th><th class="num">TY</th><th class="num">WA</th>
+            <th class="num">WA</th><th class="num">FZ</th><th class="num">TY</th><th class="num">EQ</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -3575,21 +3686,6 @@ async function renderReportView(results, lang) {
       <div class="rpt-loc-coords">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
 
       ${heroBlock(r.data.overall)}
-
-      <div class="rpt-section">
-        <div class="rpt-h">${T.sectionTitles.earthquake}</div>
-        <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].earthquake}</div>
-        ${rptLegendBar(r.data.earthquake.colors, r.data.earthquake.ratio)}
-        <span class="rpt-badge" style="background:${rptBadgeColors(r.data.earthquake.color).bg}; color:${rptBadgeColors(r.data.earthquake.color).text};">${r.data.earthquake.label}</span>
-      </div>
-
-      <div class="rpt-section">
-        <div class="rpt-h">${T.sectionTitles.typhoon}</div>
-        <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].typhoon}</div>
-        ${typhoonTierBand(r.data.typhoon)}
-        <div style="margin-top:10px;"><span class="rpt-badge" style="background:${rptBadgeColors(r.data.typhoon.color).bg}; color:${rptBadgeColors(r.data.typhoon.color).text};">${r.data.typhoon.label}</span></div>
-        ${r.data.typhoon.freq && r.data.typhoon.freq.observed ? `<div class="rpt-comment">${T.typhoonFreq(r.data.typhoon.freq.returnPeriod.toFixed(1), r.data.typhoon.freq.totalYears)}</div>` : ''}
-      </div>
 
       <div class="rpt-section">
         <div class="rpt-h">${T.sectionTitles.water}</div>
@@ -3648,6 +3744,35 @@ async function renderReportView(results, lang) {
           <div class="rpt-desc" style="margin-top:2px;">${r.data.depLabel.text}, ${T.terrainNoteSuffix}</div>
           <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
         </div>
+      </div>
+
+      <div class="rpt-section">
+        <div class="rpt-h">${T.sectionTitles.freeze}</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].freeze}</div>
+        ${rptLegendBar(r.data.freeze.colors, r.data.freeze.ratio)}
+        <span class="rpt-badge" style="background:${rptBadgeColors(r.data.freeze.color).bg}; color:${rptBadgeColors(r.data.freeze.color).text};">${r.data.freeze.label}</span>
+        ${r.data.freeze.isSouth ? `<div class="rpt-comment">${T.freezeSouthNote}</div>` : ''}
+        ${typeof r.data.freeze.fdd === 'number' ? `
+        <div class="rpt-kv" style="margin-top:8px;">
+          <div class="rpt-kv-item"><div class="rpt-kv-k">FDD</div><div class="rpt-kv-v">${r.data.freeze.fdd.toFixed(1)}°C·day</div></div>
+          <div class="rpt-kv-item"><div class="rpt-kv-k">Max consec. freeze days</div><div class="rpt-kv-v">${r.data.freeze.maxConsecFreezeDays.toFixed(1)}</div></div>
+          <div class="rpt-kv-item"><div class="rpt-kv-k">Cold wave freq/yr</div><div class="rpt-kv-v">${r.data.freeze.coldWaveFreq.toFixed(2)}</div></div>
+        </div>` : ''}
+      </div>
+
+      <div class="rpt-section">
+        <div class="rpt-h">${T.sectionTitles.typhoon}</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].typhoon}</div>
+        ${typhoonTierBand(r.data.typhoon)}
+        <div style="margin-top:10px;"><span class="rpt-badge" style="background:${rptBadgeColors(r.data.typhoon.color).bg}; color:${rptBadgeColors(r.data.typhoon.color).text};">${r.data.typhoon.label}</span></div>
+        ${r.data.typhoon.freq && r.data.typhoon.freq.observed ? `<div class="rpt-comment">${T.typhoonFreq(r.data.typhoon.freq.returnPeriod.toFixed(1), r.data.typhoon.freq.totalYears)}</div>` : ''}
+      </div>
+
+      <div class="rpt-section">
+        <div class="rpt-h">${T.sectionTitles.earthquake}</div>
+        <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].earthquake}</div>
+        ${rptLegendBar(r.data.earthquake.colors, r.data.earthquake.ratio)}
+        <span class="rpt-badge" style="background:${rptBadgeColors(r.data.earthquake.color).bg}; color:${rptBadgeColors(r.data.earthquake.color).text};">${r.data.earthquake.label}</span>
       </div>
 
       ${rptFooter}
@@ -3745,6 +3870,7 @@ renderLayerBar();
 renderMethodology();
 updateLegend();
 loadEarthquakes();
+loadFreeze();
 buildTyphoonHazard();
 buildWaterHazard();
 
