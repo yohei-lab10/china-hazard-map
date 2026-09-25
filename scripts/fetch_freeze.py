@@ -22,6 +22,17 @@ scripts/fetch_freeze.py
       並の寒さの地点まで「極めて高」に張り付く不具合が生じたため、
       「その年最大の1イベント」方式に変更した(詳細はcompute_indices()内)。
 
+      【2026年9月・再々修正】「その年最大の1イベント」を単純に複数年平均する
+      方式でも、較正基準(2008年のような数十年に1度の歴史的事例)と本番側
+      (20年平均)の土俵が食い違い、較正した閾値で較正地点自身(貴陽)を
+      評価しても「極めて高」に届かないという矛盾が発覚した。
+      降雨強度(fetch_rainfall.py)と同じ考え方(年最大値の系列にGumbel分布を
+      フィットし、T年再現期間の値を算出)をFDDにも適用し、fdd_t_ref
+      (FDD_REFERENCE_RETURN_PERIOD_YEARS年再現期間相当のFDD)をスコアの
+      入力値とした。参照する再現期間は暫定的に25年としており、
+      calibrate_freeze_thresholds.pyで実被害事例の逆算再現期間を確認してから
+      調整する前提。
+
       【2026年9月追加】FDD(1イベントの合計値)は「-7℃が1日」も「-2℃が
       非連続で2回」も同じ数字にしてしまい、氷点下が連続していたかどうかを
       区別できない。氷点下の連続日数そのものが圧力上昇の継続時間に直結する
@@ -99,6 +110,7 @@ scripts/fetch_freeze.py
 
 import argparse
 import json
+import math
 import os
 import sys
 import time
@@ -121,6 +133,10 @@ COLD_WAVE_ORANGE_MIN_TEMP_C = 0.0
 COLD_WAVE_ORANGE_DROP_24H_C = 12.0
 COLD_WAVE_ORANGE_WIND_MS = 10.8  # 風力6級の下限(ボーフォート風力階級)
 COLD_WAVE_TIER_VALUE = {0: 0.0, 1: 0.33, 2: 0.66, 3: 1.0}  # 蓝=1, 黄=2, 橙=3
+
+# ①FDDのGumbel分布から読み取る参照再現期間(年)。暫定値・要検証。
+# calibrate_freeze_thresholds.pyで実被害事例の逆算再現期間を確認してから調整する。
+FDD_REFERENCE_RETURN_PERIOD_YEARS = 25
 
 # ④放射冷却リスクの暫定閾値(要検証)
 RADIATIVE_CLOUD_MAX = 0.10   # 快晴(雲量0〜1/10)。CLOUD_AMTは0〜1のフラクション
@@ -268,6 +284,32 @@ def _cold_wave_tier_for_day(i, dates_sorted, t2m_min, ws2m):
     return 0
 
 
+def fit_gumbel(values):
+    """モーメント法によるGumbel分布フィット(fetch_rainfall.pyと同じ手法)。
+    values: 年ごとの最大値の系列(このスクリプトでは「年最悪の1連続結氷イベントの
+    FDD」を各年1つずつ集めたもの)。2点未満では信頼できるフィットができないためNoneを返す。
+    返り値: (mu, beta) または None。"""
+    n = len(values)
+    if n < 2:
+        return None
+    mean = sum(values) / n
+    variance = sum((v - mean) ** 2 for v in values) / n
+    std = variance ** 0.5
+    if std <= 0:
+        return None
+    beta = (6 ** 0.5) * std / math.pi
+    mu = mean - 0.5772157 * beta
+    return mu, beta
+
+
+def gumbel_return_level(mu, beta, return_period_years):
+    """T年再現期間に相当する値(x_T)を、Gumbel分布の逆関数から算出する。
+    x_T = mu - beta * ln(-ln(1 - 1/T))  ※fetch_rainfall.pyと同じ式。"""
+    p = 1 - 1 / return_period_years
+    return mu - beta * math.log(-math.log(p))
+
+
+
 def compute_indices(daily):
     """1地点分の日次時系列から ①FDD ②寒潮の重症度 ④放射冷却頻度 の年平均を算出。"""
     t2m = daily.get("T2M", {})
@@ -323,6 +365,30 @@ def compute_indices(daily):
         if run_fdd > max_run_fdd_by_year.get(y, -1):
             max_run_fdd_by_year[y] = run_fdd
             max_consec_by_year[y] = length  # 同じ(最もFDDが大きかった)runの連続日数
+    # ① FDD 【2026年9月・再々修正】単純な複数年平均だと、較正基準(2008年の
+    # ような数十年に1度の歴史的事例)と本番側(20年平均)の「土俵」がそもそも
+    # 違っていた。貴陽(較正較正値152.3)の実際の20年平均が0.51(High止まり)にしか
+    # ならず、較正した閾値で本番地点を評価しても較正地点自身が同じ階級に
+    # 達しないという矛盾が発覚した。
+    # 降雨強度(fetch_rainfall.py)と同じ考え方(年最大値の系列にGumbel分布を
+    # フィットし、T年再現期間の値を算出)をFDDにも適用する。①は既に
+    # 「各年最悪の1連続結氷イベントのFDD」を年ごとに1つ算出しており、これは
+    # 降雨の「年最大24時間降水量」と全く同じ形の系列のため、そのまま流用できる。
+    # 参照する再現期間(FDD_REFERENCE_RETURN_PERIOD_YEARS)は暫定的に25年として
+    # おり、calibrate_freeze_thresholds.py側で「過去の実被害事例が何年再現期間に
+    # 相当するか」を逆算した結果を見てから調整する前提。
+    fdd_series = list(max_run_fdd_by_year.values())
+    gumbel = fit_gumbel(fdd_series)
+    if gumbel is not None:
+        gumbel_mu, gumbel_beta = gumbel
+        fdd_t_ref = gumbel_return_level(gumbel_mu, gumbel_beta, FDD_REFERENCE_RETURN_PERIOD_YEARS)
+        fdd_t_ref = max(0.0, fdd_t_ref)  # Gumbelは理論上負値も取りうるため、物理的に無意味な負のFDDは0に丸める
+    else:
+        # 観測年数が少なすぎてGumbelフィットが信頼できない場合は、
+        # 単純平均にフォールバックする(降雨強度がyears_used不足の地点で
+        # 再現期間の行自体を表示しないのと同様、呼び出し側で扱いを変える余地を残す)
+        gumbel_mu, gumbel_beta = None, None
+        fdd_t_ref = sum(fdd_series) / len(fdd_series) if fdd_series else 0.0
     fdd_annual_mean = sum(max_run_fdd_by_year.values()) / n_years if max_run_fdd_by_year else 0.0
     max_consec_annual_mean = sum(max_consec_by_year.values()) / n_years if max_consec_by_year else 0.0
 
@@ -361,7 +427,11 @@ def compute_indices(daily):
     radiative_annual_freq = radiative_count / n_years
 
     return {
-        "fdd": round(fdd_annual_mean, 1),
+        "fdd": round(fdd_annual_mean, 1),  # 参考値: 単純な複数年平均(スコアには不使用)
+        "fdd_t_ref": round(fdd_t_ref, 1),  # スコアに使用: FDD_REFERENCE_RETURN_PERIOD_YEARS年再現期間相当のFDD
+        "fdd_return_period_years": FDD_REFERENCE_RETURN_PERIOD_YEARS,
+        "gumbel_mu": round(gumbel_mu, 2) if gumbel_mu is not None else None,
+        "gumbel_beta": round(gumbel_beta, 2) if gumbel_beta is not None else None,
         "max_consec_freeze_days": round(max_consec_annual_mean, 1),
         "cold_wave_freq": round(cold_wave_annual_freq, 2),
         "cold_wave_severity": round(cold_wave_severity, 3),
@@ -409,7 +479,9 @@ def main():
             "generated": date.today().isoformat(),
             "source": "NASA POWER (power.larc.nasa.gov), community=AG",
             "period": f"{args.start_year}-{args.end_year}",
-            "note": ("①fdd(その年最悪の1連続結氷イベントのFDD、複数年平均) "
+            "note": ("①fdd_t_ref(fdd_return_period_years年再現期間相当のFDD。年ごとの"
+                     "最悪1連続結氷イベントの系列にGumbel分布をフィットして算出。"
+                     "統合スコアはこちらを使用) ①fdd(参考値: 単純な複数年平均、スコア不使用) "
                      "①補助:max_consec_freeze_days(同イベントの連続日数、複数年平均) "
                      "②cold_wave_freq(蓝色相当の年間発生回数、診断用) "
                      "②cold_wave_severity(年最悪の寒潮階級[蓝0.33/黄0.66/橙1.0]の複数年平均、"
