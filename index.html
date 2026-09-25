@@ -2388,7 +2388,7 @@ function typhoonReturnPeriodInfo(lat, lon) {
 }
 
 // 凍結ハザード(水道管凍結・破裂リスク)。2026年9月の設計レビュー合意に基づく:
-//   Score_A(持続型) = normalize(①FDD, 較正済み絶対閾値) × (1 + β・④放射冷却頻度)
+//   Score_A(持続型) = normalize(①fdd_t_ref, 較正済み絶対閾値) × (1 + β・④放射冷却頻度)
 //   Score_B(急変型) = ②各年で到達した寒潮の最悪階級(蓝0.33/黄0.66/橙1.0)の複数年平均
 //   基礎スコア = max(Score_A, Score_B)
 //   最終スコア = 基礎スコア × (南方[秦嶺・淮河線より南]なら (1+γ)、北方ならそのまま)
@@ -2400,13 +2400,22 @@ function typhoonReturnPeriodInfo(lat, lon) {
 // 高いスコアになってしまった。fetch_freeze.py側で「発生回数」ではなく
 // 「その年に到達した最も深刻な階級」を評価する方式に改めたため、ここでは
 // cold_wave_severity(既に0〜1に正規化済み)をそのまま使うだけでよい。
+// 【2026年9月・再々修正】Score_Aの入力を、単純な複数年平均(fdd)から
+// fdd_t_ref(fetch_freeze.py側でGumbel分布フィットにより算出したT年再現期間の
+// FDD)に変更した。単純平均だと、較正基準(2008年のような歴史的1事例)と本番側
+// (20年平均)の土俵が食い違い、較正地点(貴陽)自身が較正した閾値で「極めて高」
+// に届かないという矛盾が生じたため。閾値(FREEZE_FDD_TIER_BOUNDS)自体は較正
+// イベントの実測FDD値のままなので、fdd_t_refの参照年数(fetch_freeze.pyの
+// FDD_REFERENCE_RETURN_PERIOD_YEARS)を、calibrate_freeze_thresholds.pyが
+// 逆算する「較正イベントの真の再現期間」に近づける形で今後調整する必要がある。
 const FREEZE_FDD_TIER_BOUNDS = [15.2, 59.6, 110.3]; // 較正結果(2021年武漢/2016年南京/2008年長沙)
 const FREEZE_RADIATIVE_BETA = 0.3;        // 放射冷却頻度による補正の強さ(仮置き)
 const FREEZE_RADIATIVE_FREQ_CAP = 10;     // この頻度(年間回数)で補正が頭打ちになる(仮置き)
 const FREEZE_SOUTH_MULTIPLIER = 0.3;      // 南方(供暖区外)への割増し係数γ(仮置き)
 
-function freezeScoreA(fdd, radiativeFreq) {
+function freezeScoreA(fddTRef, radiativeFreq) {
   const b = FREEZE_FDD_TIER_BOUNDS;
+  const fdd = fddTRef;
   let ratio;
   if (fdd < b[0]) ratio = (fdd / b[0]) * 0.25;
   else if (fdd < b[1]) ratio = 0.25 + ((fdd - b[0]) / (b[1] - b[0])) * 0.25;
@@ -2428,7 +2437,7 @@ function freezeRiskInfo(lat, lon) {
     if (d < nearestDist) { nearestDist = d; nearest = f.properties; }
   });
   if (!nearest) return null;
-  const scoreA = freezeScoreA(nearest.fdd || 0, nearest.radiative_freq || 0);
+  const scoreA = freezeScoreA(nearest.fdd_t_ref || 0, nearest.radiative_freq || 0);
   const scoreB = freezeScoreB(nearest.cold_wave_severity || 0);
   const base = Math.max(scoreA, scoreB);
   const isSouth = lat < heatingBoundaryLat;
@@ -2436,7 +2445,8 @@ function freezeRiskInfo(lat, lon) {
   const tier = Math.min(4, Math.floor(ratio * 5));
   return {
     tier, ratio, color: WARNING_TIER_COLORS[tier], valueLabel: ratio.toFixed(2),
-    fdd: nearest.fdd, maxConsecFreezeDays: nearest.max_consec_freeze_days,
+    fdd: nearest.fdd, fddTRef: nearest.fdd_t_ref, fddReturnPeriodYears: nearest.fdd_return_period_years,
+    maxConsecFreezeDays: nearest.max_consec_freeze_days,
     coldWaveFreq: nearest.cold_wave_freq, coldWaveSeverity: nearest.cold_wave_severity, isSouth,
   };
 }
@@ -3327,7 +3337,8 @@ async function computeReportData(lat, lon, lang) {
   const frInfo = freezeRiskInfo(lat, lon);
   const freeze = frInfo
     ? { label: T.hazardLabel('freeze', tierWords[frInfo.tier], frInfo.valueLabel), color: frInfo.color, colors: WARNING_TIER_COLORS, ratio: frInfo.ratio,
-        fdd: frInfo.fdd, maxConsecFreezeDays: frInfo.maxConsecFreezeDays, coldWaveFreq: frInfo.coldWaveFreq, isSouth: frInfo.isSouth }
+        fdd: frInfo.fdd, fddTRef: frInfo.fddTRef, fddReturnPeriodYears: frInfo.fddReturnPeriodYears,
+        maxConsecFreezeDays: frInfo.maxConsecFreezeDays, coldWaveFreq: frInfo.coldWaveFreq, isSouth: frInfo.isSouth }
     : { label: T.noDataFreeze, color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null, isSouth: false };
 
   const tyInfo = typhoonRiskInfo(lat, lon);
@@ -3755,9 +3766,10 @@ async function renderReportView(results, lang) {
         ${rptLegendBar(r.data.freeze.colors, r.data.freeze.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.freeze.color).bg}; color:${rptBadgeColors(r.data.freeze.color).text};">${r.data.freeze.label}</span>
         ${r.data.freeze.isSouth ? `<div class="rpt-comment">${T.freezeSouthNote}</div>` : ''}
-        ${typeof r.data.freeze.fdd === 'number' ? `
+        ${typeof r.data.freeze.fddTRef === 'number' ? `
         <div class="rpt-kv" style="margin-top:8px;">
-          <div class="rpt-kv-item"><div class="rpt-kv-k">FDD</div><div class="rpt-kv-v">${r.data.freeze.fdd.toFixed(1)}°C·day</div></div>
+          <div class="rpt-kv-item"><div class="rpt-kv-k">FDD (${r.data.freeze.fddReturnPeriodYears}yr)</div><div class="rpt-kv-v">${r.data.freeze.fddTRef.toFixed(1)}°C·day</div></div>
+          <div class="rpt-kv-item"><div class="rpt-kv-k">FDD (avg, ref. only)</div><div class="rpt-kv-v">${typeof r.data.freeze.fdd === 'number' ? r.data.freeze.fdd.toFixed(1) : '—'}°C·day</div></div>
           <div class="rpt-kv-item"><div class="rpt-kv-k">Max consec. freeze days</div><div class="rpt-kv-v">${r.data.freeze.maxConsecFreezeDays.toFixed(1)}</div></div>
           <div class="rpt-kv-item"><div class="rpt-kv-k">Cold wave freq/yr</div><div class="rpt-kv-v">${r.data.freeze.coldWaveFreq.toFixed(2)}</div></div>
         </div>` : ''}
