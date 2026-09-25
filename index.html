@@ -2389,17 +2389,20 @@ function typhoonReturnPeriodInfo(lat, lon) {
 
 // 凍結ハザード(水道管凍結・破裂リスク)。2026年9月の設計レビュー合意に基づく:
 //   Score_A(持続型) = normalize(①FDD, 較正済み絶対閾値) × (1 + β・④放射冷却頻度)
-//   Score_B(急変型) = ②寒潮頻度を0〜1に正規化(年間3回以上で頭打ち)
+//   Score_B(急変型) = ②各年で到達した寒潮の最悪階級(蓝0.33/黄0.66/橙1.0)の複数年平均
 //   基礎スコア = max(Score_A, Score_B)
 //   最終スコア = 基礎スコア × (南方[秦嶺・淮河線より南]なら (1+γ)、北方ならそのまま)
-// 【要検証】β・γ・寒潮頻度の頭打ち値(FREEZE_COLD_WAVE_FREQ_CAP)は現時点で仮置き。
-// 実データのヒストグラムを見てから調整する前提(降雨強度の設計時と同じプロセス)。
-// また②は現状、寒潮の「発生有無」の頻度のみで、蓝/黄/橙の重症度別カウントは
-// fetch_freeze.py側でまだ区別していない(将来の改善余地)。
+// 【要検証】β・γは現時点で仮置き。実データのヒストグラムを見てから調整する前提
+// (降雨強度の設計時と同じプロセス)。
+// 【2026年9月・再修正】Score_Bは当初「寒潮の年間発生頻度を年3回で頭打ちにして
+// 正規化」する方式だったが、実データで検証したところ、蓝色相当の寒潮が頻発するが
+// 深刻な階級には届かない華東(蘇州・無錫)が、寒潮自体は稀だが深刻な広州より
+// 高いスコアになってしまった。fetch_freeze.py側で「発生回数」ではなく
+// 「その年に到達した最も深刻な階級」を評価する方式に改めたため、ここでは
+// cold_wave_severity(既に0〜1に正規化済み)をそのまま使うだけでよい。
 const FREEZE_FDD_TIER_BOUNDS = [15.2, 59.6, 110.3]; // 較正結果(2021年武漢/2016年南京/2008年長沙)
 const FREEZE_RADIATIVE_BETA = 0.3;        // 放射冷却頻度による補正の強さ(仮置き)
 const FREEZE_RADIATIVE_FREQ_CAP = 10;     // この頻度(年間回数)で補正が頭打ちになる(仮置き)
-const FREEZE_COLD_WAVE_FREQ_CAP = 3;      // 寒潮の年間頻度がこの回数で急変型スコア=1.0(仮置き)
 const FREEZE_SOUTH_MULTIPLIER = 0.3;      // 南方(供暖区外)への割増し係数γ(仮置き)
 
 function freezeScoreA(fdd, radiativeFreq) {
@@ -2412,8 +2415,8 @@ function freezeScoreA(fdd, radiativeFreq) {
   const boost = 1 + FREEZE_RADIATIVE_BETA * Math.min(1, radiativeFreq / FREEZE_RADIATIVE_FREQ_CAP);
   return Math.min(1, ratio * boost);
 }
-function freezeScoreB(coldWaveFreq) {
-  return Math.min(1, coldWaveFreq / FREEZE_COLD_WAVE_FREQ_CAP);
+function freezeScoreB(coldWaveSeverity) {
+  return Math.max(0, Math.min(1, coldWaveSeverity));
 }
 function freezeRiskInfo(lat, lon) {
   if (!freezeGeojsonCacheGlobal) return null;
@@ -2426,7 +2429,7 @@ function freezeRiskInfo(lat, lon) {
   });
   if (!nearest) return null;
   const scoreA = freezeScoreA(nearest.fdd || 0, nearest.radiative_freq || 0);
-  const scoreB = freezeScoreB(nearest.cold_wave_freq || 0);
+  const scoreB = freezeScoreB(nearest.cold_wave_severity || 0);
   const base = Math.max(scoreA, scoreB);
   const isSouth = lat < heatingBoundaryLat;
   const ratio = isSouth ? Math.min(1, base * (1 + FREEZE_SOUTH_MULTIPLIER)) : base;
@@ -2434,7 +2437,7 @@ function freezeRiskInfo(lat, lon) {
   return {
     tier, ratio, color: WARNING_TIER_COLORS[tier], valueLabel: ratio.toFixed(2),
     fdd: nearest.fdd, maxConsecFreezeDays: nearest.max_consec_freeze_days,
-    coldWaveFreq: nearest.cold_wave_freq, isSouth,
+    coldWaveFreq: nearest.cold_wave_freq, coldWaveSeverity: nearest.cold_wave_severity, isSouth,
   };
 }
 function freezeTileColor(lat, lon) {
