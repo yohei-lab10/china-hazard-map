@@ -28,10 +28,15 @@ scripts/fetch_freeze.py
       評価しても「極めて高」に届かないという矛盾が発覚した。
       降雨強度(fetch_rainfall.py)と同じ考え方(年最大値の系列にGumbel分布を
       フィットし、T年再現期間の値を算出)をFDDにも適用し、fdd_t_ref
-      (FDD_REFERENCE_RETURN_PERIOD_YEARS年再現期間相当のFDD)をスコアの
-      入力値とした。参照する再現期間は暫定的に25年としており、
-      calibrate_freeze_thresholds.pyで実被害事例の逆算再現期間を確認してから
-      調整する前提。
+      (FDD_REFERENCE_RETURN_PERIOD_YEARSの年再現期間相当のFDD)をスコアの
+      入力値とした。参照する再現期間は降雨強度のx10に揃えて10年としている
+      (2026年9月、当初の25年案から変更。観測期間20年に対し25年は外挿が
+      強すぎるため)。calibrate_freeze_thresholds.pyで6較正事例の逆算
+      再現期間を確認したところ、貴陽(約43年)・長沙(約68年)は本当に
+      歴史的な事例だった一方、南京・上海・武漢・広州は1.5〜2.4年に1度
+      程度とその土地では珍しくない頻度であることが判明し、①の絶対閾値
+      (FREEZE_FDD_TIER_BOUNDS、index.html側)もこの発見を踏まえて
+      再較正した。
 
       【2026年9月追加】FDD(1イベントの合計値)は「-7℃が1日」も「-2℃が
       非連続で2回」も同じ数字にしてしまい、氷点下が連続していたかどうかを
@@ -136,7 +141,11 @@ COLD_WAVE_TIER_VALUE = {0: 0.0, 1: 0.33, 2: 0.66, 3: 1.0}  # 蓝=1, 黄=2, 橙=3
 
 # ①FDDのGumbel分布から読み取る参照再現期間(年)。暫定値・要検証。
 # calibrate_freeze_thresholds.pyで実被害事例の逆算再現期間を確認してから調整する。
-FDD_REFERENCE_RETURN_PERIOD_YEARS = 25
+# ①FDDのGumbel分布から読み取る参照再現期間(年)。降雨強度(fetch_rainfall.py)が
+# 「観測期間(10年)を超えて外挿しすぎない」という考え方でx10(10年確率)を
+# スコアに採用しているのに合わせ、こちらも観測期間(20年)に対して同じ位置づけの
+# 10年を採用する(2026年9月、当初の25年は観測期間の1.25倍で外挿が強すぎたため変更)。
+FDD_REFERENCE_RETURN_PERIOD_YEARS = 10
 
 # ④放射冷却リスクの暫定閾値(要検証)
 RADIATIVE_CLOUD_MAX = 0.10   # 快晴(雲量0〜1/10)。CLOUD_AMTは0〜1のフラクション
@@ -374,9 +383,10 @@ def compute_indices(daily):
     # フィットし、T年再現期間の値を算出)をFDDにも適用する。①は既に
     # 「各年最悪の1連続結氷イベントのFDD」を年ごとに1つ算出しており、これは
     # 降雨の「年最大24時間降水量」と全く同じ形の系列のため、そのまま流用できる。
-    # 参照する再現期間(FDD_REFERENCE_RETURN_PERIOD_YEARS)は暫定的に25年として
-    # おり、calibrate_freeze_thresholds.py側で「過去の実被害事例が何年再現期間に
-    # 相当するか」を逆算した結果を見てから調整する前提。
+    # 参照する再現期間(FDD_REFERENCE_RETURN_PERIOD_YEARS)は降雨強度(x10)に
+    # 揃えて10年としている(2026年9月、当初の25年案から変更)。較正イベントが
+    # 実際に何年再現期間に相当するかはcalibrate_freeze_thresholds.pyで
+    # 逆算済み(貴陽43年・長沙68年など、事例ごとに稀さが大きく異なることが判明)。
     fdd_series = list(max_run_fdd_by_year.values())
     gumbel = fit_gumbel(fdd_series)
     if gumbel is not None:
