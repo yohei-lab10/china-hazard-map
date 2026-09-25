@@ -34,14 +34,25 @@ scripts/fetch_freeze.py
       別スコアとして最大値を取るか)は次のステップで検討する。
 
   ② 寒潮強度(急激な気温降下)
-      中国気象局《冷空気等级》国家標準 GB/T 20484-2017 の寒潮定義をそのまま採用:
-        - 24時間以内に日最低気温が8℃以上低下、または
-        - 48時間以内に10℃以上低下、または
-        - 72時間以内に12℃以上低下
-        - かつ、その日の最低気温が4℃以下
+      中央気象台の寒潮予警信号(蓝色/黄色/橙色の3段階)を採用:
+        - 蓝色: GB/T 20484-2017の基本寒潮定義(24h降温8℃以上、または48h
+          10℃以上、または72h12℃以上、かつ最低気温4℃以下)
+        - 橙色: 24h降温12℃以上、かつ最低気温0℃以下、かつ風力6級(10.8m/s)以上
+        - 黄色: 蓝色と橙色の間に位置する暫定基準(24h降温10℃以上、かつ
+          最低気温4℃以下)。中央気象台の正式な数値基準を確認できなかった
+          ための暫定値であり要検証。
       → 「対策(水抜き・保温材の巻き付け等)が間に合わない急な寒さ」を捉える。
         天津のような供暖区内でも局地的に凍結被害が起きる事例を、南北の
         地域区分に頼らず地点固有の実測データとして拾うための指標。
+
+      【2026年9月・再修正】当初は「年間の蓝色相当の発生頻度を、年3回で
+      頭打みにして正規化」する方式だったが、実データで検証したところ
+      蘇州・無錫(華東、蓝色相当が年3.85回)が広州(亜熱帯、寒潮は稀だが
+      深刻)よりも高いスコアになってしまった。①のFDDを「年間合計」から
+      「その年最悪の1イベント」に直したのと同じ考え方で、②も「発生回数」
+      ではなく「その年に到達した最も深刻な階級(蓝/黄/橙)」を蓝=0.33/
+      黄=0.66/橙=1.0として評価し、複数年平均する方式に変更した。
+      これにより、発生頻度の頭打ち値という恣意的なパラメータが不要になる。
 
   ③ 供暖境界(秦嶺・淮河線)
       本スクリプトでは扱わない。static/heating_boundary.geojson として
@@ -99,9 +110,17 @@ POWER_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
 POWER_PARAMETERS = "T2M,T2M_MIN,WS2M,RH2M,CLOUD_AMT"
 POWER_COMMUNITY = "AG"
 
-# GB/T 20484-2017《冷空气等级》寒潮定義
-COLD_WAVE_MIN_TEMP_C = 4.0
-COLD_WAVE_DROPS = [(1, 8.0), (2, 10.0), (3, 12.0)]  # (何日前と比較するか, 必要な降温幅℃)
+# 中央気象台の寒潮予警信号(3段階)。蓝色はGB/T 20484-2017の基本寒潮定義。
+# 橙色は確認済みの公式基準。黄色は正式な数値基準が確認できなかったための
+# 暫定値(蓝色と橙色の中間、要検証)。
+COLD_WAVE_BLUE_MIN_TEMP_C = 4.0
+COLD_WAVE_BLUE_DROPS = [(1, 8.0), (2, 10.0), (3, 12.0)]  # (何日前と比較するか, 必要な降温幅℃)
+COLD_WAVE_YELLOW_MIN_TEMP_C = 4.0   # 【暫定・要検証】
+COLD_WAVE_YELLOW_DROP_24H_C = 10.0  # 【暫定・要検証】
+COLD_WAVE_ORANGE_MIN_TEMP_C = 0.0
+COLD_WAVE_ORANGE_DROP_24H_C = 12.0
+COLD_WAVE_ORANGE_WIND_MS = 10.8  # 風力6級の下限(ボーフォート風力階級)
+COLD_WAVE_TIER_VALUE = {0: 0.0, 1: 0.33, 2: 0.66, 3: 1.0}  # 蓝=1, 黄=2, 橙=3
 
 # ④放射冷却リスクの暫定閾値(要検証)
 RADIATIVE_CLOUD_MAX = 0.10   # 快晴(雲量0〜1/10)。CLOUD_AMTは0〜1のフラクション
@@ -213,8 +232,44 @@ def compute_effective_humidity_series(dates_sorted, rh2m, decay=EFFECTIVE_HUMIDI
     return eff
 
 
+def _cold_wave_tier_for_day(i, dates_sorted, t2m_min, ws2m):
+    """i日目(dates_sorted[i])が中央気象台の寒潮予警のどの階級に該当するか。
+    0=非該当, 1=蓝色, 2=黄色, 3=橙色。"""
+    tmin_today = t2m_min.get(dates_sorted[i])
+    if not _valid(tmin_today):
+        return 0
+
+    def drop(days_back):
+        j = i - days_back
+        if j < 0:
+            return None
+        tmin_prev = t2m_min.get(dates_sorted[j])
+        if not _valid(tmin_prev):
+            return None
+        return tmin_prev - tmin_today
+
+    d1 = drop(1)
+    wind_today = ws2m.get(dates_sorted[i])
+    # 橙色: 24h降温12℃以上 かつ 最低気温0℃以下 かつ 風力6級(10.8m/s)以上
+    if (d1 is not None and d1 >= COLD_WAVE_ORANGE_DROP_24H_C
+            and tmin_today <= COLD_WAVE_ORANGE_MIN_TEMP_C
+            and _valid(wind_today) and wind_today >= COLD_WAVE_ORANGE_WIND_MS):
+        return 3
+    # 黄色(暫定・要検証): 24h降温10℃以上 かつ 最低気温4℃以下
+    if (d1 is not None and d1 >= COLD_WAVE_YELLOW_DROP_24H_C
+            and tmin_today <= COLD_WAVE_YELLOW_MIN_TEMP_C):
+        return 2
+    # 蓝色: GB/T 20484-2017の基本寒潮定義
+    if tmin_today <= COLD_WAVE_BLUE_MIN_TEMP_C:
+        for days_back, drop_threshold in COLD_WAVE_BLUE_DROPS:
+            dd = drop(days_back)
+            if dd is not None and dd >= drop_threshold:
+                return 1
+    return 0
+
+
 def compute_indices(daily):
-    """1地点分の日次時系列から ①FDD ②寒潮頻度 ④放射冷却頻度 の年平均を算出。"""
+    """1地点分の日次時系列から ①FDD ②寒潮の重症度 ④放射冷却頻度 の年平均を算出。"""
     t2m = daily.get("T2M", {})
     t2m_min = daily.get("T2M_MIN", {})
     ws2m = daily.get("WS2M", {})
@@ -271,20 +326,22 @@ def compute_indices(daily):
     fdd_annual_mean = sum(max_run_fdd_by_year.values()) / n_years if max_run_fdd_by_year else 0.0
     max_consec_annual_mean = sum(max_consec_by_year.values()) / n_years if max_consec_by_year else 0.0
 
-    # ② 寒潮頻度(GB/T 20484-2017)
+    # ② 寒潮強度 【2026年9月・再修正】発生頻度を頭打ちで正規化する方式から、
+    # 「その年に到達した最も深刻な階級(蓝/黄/橙)」を複数年平均する方式に変更
+    # (詳細な経緯はモジュールdocstring参照)。
+    # cold_wave_freq(蓝色相当の年間発生回数)は診断・レポート表示用に維持する。
     cold_wave_count = 0
+    max_tier_by_year = {}
     for i, d in enumerate(dates_sorted):
-        tmin_today = t2m_min.get(d)
-        if not _valid(tmin_today) or tmin_today > COLD_WAVE_MIN_TEMP_C:
-            continue
-        for days_back, drop_threshold in COLD_WAVE_DROPS:
-            if i - days_back < 0:
-                continue
-            tmin_prev = t2m_min.get(dates_sorted[i - days_back])
-            if _valid(tmin_prev) and (tmin_prev - tmin_today) >= drop_threshold:
-                cold_wave_count += 1
-                break  # 同日の多重カウントを防ぐ
+        tier = _cold_wave_tier_for_day(i, dates_sorted, t2m_min, ws2m)
+        if tier >= 1:
+            cold_wave_count += 1  # 蓝色以上を1回とカウント(診断用、旧来と同じ定義)
+        y = d[:4]
+        if tier > max_tier_by_year.get(y, 0):
+            max_tier_by_year[y] = tier
     cold_wave_annual_freq = cold_wave_count / n_years
+    cold_wave_severity = (sum(COLD_WAVE_TIER_VALUE[t] for t in max_tier_by_year.values()) / n_years
+                           if max_tier_by_year else 0.0)
 
     # ④ 放射冷却リスク頻度
     # 【2026年9月改訂】単純なRH<50%から、気象庁「乾燥注意報」に合わせた
@@ -307,6 +364,7 @@ def compute_indices(daily):
         "fdd": round(fdd_annual_mean, 1),
         "max_consec_freeze_days": round(max_consec_annual_mean, 1),
         "cold_wave_freq": round(cold_wave_annual_freq, 2),
+        "cold_wave_severity": round(cold_wave_severity, 3),
         "radiative_freq": round(radiative_annual_freq, 2),
         "years_used": n_years,
     }
@@ -351,10 +409,13 @@ def main():
             "generated": date.today().isoformat(),
             "source": "NASA POWER (power.larc.nasa.gov), community=AG",
             "period": f"{args.start_year}-{args.end_year}",
-            "note": ("①fdd(累積結氷度日数の年平均) ①補助:max_consec_freeze_days"
-                     "(年間最長連続結氷日数の複数年平均) ②cold_wave_freq(GB/T20484-2017"
-                     "寒潮の年平均発生回数) ④radiative_freq(放射冷却条件の年平均"
-                     "発生回数)。③供暖区分は別ファイル heating_boundary.geojson。"
+            "note": ("①fdd(その年最悪の1連続結氷イベントのFDD、複数年平均) "
+                     "①補助:max_consec_freeze_days(同イベントの連続日数、複数年平均) "
+                     "②cold_wave_freq(蓝色相当の年間発生回数、診断用) "
+                     "②cold_wave_severity(年最悪の寒潮階級[蓝0.33/黄0.66/橙1.0]の複数年平均、"
+                     "統合スコアはこちらを使用) "
+                     "④radiative_freq(放射冷却条件の年平均発生回数)。"
+                     "③供暖区分は別ファイル heating_boundary.geojson。"
                      "統合スコアの算出はindex.html側で行う。"),
         },
         "features": features,
