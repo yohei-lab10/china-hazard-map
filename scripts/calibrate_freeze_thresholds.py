@@ -100,38 +100,47 @@ def _valid(v):
 
 
 def event_fdd(daily):
-    """指定期間中のFDD(累積結氷度日数、期間合計、日最低気温ベース)、
-    最長連続結氷日数、および最低気温の最小値を返す。
+    """指定期間内で最もFDDが大きかった一続きの寒波(連続結氷区間)のFDDと、
+    その連続日数、および期間全体の最低気温の最小値を返す。
     【2026年9月修正】日平均気温(T2M)ベースだと、日中に氷点を上回る南方の
     短時間冷え込み(例: 2016年広州)を完全に見逃すことが分かったため、
     fetch_freeze.pyと同じく日最低気温(T2M_MIN)ベースに変更した。
-    【2026年9月追加】FDD(合計値)だけでは「連続していたか」を区別できないため、
-    期間内の最長連続結氷日数も算出する(fetch_freeze.pyのcompute_indices()と
-    同じロジック)。"""
+    【2026年9月・再修正】当初は「期間内の全氷点下日を単純合計」していたが、
+    本番側(fetch_freeze.py)を「その年最大の1連続イベント」方式に変更した
+    のに合わせ、較正側もここで同じロジックに揃える(較正イベントの期間は
+    数週間あり、間に氷点上の日を挟む場合、単純合計だと本番の「1イベント」
+    定義とずれるため)。"""
     t2m_min = daily.get("T2M_MIN", {})
     dates_sorted = sorted(t2m_min.keys())
-    fdd_total = 0.0
     coldest = None
-    current_len, max_len = 0, 0
+    current_start, current_len, current_fdd = None, 0, 0.0
+    best_len, best_fdd = 0, 0.0
     for d in dates_sorted:
         v = t2m_min.get(d)
         if not _valid(v):
-            current_len = 0
+            if current_fdd > best_fdd:
+                best_fdd, best_len = current_fdd, current_len
+            current_start, current_len, current_fdd = None, 0, 0.0
             continue
         if v < 0:
-            fdd_total += -v
+            if current_len == 0:
+                current_start = d
             current_len += 1
-            max_len = max(max_len, current_len)
+            current_fdd += -v
         else:
-            current_len = 0
+            if current_fdd > best_fdd:
+                best_fdd, best_len = current_fdd, current_len
+            current_start, current_len, current_fdd = None, 0, 0.0
         if coldest is None or v < coldest:
             coldest = v
-    return fdd_total, max_len, coldest
+    if current_fdd > best_fdd:
+        best_fdd, best_len = current_fdd, current_len
+    return best_fdd, best_len, coldest
 
 
 def main():
     print("=== 凍結ハザード ①FDD・最長連続結氷日数 較正結果 ===")
-    print("(既知の実被害事例における、期間中のFDD合計・最長連続結氷日数・最低気温)\n")
+    print("(既知の実被害事例の期間内で、最もFDDが大きかった一続きの寒波の値)\n")
     results = []
     for event, city, lat, lon, start, end in CALIBRATION_EVENTS:
         daily = fetch_power_daily(lat, lon, start, end)
