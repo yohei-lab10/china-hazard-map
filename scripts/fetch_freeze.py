@@ -6,18 +6,27 @@ scripts/fetch_freeze.py
 
 【設計の要点】(china-hazard-map プロジェクト、2026年9月設計レビュー合意)
   ① 累積結氷度日数 (Freezing Degree Days, FDD) + 最長連続結氷日数
-      FDD = Σ max(0, 0 - 日最低気温)  ※氷点下の日のみ加算し、年間積算を複数年平均
+      年ごとに「その年で最もFDDが大きかった一続きの寒波(連続結氷区間)」を
+      1つ選び、そのFDDを複数年平均する(年間の全氷点下日を単純合計するの
+      ではない)。較正(calibrate_freeze_thresholds.py)が「1回の寒波
+      イベントのFDD」を基準にしているため、本番側も同じ「1イベント」単位に
+      揃える必要がある。
       2026年9月修正: 当初は日平均気温(T2M)ベースだったが、較正時に南方の
       短時間冷え込み(夜間だけ氷点下、日中は氷点上)を完全に見逃すことが
       判明したため、日最低気温(T2M_MIN)ベースに変更した。
       → 「凍結がどれだけ長く続くか」= 配管内の氷栓による圧力上昇という
         破裂の物理メカニズムに対応する主指標。
 
-      【2026年9月追加】FDD(合計値)は「-7℃が1日」も「-2℃が非連続で2回」も
-      同じ数字(7℃・日 vs 4℃・日相当)にしてしまい、氷点下が連続していたか
-      どうかを区別できない。氷点下の連続日数そのものが圧力上昇の継続時間に
-      直結するため、補助指標として「年間最長連続結氷日数」
-      (日最低気温が連続して0℃を下回った最長日数、複数年平均)を追加した。
+      【2026年9月・再修正】年間合計方式だと、較正値(1回の歴史的寒波の
+      FDD)を通算20年分の冬の合計があっさり超えてしまい、蘇州・無錫のような
+      並の寒さの地点まで「極めて高」に張り付く不具合が生じたため、
+      「その年最大の1イベント」方式に変更した(詳細はcompute_indices()内)。
+
+      【2026年9月追加】FDD(1イベントの合計値)は「-7℃が1日」も「-2℃が
+      非連続で2回」も同じ数字にしてしまい、氷点下が連続していたかどうかを
+      区別できない。氷点下の連続日数そのものが圧力上昇の継続時間に直結する
+      ため、補助指標として「年間最長連続結氷日数」(①で採用したのと同じ
+      イベントの連続日数、複数年平均)を追加した。
       連続日数の区切りは中国気象局の持続低温预警信号が「連続3日以上」を
       構造的な閾値として使っている点を参考にしている(温度の閾値自体は
       北方向けの数値のため転用せず、日数の区切り方のみ参考にした)。
@@ -225,36 +234,42 @@ def compute_indices(daily):
     # 南方の被害は夜間だけの短時間の冷え込みで起きることが多く、日平均では
     # それを完全に見逃してしまう。日最低気温を使うことで、その日のうちに
     # 一度でも氷点下に達したかどうかを正しく反映する。
-    fdd_total = 0.0
-    for d in dates_sorted:
-        v = t2m_min.get(d)
-        if _valid(v) and v < 0:
-            fdd_total += -v
-    fdd_annual_mean = fdd_total / n_years
-
-    # ①補助: 年間最長連続結氷日数(日最低気温が連続して0℃を下回った最長日数)。
-    # FDDの合計値だけでは「連続していたか」を区別できないための補助指標。
-    # 連続区間(run)を検出し、各runの開始日が属する年に、その年最大値として帰属させる。
-    runs = []
-    current_start, current_len = None, 0
+    # ①補助: 連続結氷区間(run)を検出し、各runの「開始日から連続した日数」と
+    # 「その区間内のFDD合計」を両方記録する。
+    runs = []  # [(start_date, length, run_fdd), ...]
+    current_start, current_len, current_fdd = None, 0, 0.0
     for d in dates_sorted:
         v = t2m_min.get(d)
         if _valid(v) and v < 0:
             if current_len == 0:
                 current_start = d
             current_len += 1
+            current_fdd += -v
         else:
             if current_len > 0:
-                runs.append((current_start, current_len))
-            current_len = 0
+                runs.append((current_start, current_len, current_fdd))
+            current_len, current_fdd = 0, 0.0
     if current_len > 0:
-        runs.append((current_start, current_len))
+        runs.append((current_start, current_len, current_fdd))
+
+    # ① FDD 【2026年9月再修正】年間の全氷点下日を単純合計する方式だと、
+    # 較正(calibrate_freeze_thresholds.py)が「1回の寒波イベントのFDD」を
+    # 基準にしているのと測定単位が食い違い、通算20年分の冬をすべて足し合わせた
+    # 本番の値が較正値を軽く超えてしまい、蘇州・無錫のような並の寒さの地点まで
+    # 「極めて高」に張り付く不具合が生じた。
+    # 較正と同じ土俵に揃えるため、「その年で最もFDDが大きかった一続きの寒波
+    # (連続結氷区間)のFDD」を年ごとに採用し、それを複数年平均する方式に変更した。
+    # 年間合計ではなく「年最大の1イベント」を見る点は、台風の年間頻度ではなく
+    # 観測史上最大の1イベントで評価する既存の考え方とも整合する。
+    max_run_fdd_by_year = {}
     max_consec_by_year = {}
-    for start, length in runs:
+    for start, length, run_fdd in runs:
         y = start[:4]
-        if length > max_consec_by_year.get(y, 0):
-            max_consec_by_year[y] = length
-    max_consec_annual_mean = sum(max_consec_by_year.values()) / n_years
+        if run_fdd > max_run_fdd_by_year.get(y, -1):
+            max_run_fdd_by_year[y] = run_fdd
+            max_consec_by_year[y] = length  # 同じ(最もFDDが大きかった)runの連続日数
+    fdd_annual_mean = sum(max_run_fdd_by_year.values()) / n_years if max_run_fdd_by_year else 0.0
+    max_consec_annual_mean = sum(max_consec_by_year.values()) / n_years if max_consec_by_year else 0.0
 
     # ② 寒潮頻度(GB/T 20484-2017)
     cold_wave_count = 0
