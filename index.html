@@ -2404,11 +2404,19 @@ function typhoonReturnPeriodInfo(lat, lon) {
 // fdd_t_ref(fetch_freeze.py側でGumbel分布フィットにより算出したT年再現期間の
 // FDD)に変更した。単純平均だと、較正基準(2008年のような歴史的1事例)と本番側
 // (20年平均)の土俵が食い違い、較正地点(貴陽)自身が較正した閾値で「極めて高」
-// に届かないという矛盾が生じたため。閾値(FREEZE_FDD_TIER_BOUNDS)自体は較正
-// イベントの実測FDD値のままなので、fdd_t_refの参照年数(fetch_freeze.pyの
-// FDD_REFERENCE_RETURN_PERIOD_YEARS)を、calibrate_freeze_thresholds.pyが
-// 逆算する「較正イベントの真の再現期間」に近づける形で今後調整する必要がある。
-const FREEZE_FDD_TIER_BOUNDS = [15.2, 59.6, 110.3]; // 較正結果(2021年武漢/2016年南京/2008年長沙)
+// に届かないという矛盾が生じたため。参照年数(fetch_freeze.pyの
+// FDD_REFERENCE_RETURN_PERIOD_YEARS)は降雨強度のx10に揃えて10年とし、下記の
+// FREEZE_FDD_TIER_BOUNDSもこの10年再現期間の値で再較正済み(詳細は次のコメント)。
+// 【2026年9月・再較正】旧閾値(15.2/59.6/110.3)は6較正事例の「実測FDDそのもの」を
+// 使っていたが、calibrate_freeze_thresholds.pyで各事例の逆算再現期間を確認したところ、
+// 稀さの水準が全くバラバラ(貴陽=約43年に1度、長沙=約68年に1度という真に歴史的な事例
+// である一方、南京・上海・武漢・広州は1.5〜2.4年に1度とその土地では珍しくない頻度)
+// だったと判明し、閾値として同格に扱うのは不適切だった。
+// 各都市自身のGumbel分布から算出した「10年再現期間のFDD」(fetch_freeze.pyの
+// FDD_REFERENCE_RETURN_PERIOD_YEARSと同じ土俵)で揃え直すと: 広州3.7(②が主因のため
+// 除外)/ 上海36.6 / 武漢64.0 / 長沙67.2 / 貴陽102.3 / 南京131.9。
+// この5値(広州除く)のうち上海・武漢・貴陽の3値を閾値として採用した。
+const FREEZE_FDD_TIER_BOUNDS = [36.6, 64.0, 102.3]; // 較正結果(上海/武漢/貴陽の10年再現期間FDD)
 const FREEZE_RADIATIVE_BETA = 0.3;        // 放射冷却頻度による補正の強さ(仮置き)
 const FREEZE_RADIATIVE_FREQ_CAP = 10;     // この頻度(年間回数)で補正が頭打ちになる(仮置き)
 const FREEZE_SOUTH_MULTIPLIER = 0.3;      // 南方(供暖区外)への割増し係数γ(仮置き)
