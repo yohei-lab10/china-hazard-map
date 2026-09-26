@@ -86814,6 +86814,42 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tj4y"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000txpf",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.7032,
+          28.5744
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "13 km N of Xunchang, China",
+        "time": 1790370087262,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000txpf"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000txql",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.6428,
+          28.5792
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "15 km NNW of Xunchang, China",
+        "time": 1790380653361,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000txql"
+      }
     }
   ]
 }
