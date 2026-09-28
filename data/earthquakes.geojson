@@ -86850,6 +86850,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000txql"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000txzj",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.5536,
+          35.3861
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "191 km NW of Oula Xiuma, China",
+        "time": 1790527390268,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000txzj"
+      }
     }
   ]
 }
