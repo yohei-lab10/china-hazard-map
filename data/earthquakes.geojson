@@ -86868,6 +86868,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000txzj"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000tyhk",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          122.9149,
+          23.8027
+        ]
+      },
+      "properties": {
+        "mag": 5.6,
+        "place": "74 km S of Yonakuni, Japan",
+        "time": 1790744424971,
+        "depth_km": 10.792,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tyhk"
+      }
     }
   ]
 }
