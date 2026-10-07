@@ -86886,6 +86886,24 @@
         "depth_km": 10.792,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000tyhk"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000u0hz",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          79.6148,
+          30.1171
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "34 km NNW of Bāgeshwar, India",
+        "time": 1791305591296,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u0hz"
+      }
     }
   ]
 }
