@@ -86893,15 +86893,15 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          79.5618,
-          30.092
+          79.5468,
+          30.0423
         ]
       },
       "properties": {
         "mag": 5.1,
-        "place": "34 km NW of Bāgeshwar, India",
-        "time": 1791305592578,
-        "depth_km": 17.838,
+        "place": "31 km NW of Bāgeshwar, India",
+        "time": 1791305592231,
+        "depth_km": 16.528,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u0hz"
       }
     }
