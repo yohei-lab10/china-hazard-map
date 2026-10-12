@@ -265,8 +265,7 @@
     scrollbar-width: none;
   }
   .layer-bar::-webkit-scrollbar { display: none; }
-  .stage > .layer-bar { pointer-events: none; }
-  .layer-bar .layer-chip { pointer-events: auto; }
+  .layer-bar { touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
   .layer-chip {
     display: flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap;
     height: 32px; padding: 0 12px; border-radius: 16px;
@@ -416,13 +415,25 @@
   .elev-strip b { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text-primary); }
   .result-elev { font-family: var(--mono); font-size: 11px; color: var(--text-primary); margin-top: 6px; line-height: 1.4; }
   .result-freq { font-family: var(--mono); font-size: 10px; color: var(--text-muted); line-height: 1.45; }
+  #app:not([data-tab="map"]) .ec-intro { display: none; }
+  .hz-list[hidden] { display: none; }
+  .hz-toggle {
+    width: 100%; margin-top: 10px; height: 38px; padding: 0 16px; border-radius: 19px; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);
+    color: var(--text-primary); font-size: 12.5px; font-weight: 600;
+  }
+  .hz-toggle small { color: var(--text-faint); font-weight: 500; }
+  .hz-toggle svg { transition: transform .15s; }
+  .hz-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
   .empty-card {
-    padding: 18px 18px 16px; border-radius: 22px; border: 1px solid var(--border);
+    padding: 12px 14px; border-radius: 18px; border: 1px solid var(--border); display: flex; align-items: center; gap: 12px;
     background: linear-gradient(135deg, rgba(44,95,49,0.7), rgba(21,46,26,0.85));
   }
-  .ec-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
-  .ec-text { font-size: 12.5px; line-height: 1.6; color: var(--text-muted); }
-  .ec-btn { margin-top: 12px; height: 40px; padding: 0 18px; border: none; border-radius: 14px; background: var(--accent); color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .ec-body { flex: 1; min-width: 0; }
+  .ec-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .ec-text { font-size: 12px; line-height: 1.45; color: var(--text-muted); }
+  .ec-btn { flex-shrink: 0; height: 34px; padding: 0 14px; border: none; border-radius: 14px; background: var(--accent); color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer; }
   .only-desk { display: none; }
   .risk-legend-labels { display: flex; font-family: var(--mono); font-size: 8px; color: var(--text-faint); }
   .risk-legend-labels span { flex: 1; text-align: center; }
@@ -731,14 +742,15 @@
           </form>
 
           <div class="search-result" id="searchResult" aria-live="polite">
-            <div class="empty-card">
-              <div class="ec-title">Select a point</div>
-              <div class="ec-text">
-                <span class="only-mobile">Open Lookup to enter coordinates, or long-press the map.</span>
-                <span class="only-desk">Enter coordinates above, or long-press the map.</span>
-                All four hazards (water, freeze, typhoon, earthquake) are evaluated at once, together with a composite level.
+            <div class="empty-card ec-intro">
+              <div class="ec-body">
+                <div class="ec-title">Select a point</div>
+                <div class="ec-text">
+                  <span class="only-mobile">Use Lookup or long-press the map.</span>
+                  <span class="only-desk">Enter coordinates above, or long-press the map.</span>
+                </div>
               </div>
-              <button type="button" class="ec-btn only-mobile" data-act="lookup">Open Lookup</button>
+              <button type="button" class="ec-btn only-mobile" data-act="lookup">Lookup</button>
             </div>
           </div>
 
@@ -1039,6 +1051,7 @@ function renderLayerBar() {
 // 【2026年10月】地点検索をするまで地図の塗り(全国レイヤー・タイル)は一切出さない。
 // 検索後: All = 総合で最も高いハザード(同率なら全て)だけ / 個別チップ = そのハザードのみ。
 let lastDriverKeys = [];
+const overlaySel = new Set();
 function applyOverlayLayers(keys) {
   BADGE_LAYER_KEYS.forEach(k => { if (layerGroups[k]) map.removeLayer(layerGroups[k]); });
   activeLayers.clear();
@@ -1046,10 +1059,15 @@ function applyOverlayLayers(keys) {
 }
 function setOverlay(key, opts) {
   const skipQuery = opts && opts.skipQuery;
-  overlayKey = key;
-  applyOverlayLayers(!lastQueriedLatLon ? [] : (key === 'all' ? lastDriverKeys : [key]));
+  // 【2026年10月】チップは複数選択可。個別チップはON/OFFのトグル、何も選ばない状態 = All。
+  // All を押すと個別選択を全て解除する。
+  if (key === 'all') overlaySel.clear();
+  else if (overlaySel.has(key)) overlaySel.delete(key);
+  else overlaySel.add(key);
+  overlayKey = overlaySel.size ? 'multi' : 'all';
+  applyOverlayLayers(!lastQueriedLatLon ? [] : (overlaySel.size ? [...overlaySel] : lastDriverKeys));
   document.querySelectorAll('#layerBar .layer-chip').forEach(btn => {
-    const on = btn.dataset.key === key;
+    const on = btn.dataset.key === 'all' ? overlaySel.size === 0 : overlaySel.has(btn.dataset.key);
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
@@ -1079,14 +1097,14 @@ function updateLegend() {
         This is not an indication of low typhoon hazard. Please retry later.
       </div>` : '';
 
-  if (overlayKey === 'all') {
+  if (!overlaySel.size) {
     container.innerHTML = tiers + typhoonWarn + `<div style="margin-bottom:6px;">
       <strong>All:</strong> no map coloring until a point is searched. After a search, only the highest-level hazard at that point is drawn (all of them if tied). The panel always lists all four hazards. Use the chips on the map to view a single hazard instead.
     </div>`;
     return;
   }
 
-  const l = LAYERS.find(x => x.key === overlayKey);
+  const describe = (l) => {
   const range = dataRanges[l.key] ? ` <span style="color:var(--text-primary);font-weight:600;">[${dataRanges[l.key]}]</span>` : '';
   // 気候シナリオの切替は検索結果(水害の行)側だけに置く。mapRainfallWarmingは共通なので
   // 検索結果のボタンを操作すれば、水害タイルの色も同時に変わる。
@@ -1099,7 +1117,9 @@ function updateLegend() {
       <strong>${l.label}:</strong>${range} ${l.note}
       ${climateNote}
     </div>`;
-  container.innerHTML = tiers + typhoonWarn + unavailable;
+  return unavailable;
+  };
+  container.innerHTML = tiers + typhoonWarn + [...overlaySel].map(k => describe(LAYERS.find(x => x.key === k))).join('');
 }
 
 // 【2026年9月】気候シナリオの切替をここに一本化。地図の凡例と検索結果バッジの両方に
@@ -2328,6 +2348,7 @@ const HAZARD_ROW_META = {
 // 検索結果(情報パネル)のHTML: 地点カード(複合ハザード) → 主因 → 4ハザード一覧 → 操作 → 標高
 // 詳細(頻度・シナリオ等)の開閉状態。再検索で結果HTMLが差し替わっても保持する
 const openHazardExtras = new Set();
+let hzListOpen = false; // 個別ハザード一覧の開閉(既定は閉じる。地図の塗りが見えない小画面では総合のみ表示)
 function pointResultHtml(lat, lon, hazards, overall, ctx) {
   const seg = (n, color) => Array.from({ length: 5 }, (_, i) =>
     `<i style="background:${i < n ? color : 'rgba(255,255,255,0.12)'};"></i>`).join('');
@@ -2376,7 +2397,11 @@ function pointResultHtml(lat, lon, hazards, overall, ctx) {
       </div>
     </div>
     ${o ? `<div class="driver-strip"><span class="dot" style="background:${driverMeta.color};"></span><span class="muted">Main driver</span><b>${o.drivers.join(', ')}</b></div>` : ''}
-    <div class="hz-list">${rows}</div>
+    <button type="button" class="hz-toggle" data-act="hzlist" aria-expanded="${hzListOpen ? 'true' : 'false'}">
+      <span>Hazard details <small>(${hazards.length})</small></span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="hz-list" id="hzList"${hzListOpen ? '' : ' hidden'}>${rows}</div>
     <div class="pc-actions">
       <button type="button" class="btn-primary" data-act="report">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5zM14 3v5h5M9 13h6M9 17h6"/></svg>
@@ -3004,7 +3029,7 @@ async function queryPoint(lat, lon) {
     // 水害は標高が要るためマスごとに評価する(他の3つはローカルデータのみ)。
     // 標高は150mタイルの実測値(このマス)、降雨は平滑化済みGumbel、洪水実績は重み、
     // 窪み係数はグリッド全体の分布から求めた値をマス共通で使う。海上のマスは除外。
-    const tileKeys = overlayKey === 'all' ? (overall ? overall.driverKeys.slice() : []) : [overlayKey];
+    const tileKeys = overlaySel.size ? [...overlaySel] : (overall ? overall.driverKeys.slice() : []);
     lastDriverKeys = overall ? overall.driverKeys.slice() : [];
     applyOverlayLayers(tileKeys);
     let waterCellRatios = null;
@@ -4148,6 +4173,11 @@ function initShell() {
     const act = btn.dataset.act;
     if (act === 'lookup') setTab('lookup');
     else if (act === 'report') setTab('reports');
+    else if (act === 'hzlist') {
+      hzListOpen = !hzListOpen;
+      btn.setAttribute('aria-expanded', hzListOpen ? 'true' : 'false');
+      const hl = document.getElementById('hzList'); if (hl) hl.hidden = !hzListOpen;
+    }
     else if (act === 'legend') document.getElementById('footerToggle').click();
     else if (act === 'copy' && lastQueriedLatLon) {
       const text = `${lastQueriedLatLon.lat.toFixed(4)}, ${lastQueriedLatLon.lon.toFixed(4)}`;
