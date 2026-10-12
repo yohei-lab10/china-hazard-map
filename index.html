@@ -612,6 +612,15 @@
     .login-card { animation: none; }
   }
 
+  .pc-sub { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.35; }
+  .pc-ref { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
+  .pcm-list { margin-top: 10px; display: flex; flex-direction: column; gap: 9px; }
+  .pcm { display: grid; grid-template-columns: 8px 1fr auto; column-gap: 8px; row-gap: 4px; align-items: center; }
+  .pcm .dot { width: 8px; height: 8px; border-radius: 2px; }
+  .pcm-name { font-size: 13px; font-weight: 700; }
+  .pcm-lvl { font-size: 12.5px; font-weight: 700; text-align: right; }
+  .pcm-bar { grid-column: 2 / 4; margin-top: 0; }
+
   .extent-legend {
     display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-faint);
@@ -2384,6 +2393,51 @@ function pointResultHtml(lat, lon, hazards, overall, ctx) {
   const lvlColor = o ? o.color : NO_DATA_COLOR;
   const pct = o ? Math.min(99, Math.max(1, o.ratio * 100)) : 0;
   const driverMeta = o ? HAZARD_ROW_META[o.driverKeys[0]] : null;
+  const selKeys = ctx.sel || [];
+  const selH = selKeys.map(k => hazards.find(h => h.key === k)).filter(Boolean);
+  const compositeBody = `
+      <div class="pc-mid">
+        <div><div class="k">Composite hazard</div><div class="pc-lvl" style="color:${lvlColor};">${o ? o.label : 'No data'}</div></div>
+        <div class="pc-score">${o ? o.ratio.toFixed(2) : '—'}</div>
+      </div>
+      <div class="pc-bar-wrap">
+        ${o ? `<div class="pc-marker" style="left:${pct.toFixed(1)}%;"></div>` : ''}
+        <div class="pc-bar">${SCREEN_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
+      </div>
+      ${o ? `<div class="pc-driver"><span class="dot" style="background:${driverMeta.color};"></span><span class="muted">Main driver</span><b>${o.drivers.join(', ')}</b></div>` : ''}`;
+  const compRef = o ? `<span class="pc-ref">Composite ${o.label} ${o.ratio.toFixed(2)}</span>` : '';
+  let cardBody = compositeBody;
+  if (selH.length === 1) {
+    // 個別チップ1つ: カードをそのハザードの表示に切り替える(総合は参考として1行だけ残す)
+    const h = selH[0], meta = HAZARD_ROW_META[h.key];
+    const has = typeof h.ratio === 'number' && !isNaN(h.ratio);
+    const t = has ? tierFromRatio(h.ratio) : -1;
+    const col = has ? SCREEN_TIER_COLORS[t] : NO_DATA_COLOR;
+    const hp = has ? Math.min(99, Math.max(1, h.ratio * 100)) : 0;
+    cardBody = `
+      <div class="pc-mid">
+        <div><div class="k">${meta.name}</div><div class="pc-lvl" style="color:${col};">${has ? h.levelLabel : 'No data'}</div></div>
+        <div class="pc-score">${has ? h.ratio.toFixed(2) : '—'}</div>
+      </div>
+      <div class="pc-bar-wrap">
+        ${has ? `<div class="pc-marker" style="left:${hp.toFixed(1)}%;"></div>` : ''}
+        <div class="pc-bar">${SCREEN_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
+      </div>
+      <div class="pc-driver"><span class="dot" style="background:${meta.color};"></span><span class="muted pc-sub">${h.sub}</span>${compRef}</div>`;
+  } else if (selH.length > 1) {
+    // 複数チップ: 選択したハザードを並べて表示(総合は参考として1行だけ残す)
+    cardBody = `<div class="pcm-list">${selH.map(h => {
+      const meta = HAZARD_ROW_META[h.key];
+      const has = typeof h.ratio === 'number' && !isNaN(h.ratio);
+      const t = has ? tierFromRatio(h.ratio) : -1;
+      const col = has ? SCREEN_TIER_COLORS[t] : NO_DATA_COLOR;
+      return `<div class="pcm"><span class="dot" style="background:${meta.color};"></span>
+        <span class="pcm-name">${meta.name}</span>
+        <span class="pcm-lvl" style="color:${col};">${has ? h.levelLabel : 'No data'}${has ? ` <span class="hz-num">${h.ratio.toFixed(2)}</span>` : ''}</span>
+        <div class="hz-bar pcm-bar">${seg(has ? t + 1 : 0, col)}</div></div>`;
+    }).join('')}</div>
+    <div class="pc-driver">${compRef}</div>`;
+  }
   return `
     <div class="point-card">
       <div class="pc-top">
@@ -2394,15 +2448,7 @@ function pointResultHtml(lat, lon, hazards, overall, ctx) {
         </div>
         <span class="pc-chip">WGS84</span>
       </div>
-      <div class="pc-mid">
-        <div><div class="k">Composite hazard</div><div class="pc-lvl" style="color:${lvlColor};">${o ? o.label : 'No data'}</div></div>
-        <div class="pc-score">${o ? o.ratio.toFixed(2) : '—'}</div>
-      </div>
-      <div class="pc-bar-wrap">
-        ${o ? `<div class="pc-marker" style="left:${pct.toFixed(1)}%;"></div>` : ''}
-        <div class="pc-bar">${SCREEN_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
-      </div>
-      ${o ? `<div class="pc-driver"><span class="dot" style="background:${driverMeta.color};"></span><span class="muted">Main driver</span><b>${o.drivers.join(', ')}</b></div>` : ''}
+      ${cardBody}
     </div>
     <button type="button" class="hz-toggle" data-act="hzlist" aria-expanded="${hzListOpen ? 'true' : 'false'}">
       <span>Details <small>(all hazards, report, elevation)</small></span>
@@ -3023,7 +3069,7 @@ async function queryPoint(lat, lon) {
       };
     }
 
-    resultEl.innerHTML = pointResultHtml(lat, lon, hazards, overall, { centerElev, depLabel });
+    resultEl.innerHTML = pointResultHtml(lat, lon, hazards, overall, { centerElev, depLabel, sel: [...overlaySel] });
 
     if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
     if (searchExtentLayer) map.removeLayer(searchExtentLayer);
