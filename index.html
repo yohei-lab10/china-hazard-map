@@ -2368,7 +2368,9 @@ let hzListOpen = false; // 個別ハザード一覧の開閉(既定は閉じる�
 function pointResultHtml(lat, lon, hazards, overall, ctx) {
   const seg = (n, color) => Array.from({ length: 5 }, (_, i) =>
     `<i style="background:${i < n ? color : 'rgba(255,255,255,0.12)'};"></i>`).join('');
-  const rows = hazards.map(h => {
+  // 個別チップ選択中は、折りたたみ内の一覧も選択したハザードだけにする(All のときは4ハザード全部)
+  const listHazards = (ctx.sel && ctx.sel.length) ? hazards.filter(h => ctx.sel.includes(h.key)) : hazards;
+  const rows = listHazards.map(h => {
     const meta = HAZARD_ROW_META[h.key];
     const has = typeof h.ratio === 'number' && !isNaN(h.ratio);
     const t = has ? tierFromRatio(h.ratio) : -1;
@@ -2451,7 +2453,7 @@ function pointResultHtml(lat, lon, hazards, overall, ctx) {
       ${cardBody}
     </div>
     <button type="button" class="hz-toggle" data-act="hzlist" aria-expanded="${hzListOpen ? 'true' : 'false'}">
-      <span>Details <small>(all hazards, report, elevation)</small></span>
+      <span>Details <small>(${ctx.sel && ctx.sel.length ? 'selected hazard' + (ctx.sel.length > 1 ? 's' : '') : 'all hazards'}, report, elevation)</small></span>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div class="hz-more" id="hzList"${hzListOpen ? '' : ' hidden'}>
