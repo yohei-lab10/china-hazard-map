@@ -868,7 +868,7 @@ const METHODOLOGY = [
   { label: 'Earthquakes', color: COLORS.earthquake,
     desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
   { label: 'Point Lookup', color: '#5C6675',
-    desc: 'A point search (coordinates, or a long-press on the map) evaluates all four hazards at once and shows each level together with a composite level, which is the highest of the four (not an average). Elevation is read for the point and its surroundings. The chips on the map only change which hazard is drawn on the map: All shows the four hazards in their original map colors, or pick a single hazard to see it on its own.' },
+    desc: 'A point search (coordinates, or a long-press on the map) evaluates all four hazards at once and shows each level together with a composite level, which is the highest of the four (not an average). Elevation is read for the point and its surroundings. The chips on the map only change which hazard is drawn on the map after a search: All draws only the highest-level hazard at the point, or pick a single hazard to see it on its own. Nothing is drawn before a search.' },
 ];
 
 function inLandBbox(lat, lon) {
@@ -1036,18 +1036,18 @@ function renderLayerBar() {
   setOverlay('all', { skipQuery: true });
 }
 
+// 【2026年10月】地点検索をするまで地図の塗り(全国レイヤー・タイル)は一切出さない。
+// 検索後: All = 総合で最も高いハザード(同率なら全て)だけ / 個別チップ = そのハザードのみ。
+let lastDriverKeys = [];
+function applyOverlayLayers(keys) {
+  BADGE_LAYER_KEYS.forEach(k => { if (layerGroups[k]) map.removeLayer(layerGroups[k]); });
+  activeLayers.clear();
+  keys.forEach(k => { activeLayers.add(k); map.addLayer(layerGroups[k]); });
+}
 function setOverlay(key, opts) {
   const skipQuery = opts && opts.skipQuery;
-  // 直前に出していたグループを外す
-  [...activeLayers].forEach(k => { if (layerGroups[k]) map.removeLayer(layerGroups[k]); });
-  activeLayers.clear();
-  map.removeLayer(layerGroups.composite);
   overlayKey = key;
-  // 【2026年10月】All = 従来どおり4ハザードの地図レイヤーを全てON(色は従来のまま)。個別チップ = そのハザードのみ。
-  (key === 'all' ? BADGE_LAYER_KEYS : [key]).forEach(k => {
-    activeLayers.add(k);
-    map.addLayer(layerGroups[k]);
-  });
+  applyOverlayLayers(!lastQueriedLatLon ? [] : (key === 'all' ? lastDriverKeys : [key]));
   document.querySelectorAll('#layerBar .layer-chip').forEach(btn => {
     const on = btn.dataset.key === key;
     btn.classList.toggle('active', on);
@@ -1081,7 +1081,7 @@ function updateLegend() {
 
   if (overlayKey === 'all') {
     container.innerHTML = tiers + typhoonWarn + `<div style="margin-bottom:6px;">
-      <strong>All:</strong> after a point search, the area around the point is colored for each of the four hazards (water, freeze, typhoon, earthquake) in the original map colors. The panel always lists all four hazards. Use the chips on the map to view a single hazard instead.
+      <strong>All:</strong> no map coloring until a point is searched. After a search, only the highest-level hazard at that point is drawn (all of them if tied). The panel always lists all four hazards. Use the chips on the map to view a single hazard instead.
     </div>`;
     return;
   }
@@ -3004,7 +3004,9 @@ async function queryPoint(lat, lon) {
     // 水害は標高が要るためマスごとに評価する(他の3つはローカルデータのみ)。
     // 標高は150mタイルの実測値(このマス)、降雨は平滑化済みGumbel、洪水実績は重み、
     // 窪み係数はグリッド全体の分布から求めた値をマス共通で使う。海上のマスは除外。
-    const tileKeys = overlayKey === 'all' ? BADGE_LAYER_KEYS : [overlayKey];
+    const tileKeys = overlayKey === 'all' ? (overall ? overall.driverKeys.slice() : []) : [overlayKey];
+    lastDriverKeys = overall ? overall.driverKeys.slice() : [];
+    applyOverlayLayers(tileKeys);
     let waterCellRatios = null;
     if (tileKeys.includes('waterHazard')) {
       waterCellRatios = new Array(gridCells.length).fill(null);
