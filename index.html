@@ -868,7 +868,7 @@ const METHODOLOGY = [
   { label: 'Earthquakes', color: COLORS.earthquake,
     desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
   { label: 'Point Lookup', color: '#5C6675',
-    desc: 'A point search (coordinates, or a long-press on the map) evaluates all four hazards at once and shows each level together with a composite level, which is the highest of the four (not an average). Elevation is read for the point and its surroundings. The chips on the map only change what is painted around the point: All (Composite) paints the highest of the four, or pick a single hazard to see it on its own.' },
+    desc: 'A point search (coordinates, or a long-press on the map) evaluates all four hazards at once and shows each level together with a composite level, which is the highest of the four (not an average). Elevation is read for the point and its surroundings. The chips on the map only change which hazard is drawn on the map: All shows the four hazards in their original map colors, or pick a single hazard to see it on its own.' },
 ];
 
 function inLandBbox(lat, lon) {
@@ -905,7 +905,7 @@ const BASEMAP = {
   // 【2026年9月追加】CARTOはキー1つで複数のベーススタイルを提供している。
   // 'positron' = 白基調(既定、可視化向け)/ 'voyager' = やや色付きのバランス型
   // (道路・緑地に色が付く)/ 'dark-matter' = 黒基調のダークテーマ。
-  cartoStyle: 'dark-matter', // 【2026年10月】暗色テーマに合わせて positron → dark-matter
+  cartoStyle: 'positron',
 };
 
 function addRasterFallback(m, attribCarto) {
@@ -1008,7 +1008,7 @@ function initMap() {
 // 個別を選ぶと、そのハザードの全国レイヤー(あれば)と検索地点周辺のタイルを表示する。
 // activeLayers は個別選択中のキー1つだけを持つ(All のときは空)。
 const OVERLAY_CHIPS = [
-  { key: 'all', label: 'All (Composite)', color: '#8FCB8A' },
+  { key: 'all', label: 'All', color: '#8FCB8A' },
   { key: 'waterHazard', label: 'Water', color: COLORS.waterHazard },
   { key: 'freeze', label: 'Freeze', color: COLORS.freeze },
   { key: 'typhoonHazard', label: 'Typhoon', color: COLORS.typhoonHazard },
@@ -1043,12 +1043,11 @@ function setOverlay(key, opts) {
   activeLayers.clear();
   map.removeLayer(layerGroups.composite);
   overlayKey = key;
-  if (key === 'all') {
-    map.addLayer(layerGroups.composite);
-  } else {
-    activeLayers.add(key);
-    map.addLayer(layerGroups[key]);
-  }
+  // 【2026年10月】All = 従来どおり4ハザードの地図レイヤーを全てON(色は従来のまま)。個別チップ = そのハザードのみ。
+  (key === 'all' ? BADGE_LAYER_KEYS : [key]).forEach(k => {
+    activeLayers.add(k);
+    map.addLayer(layerGroups[k]);
+  });
   document.querySelectorAll('#layerBar .layer-chip').forEach(btn => {
     const on = btn.dataset.key === key;
     btn.classList.toggle('active', on);
@@ -1071,7 +1070,7 @@ let earthquakeFallbackLive = false;
 function updateLegend() {
   const container = document.getElementById('legendNote');
   const tiers = `
-    <div class="legend-tiers">${SCREEN_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
+    <div class="legend-tiers">${WARNING_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
     <div class="legend-tier-labels">${GENERIC_TIER_LABELS.map(l => `<span>${l}</span>`).join('')}</div>`;
   const typhoonWarn = typhoonDataUnavailable ? `<div style="margin-bottom:6px;">
         <strong>Typhoon Hazard:</strong>
@@ -1082,9 +1081,7 @@ function updateLegend() {
 
   if (overlayKey === 'all') {
     container.innerHTML = tiers + typhoonWarn + `<div style="margin-bottom:6px;">
-      <strong>All (Composite):</strong> after a point search, the area around the point is colored by the
-      highest of the four hazard levels (water, freeze, typhoon, earthquake) at each location — not averaged.
-      The panel always lists all four hazards. Use the chips on the map to view a single hazard instead.
+      <strong>All:</strong> after a point search, the area around the point is colored for each of the four hazards (water, freeze, typhoon, earthquake) in the original map colors. The panel always lists all four hazards. Use the chips on the map to view a single hazard instead.
     </div>`;
     return;
   }
@@ -3038,35 +3035,30 @@ async function queryPoint(lat, lon) {
         waterCellRatios[idx] = finalRisk;
       });
     }
-    const cellInfoFns = { earthquake: earthquakeRiskInfo, freeze: freezeRiskInfo, typhoonHazard: typhoonRiskInfo };
-    const cellRatio = (key, idx, cell) => {
-      if (key === 'waterHazard') return waterCellRatios ? waterCellRatios[idx] : null;
-      const info = cellInfoFns[key](cell.lat, cell.lon);
-      return info && typeof info.ratio === 'number' && !isNaN(info.ratio) ? info.ratio : null;
-    };
-    const tileGroupKey = overlayKey === 'all' ? 'composite' : overlayKey;
-    const tileLayer = L.layerGroup();
-    let anyTile = false;
-    gridCells.forEach((cell, idx) => {
-      let best = null;
-      tileKeys.forEach(k => {
-        const r = cellRatio(k, idx, cell);
-        if (r !== null && (best === null || r > best)) best = r;
+    // 【2026年10月】地図の色は従来のまま(地震・凍結・台風は各ハザード専用のタイル色関数、水害は WARNING_TIER_COLORS)。
+    const hazardTileFns = { earthquake: earthquakeTileColor, freeze: freezeTileColor, typhoonHazard: typhoonTileColor };
+    const halfLatT = cellDLat / 2;
+    tileKeys.forEach(key => {
+      const layer = L.layerGroup();
+      let any = false;
+      gridCells.forEach((cell, idx) => {
+        let color = null;
+        if (key === 'waterHazard') {
+          const r = waterCellRatios ? waterCellRatios[idx] : null;
+          if (typeof r === 'number') color = WARNING_TIER_COLORS[Math.min(4, Math.max(0, Math.ceil(r * 5) - 1))];
+        } else {
+          color = hazardTileFns[key](cell.lat, cell.lon);
+        }
+        if (!color) return;
+        any = true;
+        const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
+        L.rectangle(
+          [[cell.lat - halfLatT, cell.lon - halfLon], [cell.lat + halfLatT, cell.lon + halfLon]],
+          { color, weight: 0, fillColor: color, fillOpacity: 0.45, interactive: false }
+        ).addTo(layer);
       });
-      if (best === null) return;
-      anyTile = true;
-      const color = SCREEN_TIER_COLORS[tierFromRatio(best)];
-      const halfLat = cellDLat / 2;
-      const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
-      L.rectangle(
-        [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
-        { color, weight: 0, fillColor: color, fillOpacity: 0.5, interactive: false }
-      ).addTo(tileLayer);
+      if (any) { layer.addTo(layerGroups[key]); searchGridLayers[key] = layer; }
     });
-    if (anyTile) {
-      tileLayer.addTo(layerGroups[tileGroupKey]);
-      searchGridLayers[tileGroupKey] = tileLayer;
-    }
 
     // 指定地点そのものはピンで表示(どのチップの状態にも関わらず常に表示)
     searchMarkerLayer = L.marker([lat, lon], {
