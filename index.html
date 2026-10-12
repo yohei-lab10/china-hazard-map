@@ -3,143 +3,59 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0E1F12" />
 <title>Catnet Hazard Map (China)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Montserrat:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap">
 <style>
   :root {
-    /* 【2026年9月改訂・再改訂】保険会社の実務ツールとしての明るいテーマに戻した。
-       ベースは白〜明るいグレー、アクセントは紺(ネイビー)。ヒートマップ/バッジの
-       配色は防災・保険業界で標準的な「緑(低リスク)→黄→橙→赤(高リスク)」の
-       リスクスペクトラムに統一。PDFレポート(#reportView以下)は印刷物として
-       白背景を維持するため、別スコープの独自CSSのまま変更していない。 */
-    --bg: #F3F4F6;
-    --panel: #FFFFFF;
-    --border: #E0E3E8;
-    --border-strong: #C7CCD4;
-    --text-primary: #1A2130;
-    --text-muted: #5C6675;
-    --text-faint: #94A0AF;
-    --navy: #1F3A5F;
-    --navy-soft: #2C4E7C;
-    --risk-low: #3F8F5F;
-    --risk-mid: #D9A22C;
-    --risk-high: #D9722C;
-    --risk-severe: #C13A2E;
+    /* 【2026年10月改訂】MSIGグリーンを基調にした暗色テーマ(ネイティブアプリ調)に変更。
+       MSIGロゴから採取した #2C5F31 → #152E1A を基調色とし、アクセントはその明色
+       (#8FCB8A)。旧変数名(--navy など)は JS 側のインライン style が参照しているため、
+       互換エイリアスとして残している。リスク5段階はPDFレポート(#reportView以下、白背景の
+       印刷物)では従来色のまま、画面では暗背景用に明度を上げた SCREEN_TIER_COLORS を使う。 */
+    --msig-green: #2C5F31;
+    --msig-green-soft: #3A7A41;
+    --msig-deep: #152E1A;
+    --ink: #0E1F12;
+    --accent: #8FCB8A;
+    --bg: #0E1F12;
+    --panel: #152E1A;
+    --panel-2: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.14);
+    --border-strong: rgba(255,255,255,0.26);
+    --text-primary: #F2F7F2;
+    --text-muted: #B9C7BB;
+    --text-faint: #8FA092;
+    --navy: #2C5F31;       /* 互換エイリアス(旧: 紺) */
+    --navy-soft: #3A7A41;  /* 互換エイリアス */
+    --risk-low: #4FB37A;
+    --risk-mid: #E8C547;
+    --risk-high: #F29A52;
+    --risk-severe: #E5584A;
+    --risk-extreme: #B3263E;
+    --sans: 'Montserrat', 'Noto Sans JP', 'Inter', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; padding: 0; background: var(--bg); }
-  body { font-family: 'Inter', sans-serif; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text-primary); }
+  body { font-family: var(--sans); }
+  button, input { font-family: inherit; }
+  input[type="radio"] { accent-color: var(--accent); }
 
+  /* 地図は全面に敷き、情報はその上のシート(モバイル)/左パネル(PC)に載せる */
   #app {
-    position: relative;
-    width: 100%;
-    max-width: 430px;
-    height: 100vh;
-    max-height: 860px;
-    margin: 0 auto;
-    background: var(--bg);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px var(--border);
+    position: relative; width: 100%; height: 100vh; height: 100dvh;
+    overflow: hidden; background: var(--bg);
   }
-
-  /* デスクトップ(タブレット以上の幅)では、モバイル向けのカード状の枠(430px×860px)をやめて
-     ビューポート全体に広げる。内部のチップ列は overflow-x: auto で元々折り返し対応済み、
-     地図(#map)は flex: 1 で残り領域を自動で埋めるため、この幅指定だけで全画面表示になる。 */
-  @media (min-width: 700px) {
-    #app {
-      max-width: 100vw;
-      max-height: 100vh;
-      width: 100vw;
-      box-shadow: none;
-    }
+  #map { position: absolute; inset: 0; z-index: 0; background: #0F2315; }
+  .stage {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    pointer-events: none;
   }
-
-  /* Header */
-  .masthead-top {
-    display: flex; align-items: flex-start; justify-content: space-between;
-    padding: max(16px, env(safe-area-inset-top)) 16px 12px; background: var(--panel); gap: 10px;
-  }
-  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; cursor: pointer; }
-  .seal-logo {
-    width: 32px; height: 32px; border-radius: 6px; background: var(--navy);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #fff; font-size: 12px;
-    letter-spacing: -0.5px; flex-shrink: 0;
-  }
-  .brand-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-  .brand-title {
-    font-family: 'Inter', sans-serif; font-weight: 800; font-size: 17px;
-    color: var(--text-primary); letter-spacing: -0.3px; line-height: 1.22;
-  }
-  .brand-sub {
-    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.8px;
-    color: var(--text-faint); text-transform: uppercase; white-space: nowrap;
-  }
-  .methodology-btn {
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.5px;
-    color: var(--text-muted); background: var(--bg); border: 1px solid var(--border-strong);
-    border-radius: 5px; padding: 7px 10px; flex-shrink: 0;
-  }
-  .methodology-btn.active { color: #fff; background: var(--navy); border-color: var(--navy); }
-  .header-actions {
-    display: flex; flex-direction: column; align-items: stretch; gap: 5px; flex-shrink: 0;
-  }
-  .header-actions .methodology-btn {
-    border: none; border-radius: 6px; text-align: center; width: auto;
-    display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;
-    color: #fff; padding: 7px 14px;
-    transition: filter 0.15s ease, transform 0.1s ease;
-    box-shadow: 0 1px 2px rgba(26,33,48,0.15);
-  }
-  .header-actions .methodology-btn svg { flex-shrink: 0; opacity: 0.9; }
-  .header-actions .methodology-btn:active { transform: scale(0.97); }
-  #methodologyBtn { background: linear-gradient(135deg, var(--navy-soft), var(--navy)); }
-  #methodologyBtn.active { filter: brightness(1.12); }
-  #reportsBtn { background: linear-gradient(135deg, #4CA377, var(--risk-low)); }
-  #reportsBtn:hover, #methodologyBtn:hover { filter: brightness(1.08); }
-  .rule-thin { height: 1px; background: var(--border); }
-
-  /* PC(横幅にゆとりがある画面): ボタンを縦積みではなく横並びにしてバランスを取る */
-  @media (min-width: 640px) {
-    .header-actions { flex-direction: row; gap: 8px; }
-  }
-
-  /* Methodology panel */
-  .methodology-panel {
-    display: none; padding: 12px 16px 14px; background: var(--panel);
-    border-bottom: 1px solid var(--border); flex-shrink: 0;
-  }
-  .methodology-panel.visible { display: block; }
-
-  /* Report panel (location input) */
-  .report-panel {
-    padding: 12px 16px 14px; background: var(--panel);
-    border-bottom: 1px solid var(--border); flex-shrink: 0;
-  }
-  .report-loc-row {
-    display: flex; flex-direction: column; gap: 6px; background: var(--panel);
-    border: 1px solid var(--border-strong); border-radius: 6px; padding: 8px; margin-bottom: 8px;
-  }
-  .report-loc-row-head { display: flex; justify-content: space-between; align-items: center; }
-  .report-loc-row input[type="text"] {
-    font-family: 'Inter', sans-serif; font-size: 12px; padding: 6px 8px;
-    background: var(--bg); color: var(--text-primary);
-    border: 1px solid var(--border-strong); border-radius: 5px; width: 100%; box-sizing: border-box;
-  }
-  .report-loc-row .coords-row { display: flex; gap: 6px; }
-  .report-loc-remove { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); cursor: pointer; background:none; border:none; padding:2px; }
-  .report-add-btn, .report-generate-btn {
-    width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
-    letter-spacing: 0.5px; padding: 9px; border-radius: 6px; margin-top: 4px;
-  }
-  .report-add-btn { background: var(--panel); color: var(--navy); border: 1px dashed var(--border-strong); }
-  .report-generate-btn { background: var(--navy); color: #fff; border: none; }
-  .report-generate-btn:disabled { opacity: 0.5; }
-  .report-status { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); margin-top: 6px; text-align: center; }
+  .stage > * { pointer-events: auto; }
 
   /* Printable report view (built off-screen; must stay rendered—not display:none—so
      Chart.js/Plotly can lay out and html2canvas can capture it. Positioned off-viewport instead. */
@@ -284,7 +200,6 @@
     font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #898781;
     letter-spacing: 0.4px; margin-top: 7px; padding-top: 7px; border-top: 1px solid #eeece7;
   }
-  .method-item { margin-bottom: 10px; }
   .method-item:last-child { margin-bottom: 0; }
   .method-label {
     display: flex; align-items: center; gap: 6px;
@@ -293,118 +208,288 @@
   }
   .method-label .dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
   .method-desc { font-family: 'Inter', sans-serif; font-size: 11px; line-height: 1.55; color: var(--text-muted); }
+  /* ===== Top bar(モバイル: 地図上のロゴ+タイトル / PC: 左パネル内の見出し) ===== */
+  .topbar {
+    position: absolute; left: 0; right: 0; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 8px;
+    padding: max(14px, env(safe-area-inset-top)) 16px 14px;
+    background: linear-gradient(180deg, rgba(14,31,18,0.9), rgba(14,31,18,0));
+    pointer-events: none;
+  }
+  .topbar > * { pointer-events: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; cursor: pointer; }
+  .brand-mark {
+    width: 40px; height: 40px; border-radius: 20px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--msig-green-soft), var(--msig-green));
+    border: 1px solid rgba(255,255,255,0.28);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; color: #fff; letter-spacing: -0.3px;
+  }
+  .brand-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .brand-title { font-weight: 700; font-size: 16px; letter-spacing: -0.2px; line-height: 1.15; white-space: nowrap; }
+  .brand-sub {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 1px;
+    color: var(--text-muted); text-transform: uppercase; white-space: nowrap;
+  }
+  .desk { display: none; }
+  .top-pill, .top-icon {
+    height: 36px; border-radius: 18px; flex-shrink: 0;
+    border: 1px solid var(--border-strong); background: rgba(14,31,18,0.6);
+    color: var(--text-primary); display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .top-pill { padding: 0 12px; gap: 6px; font-size: 12px; font-weight: 600; }
+  .top-icon { width: 36px; padding: 0; }
 
-  /* Layer toggle chips */
+  /* ===== 地図コントロール(Leaflet) ===== */
+  .leaflet-top.leaflet-right { top: 64px; }
+  .leaflet-right .leaflet-control { margin-right: 16px; }
+  .leaflet-bar { border: 1px solid rgba(255,255,255,0.2) !important; border-radius: 18px; overflow: hidden; box-shadow: none !important; }
+  .leaflet-bar a, .leaflet-bar a:hover {
+    width: 36px; height: 36px; line-height: 36px; font-size: 18px;
+    background: rgba(14,31,18,0.65); color: var(--text-primary); border-bottom-color: rgba(255,255,255,0.15);
+  }
+  .leaflet-bar a:hover { background: rgba(44,95,49,0.8); }
+  .leaflet-control-attribution {
+    background: rgba(14,31,18,0.6) !important; color: var(--text-muted) !important;
+    font-size: 10px !important; border-radius: 8px;
+  }
+  .leaflet-control-attribution a { color: var(--accent) !important; }
+  /* 出典表示は、モバイルでは下のシートに隠れないよう地図上部(ヘッダー直下)へ移す */
+  .leaflet-bottom.leaflet-left { top: 62px; bottom: auto; }
+  .leaflet-bottom.leaflet-left .leaflet-control { margin-left: 8px; }
+
+  /* ===== 地図の表示切替チップ(情報パネルの内容には影響しない) ===== */
   .layer-bar {
-    display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto;
-    border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--panel);
+    display: flex; gap: 8px; padding: 0 16px 10px; overflow-x: auto; flex-shrink: 0;
+    scrollbar-width: none;
   }
+  .layer-bar::-webkit-scrollbar { display: none; }
+  .stage > .layer-bar { pointer-events: none; }
+  .layer-bar .layer-chip { pointer-events: auto; }
   .layer-chip {
-    display: flex; align-items: center; gap: 6px;
-    font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 600;
-    padding: 6px 12px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;
-    border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-muted);
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap;
+    height: 32px; padding: 0 12px; border-radius: 16px;
+    border: 1.5px solid rgba(255,255,255,0.22); background: rgba(14,31,18,0.74);
+    color: var(--text-primary); font-size: 12px; font-weight: 500; cursor: pointer;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   }
-  .layer-chip .dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
-  .layer-chip.active { color: #fff; border-color: transparent; }
+  .layer-chip .dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .layer-chip.active { border-color: var(--accent); background: rgba(143,203,138,0.22); font-weight: 700; }
 
-  /* Search panel */
+  /* ===== シート(モバイル: ボトムシート / PC: 左パネル) ===== */
+  .sheet {
+    flex: 0 1 auto; min-height: 0; max-height: 68vh; max-height: 68dvh;
+    display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #183820 0%, #0E1F12 58%);
+    border-radius: 28px 28px 0 0; border-top: 1px solid rgba(255,255,255,0.16);
+    box-shadow: 0 -14px 40px rgba(0,0,0,0.4);
+  }
+  .sheet-handle {
+    flex-shrink: 0; width: 100%; height: 26px; border: none; background: transparent;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .sheet-handle span { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3); }
+  .sheet-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 16px; overscroll-behavior: contain; }
+  .sheet.collapsed .sheet-scroll { display: none; }
+  .view-reports, .view-method { display: none; }
+  #app[data-tab="reports"] .view-reports { display: block; }
+  #app[data-tab="method"] .view-method { display: block; }
+  #app[data-tab="reports"] .view-main, #app[data-tab="method"] .view-main { display: none; }
+
+  /* ===== 下部タブバー(PCでは左パネル上部のピル型タブになる) ===== */
+  .tabbar {
+    display: flex; flex-shrink: 0; padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    background: #0A170D; border-top: 1px solid rgba(255,255,255,0.09);
+  }
+  .tab {
+    flex: 1; min-height: 52px; border: none; background: transparent; cursor: pointer;
+    color: rgba(242,247,242,0.66); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600;
+  }
+  .tab[aria-selected="true"] { color: var(--accent); font-weight: 700; }
+
+  /* ===== 座標入力フォーム(Lookup) ===== */
   .search-bar {
-    display: flex; flex-direction: column; gap: 7px; padding: 10px 16px;
-    border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0;
+    display: none; flex-direction: column; gap: 12px; padding: 14px 16px; margin-bottom: 12px;
+    border-radius: 22px; border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(44,95,49,0.85), rgba(21,46,26,0.92));
   }
-  .search-row { display: flex; gap: 8px; align-items: center; }
-  .search-row input {
-    flex: 1; min-width: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px;
-    background: var(--bg); color: var(--text-primary); border: 1px solid var(--border-strong);
-    border-radius: 6px; padding: 8px 9px;
+  #app[data-tab="lookup"] .search-bar { display: flex; }
+  .sf-row { display: flex; gap: 10px; }
+  .sf-field { flex: 1; min-width: 0; }
+  .sf-field label {
+    display: block; margin-bottom: 5px; font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-muted);
   }
-  .search-row input::placeholder { color: var(--text-faint); }
-  .search-row button {
-    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700;
-    background: var(--navy); color: #fff; border: none; border-radius: 6px;
-    padding: 9px 16px; flex-shrink: 0;
+  .sf-field input {
+    width: 100%; height: 46px; padding: 0 14px; border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.22); background: rgba(14,31,18,0.55);
+    color: var(--text-primary); font-family: var(--mono); font-size: 16px; font-weight: 600;
   }
-  .search-hint { font-size: 10px; color: var(--text-faint); }
-  .search-result {
-    display: none; padding: 7px 16px; background: var(--panel);
-    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  .sf-field input::placeholder { color: var(--text-faint); font-weight: 500; font-size: 13px; }
+  .sf-field input:focus, .report-loc-row input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .seg { display: flex; gap: 3px; height: 40px; padding: 3px; border-radius: 20px; background: rgba(14,31,18,0.5); }
+  .seg-opt { flex: 1; position: relative; display: flex; }
+  .seg-opt input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .seg-opt span {
+    flex: 1; display: flex; align-items: center; justify-content: center; border-radius: 17px;
+    font-size: 12.5px; font-weight: 600; color: rgba(242,247,242,0.85); pointer-events: none;
   }
-  .search-result.visible { display: block; }
-  .result-badge {
-    display: inline-block; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 11.5px;
-    padding: 3px 9px; border-radius: 5px; margin-bottom: 3px; color: #fff;
+  .seg-opt input:checked + span { background: var(--accent); color: var(--ink); font-weight: 700; }
+  .seg-opt input:focus-visible + span { outline: 2px solid #fff; outline-offset: 1px; }
+  .coord-help { font-size: 11.5px; line-height: 1.45; color: rgba(242,247,242,0.8); margin-top: -2px; }
+  .coord-help a { color: var(--accent); font-weight: 600; }
+  .locate-btn {
+    height: 46px; border: none; border-radius: 14px; cursor: pointer;
+    background: var(--accent); color: var(--ink); font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
   }
-  .result-elev { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary); margin-bottom: 3px; line-height: 1.25; }
-  .rp-group {
-    display: flex; gap: 10px; margin-bottom: 5px;
-    font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text-muted);
-  }
-  .rp-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-  .risk-legend { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-  .risk-legend-bar-wrap { position: relative; flex: 1; padding-top: 7px; }
-  .risk-legend-bar {
-    display: flex; height: 10px; border-radius: 5px; overflow: hidden;
-  }
-  .risk-legend-bar span { flex: 1; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); }
-  .risk-legend-marker {
-    position: absolute; top: 0; transform: translateX(-50%);
-    font-size: 9px; line-height: 1; color: var(--text-primary); pointer-events: none;
-  }
-  /* 【2026年9月修正】justify-content:space-betweenは各ラベルの「自分の文字幅」を
-     基準に均等配置するだけで、上の色ブロック(5等分のflex:1)とは連動していなかった。
-     "Low"が左端に寄り、"Moderate"や"Extreme"のような長い単語ほど、対応する色の
-     真下からずれて見えていた。ラベル側も同じ5等分(flex:1)にし、それぞれを中央揃え
-     にすることで、色ブロックの真下に文字が来るようにする。 */
-  .risk-legend-labels {
-    display: flex; font-family: 'JetBrains Mono', monospace;
-    font-size: 8px; color: var(--text-faint); margin-top: 0px;
-  }
-  .risk-legend-labels span { flex: 1; text-align: center; }
-  .result-freq {
-    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-muted);
-    margin-top: 2px; line-height: 1.25;
-  }
+  .locate-btn:active, .btn-primary:active, .report-generate-btn:active { transform: scale(0.98); }
 
-  /* Map */
-  #map, #map * {
-    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+  /* ===== 検索結果: 地点カード + 全ハザード一覧 ===== */
+  .search-result { display: block; }
+  .point-card {
+    padding: 12px 16px 14px; border-radius: 22px; border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(44,95,49,0.88), rgba(21,46,26,0.92));
   }
-  #map {
-    flex: 1; width: 100%; background: var(--bg);
+  .pc-top { display: flex; justify-content: space-between; align-items: center; }
+  .pc-coords { display: flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 19px; font-weight: 600; letter-spacing: -0.3px; }
+  .pc-chip { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; background: rgba(255,255,255,0.12); }
+  .icon-btn {
+    width: 32px; height: 32px; border: none; background: transparent; cursor: pointer;
+    color: rgba(242,247,242,0.8); display: flex; align-items: center; justify-content: center; padding: 0;
   }
+  .pc-mid { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; }
+  .k { font-family: var(--mono); font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-muted); }
+  .pc-lvl { font-size: 24px; font-weight: 800; line-height: 1.15; letter-spacing: -0.3px; }
+  .pc-score { font-family: var(--mono); font-size: 28px; font-weight: 600; line-height: 1; }
+  .pc-bar-wrap { position: relative; margin-top: 10px; padding-top: 8px; }
+  .pc-bar { display: flex; gap: 3px; height: 7px; }
+  .pc-bar span { flex: 1; border-radius: 4px; }
+  .pc-marker {
+    position: absolute; top: 0; width: 0; height: 0; transform: translateX(-50%);
+    border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid #F2F7F2;
+  }
+  .driver-strip {
+    display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 11px 16px;
+    border-radius: 22px; border: 1px solid rgba(255,255,255,0.1); font-size: 13px;
+    background: linear-gradient(90deg, rgba(44,95,49,0.55), rgba(44,95,49,0.12));
+  }
+  .driver-strip .dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .driver-strip .muted { font-size: 11.5px; color: var(--text-muted); }
+  .hz-list {
+    margin-top: 10px; padding: 2px 16px; border-radius: 22px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+  }
+  .hz { padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .hz:last-child { border-bottom: none; }
+  .hz-main { display: flex; align-items: center; gap: 12px; }
+  .hz-icon { width: 34px; height: 34px; border-radius: 17px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .hz-text { flex: 1; min-width: 0; }
+  .hz-name { font-size: 13.5px; font-weight: 700; }
+  .hz-sub { font-size: 11px; line-height: 1.4; color: var(--text-muted); margin-top: 2px; }
+  .hz-level { width: 104px; flex-shrink: 0; text-align: right; }
+  .hz-lvl { font-size: 12px; font-weight: 700; line-height: 1.25; }
+  .hz-num { font-family: var(--mono); font-weight: 500; font-size: 11px; color: var(--text-muted); }
+  .hz-bar { display: flex; gap: 2px; margin-top: 5px; }
+  .hz-bar i { flex: 1; height: 5px; border-radius: 3px; }
+  .hz-extra { margin: 6px 0 0 46px; display: none; }
+  .hz.open .hz-extra { display: block; }
+  .hz.has-extra .hz-main { cursor: pointer; }
+  .hz.has-extra .hz-name::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-right: 1.6px solid var(--text-faint); border-bottom: 1.6px solid var(--text-faint); transform: translateY(-2px) rotate(45deg); transition: transform .15s; }
+  .hz.has-extra.open .hz-name::after { transform: translateY(1px) rotate(-135deg); }
+  .hz-caveat { color: var(--risk-severe); font-weight: 600; font-size: 11px; line-height: 1.45; margin-top: 4px; }
+  .pc-actions { display: flex; gap: 10px; margin-top: 12px; }
+  .btn-primary, .btn-ghost {
+    height: 42px; border-radius: 14px; font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .btn-primary { flex: 1.3; border: none; background: var(--accent); color: var(--ink); font-weight: 700; }
+  .btn-ghost { flex: 1; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.06); color: var(--text-primary); font-weight: 600; }
+  .elev-strip {
+    display: flex; justify-content: space-between; align-items: center; margin-top: 12px;
+    padding: 0 16px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.1);
+    background: linear-gradient(90deg, rgba(44,95,49,0.55), rgba(44,95,49,0.12));
+    font-size: 11.5px; color: var(--text-muted);
+  }
+  .elev-strip b { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .result-elev { font-family: var(--mono); font-size: 11px; color: var(--text-primary); margin-top: 6px; line-height: 1.4; }
+  .result-freq { font-family: var(--mono); font-size: 10px; color: var(--text-muted); line-height: 1.45; }
+  .empty-card {
+    padding: 18px 18px 16px; border-radius: 22px; border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(44,95,49,0.7), rgba(21,46,26,0.85));
+  }
+  .ec-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .ec-text { font-size: 12.5px; line-height: 1.6; color: var(--text-muted); }
+  .ec-btn { margin-top: 12px; height: 40px; padding: 0 18px; border: none; border-radius: 14px; background: var(--accent); color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .only-desk { display: none; }
+  .risk-legend-labels { display: flex; font-family: var(--mono); font-size: 8px; color: var(--text-faint); }
+  .risk-legend-labels span { flex: 1; text-align: center; }
+  .climate-chip { cursor: pointer; }
+
+  /* ===== 状態表示・凡例 ===== */
+  .status-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-top: 14px; flex-wrap: wrap;
+  }
+  .mono-small { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.4px; color: var(--text-faint); }
+  .legend-toggle {
+    height: 30px; padding: 0 14px; border-radius: 15px; cursor: pointer;
+    border: 1.5px solid var(--accent); background: transparent; color: var(--accent);
+    font-size: 12px; font-weight: 600;
+  }
+  #footerExtra.collapsed { display: none; }
+  #footerExtra { margin-top: 12px; padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); }
+  .legend-note { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+  .legend-note strong { color: var(--text-primary); }
+  .legend-tiers { display: flex; gap: 3px; margin-bottom: 4px; }
+  .legend-tiers span { flex: 1; height: 8px; border-radius: 4px; }
+  .legend-tier-labels { display: flex; margin-bottom: 10px; font-size: 10.5px; color: var(--text-muted); text-align: center; }
+  .legend-tier-labels span { flex: 1; }
+  .app-copyright { font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
+
+  /* ===== METHODOLOGY / REPORTS(タブ内の画面) ===== */
+  .methodology-panel, .report-panel { padding: 4px 0 12px; }
+  .method-item { padding: 14px 16px; margin-bottom: 10px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); }
+  .report-loc-row {
+    display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding: 12px;
+    border-radius: 16px; background: var(--panel-2); border: 1px solid var(--border);
+  }
+  .report-loc-row-head { display: flex; justify-content: space-between; align-items: center; }
+  .report-loc-row input[type="text"] {
+    width: 100%; height: 42px; padding: 0 12px; font-size: 13px;
+    background: rgba(14,31,18,0.55); color: var(--text-primary);
+    border: 1px solid var(--border-strong); border-radius: 12px;
+  }
+  .report-loc-row .coords-row { display: flex; gap: 8px; }
+  .report-loc-remove { font-size: 12px; color: var(--text-muted); cursor: pointer; background: none; border: none; padding: 6px; min-width: 32px; min-height: 32px; }
+  .report-add-btn, .report-generate-btn {
+    width: 100%; height: 46px; margin-top: 6px; border-radius: 14px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  }
+  .report-add-btn { background: transparent; color: var(--accent); border: 1px dashed var(--accent); }
+  .report-generate-btn { background: var(--accent); color: var(--ink); border: none; }
+  .report-generate-btn:disabled { opacity: 0.5; }
+  .report-status { font-size: 11.5px; color: var(--text-muted); margin-top: 8px; text-align: center; }
+
+  /* ===== 地図ポップアップ・ピン ===== */
+  #map, #map * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   .leaflet-popup-content-wrapper {
     background: var(--panel); color: var(--text-primary); border: 1px solid var(--border);
-    border-radius: 6px; font-family: 'Inter', sans-serif; box-shadow: 0 2px 10px rgba(26,33,48,0.12);
+    border-radius: 14px; box-shadow: 0 6px 24px rgba(0,0,0,0.4);
   }
   .leaflet-popup-tip { background: var(--panel); }
   .leaflet-popup-content { margin: 10px 12px; font-size: 12px; line-height: 1.6; }
-  .popup-title { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 4px; }
+  .popup-title { font-weight: 700; font-size: 13px; color: var(--text-primary); margin-bottom: 4px; }
   .popup-row { color: var(--text-muted); font-size: 11px; }
+  .pin-marker { position: relative; width: 44px; height: 44px; }
+  .pin-marker i { position: absolute; border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  .pin-marker .r1 { width: 44px; height: 44px; border: 1.5px solid rgba(143,203,138,0.3); }
+  .pin-marker .r2 { width: 28px; height: 28px; background: rgba(143,203,138,0.2); border: 1.5px solid rgba(143,203,138,0.65); }
+  .pin-marker .r3 { width: 12px; height: 12px; background: #8FCB8A; border: 2.5px solid #0E1F12; box-sizing: content-box; }
 
-  .status-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 7px 16px; border-top: 1px solid var(--border); background: var(--panel); flex-shrink: 0;
-  }
-  .mono-small {
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.5px;
-    color: var(--text-faint); text-transform: uppercase;
-  }
-  .app-copyright {
-    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-faint);
-    padding: 0 16px 12px; background: var(--panel); letter-spacing: 0.3px;
-  }
-  .legend-note { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-muted); line-height: 1.55; padding: 0 16px 10px; background: var(--panel); }
-  /* 【2026年9月追加】status-bar(1行)は常に表示、その下の凡例説明・著作権はまとめて
-     折りたたむ。ヘッダーの折りたたみと同じ「Show more」の言葉・挙動に揃えている。 */
-  #footerExtra.collapsed { display: none; }
-  .footer-toggle {
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600;
-    letter-spacing: 0.5px; color: var(--navy-soft); cursor: pointer;
-    padding: 6px 16px; background: var(--panel); display: block;
-  }
   /* ============================================================
-     ログインゲート(2026年9月追加)
+     ログインゲート(2026年9月追加 / 10月: MSIGグリーンの暗色に変更)
      静的サイト(GitHub Pages)のためブラウザ側の確認のみ。ページソースを
      直接読める人には効果が無い点に注意(本格的な保護にはCloudflare Access等が要る)。
      パスワードは平文でソースに残さず、SHA-256ハッシュとの比較で判定する。
@@ -412,15 +497,12 @@
   #loginGate {
     position: fixed; inset: 0; z-index: 9999;
     display: flex; align-items: center; justify-content: center;
-    background:
-      radial-gradient(circle at 20% 15%, rgba(31,58,95,0.06), transparent 45%),
-      radial-gradient(circle at 80% 80%, rgba(31,58,95,0.05), transparent 50%),
-      linear-gradient(160deg, #F3F4F6 0%, #EDEFF2 100%);
+    background: linear-gradient(165deg, #2C5F31 0%, #1B3F22 38%, #0E1F12 80%);
     overflow: hidden;
   }
   #loginGate.hidden { display: none; }
   #loginGate .scan-ring {
-    position: absolute; border: 1px solid rgba(31,58,95,0.08); border-radius: 50%;
+    position: absolute; border: 1px solid rgba(143,203,138,0.2); border-radius: 50%;
     left: 50%; top: 50%; transform: translate(-50%, -50%);
     animation: scanPulse 4.5s ease-out infinite;
   }
@@ -431,20 +513,21 @@
     100% { width: 900px; height: 900px; opacity: 0; }
   }
   #loginGate .grid-overlay {
-    position: absolute; inset: 0; opacity: 0.5;
+    position: absolute; inset: 0; opacity: 0.6;
     background-image:
-      linear-gradient(rgba(31,58,95,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(31,58,95,0.025) 1px, transparent 1px);
+      linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px);
     background-size: 42px 42px;
     mask-image: radial-gradient(circle at 50% 40%, black 0%, transparent 72%);
+    -webkit-mask-image: radial-gradient(circle at 50% 40%, black 0%, transparent 72%);
   }
   .login-card {
     position: relative; z-index: 1; width: 100%; max-width: 380px; margin: 0 20px;
-    padding: 36px 32px 32px;
-    background: rgba(255, 255, 255, 0.92);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    box-shadow: 0 24px 60px rgba(26,33,48,0.12), inset 0 1px 0 rgba(255,255,255,0.6);
+    padding: 32px 26px 26px;
+    background: rgba(14,31,18,0.66);
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.38);
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
     animation: loginCardIn 0.5s cubic-bezier(0.16,1,0.3,1);
@@ -454,50 +537,43 @@
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
   .login-mark {
-    width: 40px; height: 40px; border-radius: 10px; margin: 0 auto 18px;
-    background: linear-gradient(135deg, var(--navy), var(--navy-soft));
+    width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 18px;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.26);
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 20px rgba(31,58,95,0.30);
   }
-  .login-mark svg { width: 20px; height: 20px; }
+  .login-mark svg { width: 28px; height: 28px; }
   .login-mark svg path { fill: #FFFFFF; }
   .login-kicker {
-    text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 10px;
-    font-weight: 600; letter-spacing: 2.5px; color: var(--navy); margin-bottom: 8px;
+    text-align: center; font-family: var(--mono); font-size: 11px;
+    font-weight: 600; letter-spacing: 3px; color: var(--accent); margin-bottom: 10px;
   }
   .login-title {
-    text-align: center; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 20px;
-    color: var(--text-primary); margin-bottom: 4px; letter-spacing: -0.2px;
+    text-align: center; font-weight: 800; font-size: 21px;
+    color: var(--text-primary); margin-bottom: 6px; letter-spacing: -0.3px; line-height: 1.2;
   }
-  .login-sub {
-    text-align: center; font-size: 12.5px; color: var(--text-muted); margin-bottom: 26px;
-  }
+  .login-sub { text-align: center; font-size: 12.5px; color: rgba(242,247,242,0.8); margin-bottom: 24px; line-height: 1.5; }
   .login-field { margin-bottom: 14px; }
   .login-field label {
-    display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.8px;
-    color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;
+    display: block; font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 1.4px;
+    color: rgba(242,247,242,0.75); text-transform: uppercase; margin-bottom: 6px;
   }
   .login-field input {
-    width: 100%; box-sizing: border-box; padding: 11px 13px; font-size: 14.5px;
-    font-family: 'JetBrains Mono', monospace; color: var(--text-primary);
-    background: var(--bg); border: 1px solid var(--border);
-    border-radius: 9px; outline: none; transition: border-color 0.15s, background 0.15s;
+    width: 100%; height: 48px; padding: 0 14px; font-size: 15px;
+    font-family: var(--mono); color: var(--text-primary);
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 14px; outline: none; transition: border-color 0.15s, background 0.15s;
   }
-  .login-field input:focus {
-    border-color: var(--navy); background: #FFFFFF;
-  }
+  .login-field input:focus { border-color: rgba(143,203,138,0.8); background: rgba(255,255,255,0.1); }
   .login-submit {
-    width: 100%; margin-top: 6px; padding: 12px; border: none; border-radius: 9px;
-    font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;
-    color: #FFFFFF; cursor: pointer;
-    background: linear-gradient(135deg, var(--navy), var(--navy-soft));
-    box-shadow: 0 6px 16px rgba(31,58,95,0.28);
-    transition: transform 0.12s, box-shadow 0.12s;
+    width: 100%; height: 50px; margin-top: 8px; border: none; border-radius: 16px;
+    font-weight: 700; font-size: 15px; letter-spacing: 0.3px;
+    color: var(--ink); cursor: pointer; background: var(--accent);
+    transition: transform 0.12s, filter 0.12s;
   }
-  .login-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(31,58,95,0.35); }
-  .login-submit:active { transform: translateY(0); }
+  .login-submit:hover { filter: brightness(1.06); }
+  .login-submit:active { transform: scale(0.98); }
   .login-error {
-    margin-top: 12px; font-size: 12px; color: var(--risk-severe); text-align: center;
+    margin-top: 12px; font-size: 12px; color: #F2877B; text-align: center;
     min-height: 16px; opacity: 0; transition: opacity 0.15s;
   }
   .login-error.show { opacity: 1; }
@@ -510,13 +586,14 @@
     80% { transform: translateX(3px); }
   }
   .login-foot {
-    margin-top: 22px; text-align: center; font-size: 10.5px; color: var(--text-faint);
-    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;
+    margin-top: 20px; text-align: center; font-size: 11px; color: rgba(242,247,242,0.65);
+    font-family: var(--mono); letter-spacing: 0.3px;
   }
   @media (prefers-reduced-motion: reduce) {
     #loginGate .scan-ring { animation: none; display: none; }
     .login-card { animation: none; }
   }
+
   .extent-legend {
     display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--text-faint);
@@ -527,37 +604,52 @@
     margin-right: 5px; vertical-align: middle;
   }
 /* ============================================================
-   PCブラウザ向け: ヘッダー・チップ・緯度経度入力・座標系ラジオボタンを拡大
-   携帯ブラウザ(min-width未満)は既存のスタイルのまま変更しない。
-   2026年9月追加。
+   PCブラウザ(1024px以上): 左にフローティングパネル、地図は全面。
+   下部タブバーは、パネル上部のピル型タブに変わる(Lookupタブは不要:
+   入力フォームはMapタブに常設)。2026年10月改訂。
    ============================================================ */
 @media (min-width: 1024px) {
-  .brand-title { font-size: 22px; }
-  .brand-sub { font-size: 11px; }
+  .stage { display: block; }
+  .desk { display: inline; }
+  .only-desk { display: inline; }
+  .only-mobile { display: none; }
+  .topbar { left: 40px; right: auto; width: 360px; top: 36px; padding: 0; background: none; z-index: 30; }
+  .top-pill, .top-icon { display: none; }
+  .brand-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+  .brand-sub { font-size: 10px; letter-spacing: 0.9px; }
+  .brand-mark { width: 44px; height: 44px; border-radius: 22px; font-size: 15px; }
 
-  .layer-chip {
-    font-size: 14px;
-    padding: 8px 16px;
+  .sheet {
+    position: absolute; left: 20px; top: 20px; bottom: 20px; width: 400px; max-height: none;
+    border-radius: 28px; border: 1px solid var(--border); padding-top: 128px;
+    background: linear-gradient(180deg, rgba(24,56,32,0.95), rgba(14,31,18,0.96));
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
   }
-  .layer-chip .dot { width: 9px; height: 9px; }
+  .sheet-handle { display: none; }
+  .sheet-scroll { padding: 0 20px 20px; }
+  .sheet.collapsed .sheet-scroll { display: block; }
 
-  .search-row input {
-    font-size: 15px;
-    padding: 10px 12px;
+  .tabbar {
+    position: absolute; left: 40px; top: 92px; width: 360px; height: 44px; padding: 4px; gap: 4px;
+    border: none; border-radius: 22px; background: rgba(255,255,255,0.08); z-index: 30;
   }
-  .search-row button {
-    font-size: 15px;
-    padding: 11px 20px;
-  }
+  .tab { min-height: 0; flex-direction: row; border-radius: 18px; font-size: 13px; }
+  .tab svg { display: none; }
+  .tab[aria-selected="true"] { background: var(--accent); color: var(--ink); }
+  .tab[data-tab="lookup"] { display: none; }
 
-  .coord-label {
-    font-size: 13px !important;
+  #app[data-tab="map"] .search-bar, #app[data-tab="lookup"] .search-bar { display: flex; }
+
+  .layer-bar {
+    position: absolute; left: 440px; right: 20px; top: 20px; padding: 0; flex-wrap: wrap; overflow: visible;
   }
-  .coord-label input[type="radio"] {
-    width: 18px !important;
-    height: 18px !important;
-  }
+  .layer-chip { height: 40px; padding: 0 18px; font-size: 13px; border-radius: 20px; }
+  .leaflet-top.leaflet-right { top: 76px; }
+  .leaflet-bottom.leaflet-left { top: auto; bottom: 0; left: 420px; }
+  .leaflet-bar a, .leaflet-bar a:hover { width: 44px; height: 44px; line-height: 44px; }
+  .leaflet-bar { border-radius: 22px; }
 }
+
 </style>
 </head>
 <body>
@@ -586,70 +678,99 @@
     <div class="login-foot">&copy; <span id="loginYear"></span> YM @MSIG</div>
   </form>
 </div>
-<div id="app">
-  <div>
-    <div class="masthead-top">
-      <div class="brand" id="brandHome" title="Return to home">
-        <div class="brand-text">
-          <div class="brand-title">Catnet Hazard Map (China)</div>
-          <div class="brand-sub">China Disaster Risk Information System</div>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="methodology-btn" id="methodologyBtn">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg>
-          METHODOLOGY
-        </button>
-        <button class="methodology-btn" id="reportsBtn">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
-          REPORTS
-        </button>
-      </div>
-    </div>
-    <div class="rule-thin"></div>
-  </div>
-
-  <div class="methodology-panel" id="methodologyPanel"></div>
-  <div class="report-panel" id="reportPanel" style="display:none;"></div>
-
-  <div class="layer-bar" id="layerBar"></div>
-
-  <div class="search-bar">
-    <div class="search-row">
-      <input type="text" id="searchLat" placeholder="Latitude, e.g. 31.23" inputmode="decimal">
-      <input type="text" id="searchLon" placeholder="Longitude, e.g. 121.47" inputmode="decimal">
-      <button id="searchBtn">Locate</button>
-    </div>
-    <div style="display:flex;flex-direction:row;flex-wrap:wrap;column-gap:20px;row-gap:4px;">
-      <label class="coord-label" style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);white-space:nowrap;">
-        <input type="radio" name="coordSystem" id="coordWgs84" value="wgs84" checked style="width:14px;height:14px;">
-        WGS84 (OpenStreetMap, GPS) — no conversion needed
-        <a href="https://www.openstreetmap.org" target="_blank" rel="noopener" style="color:var(--accent, #2E5AAC);text-decoration:underline;">look up ↗</a>
-      </label>
-      <label class="coord-label" style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);white-space:nowrap;">
-        <input type="radio" name="coordSystem" id="coordGcj02" value="gcj02" style="width:14px;height:14px;">
-        GCJ-02 (Amap / 高德地图) — converts automatically
-        <a href="https://amap.com" target="_blank" rel="noopener" style="color:var(--accent, #2E5AAC);text-decoration:underline;">look up ↗</a>
-      </label>
-      <label class="coord-label" style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);white-space:nowrap;">
-        <input type="radio" name="coordSystem" id="coordBd09" value="bd09" style="width:14px;height:14px;">
-        BD-09 (Baidu Maps / 百度地图) — converts automatically
-        <a href="https://map.baidu.com" target="_blank" rel="noopener" style="color:var(--accent, #2E5AAC);text-decoration:underline;">look up ↗</a>
-      </label>
-    </div>
-  </div>
-  <div class="search-result" id="searchResult"></div>
-
+<div id="app" data-tab="map">
   <div id="map"></div>
 
-  <div class="status-bar">
-    <span class="mono-small" id="statusLabel">Loading…</span>
-    <span class="mono-small" id="countLabel"></span>
-  </div>
-  <span class="footer-toggle" id="footerToggle">Show more</span>
-  <div id="footerExtra" class="collapsed">
-    <div class="legend-note" id="legendNote"></div>
-    <div class="app-copyright">© <span id="copyrightYear"></span> YM @MSIG. All rights reserved.</div>
+  <header class="topbar">
+    <div class="brand" id="brandHome" title="Return to home" role="button" tabindex="0">
+      <div class="brand-mark" aria-hidden="true">CH</div>
+      <div class="brand-text">
+        <div class="brand-title">Catnet Hazard Map<span class="desk"> (China)</span></div>
+        <div class="brand-sub">China Disaster Risk<span class="desk"> Information System</span></div>
+      </div>
+    </div>
+    <button class="top-pill" id="coordPill" type="button" aria-label="Coordinate system: open Lookup">
+      <span id="coordPillText">WGS84</span>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <button class="top-icon" id="topSearchBtn" type="button" aria-label="Search by coordinates">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    </button>
+  </header>
+
+  <div class="stage">
+    <!-- 地図の塗り分けを切り替えるチップ。情報パネル(全ハザード表示)には影響しない -->
+    <div class="layer-bar" id="layerBar" role="group" aria-label="Map overlay"></div>
+
+    <section class="sheet" id="sheet">
+      <button class="sheet-handle" id="sheetHandle" type="button" aria-label="Expand or collapse panel"><span></span></button>
+      <div class="sheet-scroll">
+
+        <div class="view-main">
+          <form class="search-bar" id="searchForm" autocomplete="off">
+            <div class="sf-row">
+              <div class="sf-field">
+                <label for="searchLat">Latitude</label>
+                <input type="text" id="searchLat" placeholder="e.g. 31.23" inputmode="decimal">
+              </div>
+              <div class="sf-field">
+                <label for="searchLon">Longitude</label>
+                <input type="text" id="searchLon" placeholder="e.g. 121.47" inputmode="decimal">
+              </div>
+            </div>
+            <div class="seg" role="radiogroup" aria-label="Coordinate system">
+              <label class="seg-opt"><input type="radio" name="coordSystem" id="coordWgs84" value="wgs84" checked><span>WGS84</span></label>
+              <label class="seg-opt"><input type="radio" name="coordSystem" id="coordGcj02" value="gcj02"><span>GCJ-02</span></label>
+              <label class="seg-opt"><input type="radio" name="coordSystem" id="coordBd09" value="bd09"><span>BD-09</span></label>
+            </div>
+            <div class="coord-help" id="coordHelp"></div>
+            <button type="button" class="locate-btn" id="searchBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+              Locate
+            </button>
+          </form>
+
+          <div class="search-result" id="searchResult" aria-live="polite">
+            <div class="empty-card">
+              <div class="ec-title">Select a point</div>
+              <div class="ec-text">
+                <span class="only-mobile">Open Lookup to enter coordinates, or long-press the map.</span>
+                <span class="only-desk">Enter coordinates above, or long-press the map.</span>
+                All four hazards (water, freeze, typhoon, earthquake) are evaluated at once, together with a composite level.
+              </div>
+              <button type="button" class="ec-btn only-mobile" data-act="lookup">Open Lookup</button>
+            </div>
+          </div>
+
+          <div class="status-row">
+            <span class="mono-small" id="statusLabel">Loading…</span>
+            <span class="mono-small" id="countLabel"></span>
+          </div>
+          <div class="status-row">
+            <button type="button" class="legend-toggle" id="footerToggle" aria-expanded="false">Legend</button>
+          </div>
+          <div id="footerExtra" class="collapsed">
+            <div class="legend-note" id="legendNote"></div>
+            <div class="app-copyright">© <span id="copyrightYear"></span> YM @MSIG. All rights reserved.</div>
+          </div>
+        </div>
+
+        <div class="view-reports"><div class="report-panel" id="reportPanel"></div></div>
+        <div class="view-method"><div class="methodology-panel" id="methodologyPanel"></div></div>
+
+      </div>
+    </section>
+
+    <nav class="tabbar" id="tabbar" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" data-tab="map" aria-selected="true" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Map</button>
+      <button class="tab" role="tab" data-tab="lookup" aria-selected="false" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Lookup</button>
+      <button class="tab" role="tab" data-tab="reports" aria-selected="false" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5zM14 3v5h5M9 13h6M9 17h6"/></svg>Reports</button>
+      <button class="tab" role="tab" data-tab="method" aria-selected="false" type="button">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5M12 16.5h.01"/></svg>Method</button>
+    </nav>
   </div>
 </div>
 
@@ -661,11 +782,13 @@
 <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
 <script>
 // Peril identity colors (used for chip dots / markers — distinguishes hazard TYPE)
+// 【2026年10月改訂】暗色テーマ+ブランド緑との衝突回避のため、識別色を変更した
+// (水害は緑→青。緑はMSIGブランド色とリスク「Low」に使うため)。
 const COLORS = {
-  waterHazard: '#3F8F5F',
-  freeze: '#4FA8C9',
-  typhoonHazard: '#2C4E7C',
-  earthquake: '#C13A2E',
+  waterHazard: '#4DA8E8',
+  freeze: '#8FD6EA',
+  typhoonHazard: '#8E9CF2',
+  earthquake: '#F0705F',
 };
 
 // Gray used to mark grid cells with no data (outside CHIRPS coverage etc.) — must never be
@@ -745,9 +868,8 @@ const METHODOLOGY = [
   { label: 'Earthquakes', color: COLORS.earthquake,
     desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
   { label: 'Point Lookup', color: '#5C6675',
-    desc: 'On-demand elevation lookup for the tapped point and its surroundings, plus a shaded grid reflecting nearby hazard data for each active layer. The risk badge and comparison grid appear while the Water Hazard chip is active.' },
+    desc: 'A point search (coordinates, or a long-press on the map) evaluates all four hazards at once and shows each level together with a composite level, which is the highest of the four (not an average). Elevation is read for the point and its surroundings. The chips on the map only change what is painted around the point: All (Composite) paints the highest of the four, or pick a single hazard to see it on its own.' },
 ];
-
 
 function inLandBbox(lat, lon) {
   // Cheap first-pass filter, then a finer coastline polygon check to exclude open water
@@ -758,6 +880,7 @@ function inLandBbox(lat, lon) {
 
 let map, layerGroups = {};
 let activeLayers = new Set();
+let lastQueriedLatLon = null; // 直前に検索した地点(WGS84)。【2026年10月】宣言を追加(従来は宣言が無く、検索前の参照でReferenceErrorになり得た)
 
 // ============================================================================
 // ベースマップ設定
@@ -782,7 +905,7 @@ const BASEMAP = {
   // 【2026年9月追加】CARTOはキー1つで複数のベーススタイルを提供している。
   // 'positron' = 白基調(既定、可視化向け)/ 'voyager' = やや色付きのバランス型
   // (道路・緑地に色が付く)/ 'dark-matter' = 黒基調のダークテーマ。
-  cartoStyle: 'positron',
+  cartoStyle: 'dark-matter', // 【2026年10月】暗色テーマに合わせて positron → dark-matter
 };
 
 function addRasterFallback(m, attribCarto) {
@@ -793,10 +916,10 @@ function addRasterFallback(m, attribCarto) {
   // 上のif節(CARTOラスター)が使われるようになる。
   if (BASEMAP.cartoApiKey) {
     const key = `?key=${encodeURIComponent(BASEMAP.cartoApiKey)}`;
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png${key}`, {
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png${key}`, {
       attribution: attribCarto, subdomains: 'abcd', maxZoom: 19,
     }).addTo(m);
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png${key}`, {
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png${key}`, {
       subdomains: 'abcd', maxZoom: 19,
     }).addTo(m);
   } else {
@@ -811,7 +934,8 @@ function addRasterFallback(m, attribCarto) {
     // 描画されるため、この処理はハザード表示の色には影響しない。実際の見え方は
     // 未検証のため、気に入らなければ数値を調整するか、cartoApiKeyの設定に切り替えること。
     const tilePane = m.getPane('tilePane');
-    if (tilePane) tilePane.style.filter = 'grayscale(0.5) brightness(1.12) contrast(0.92) saturate(0.6)';
+    // 【2026年10月】暗色テーマ用: 標準タイルを反転して暗い地図に近づける簡易処置(CARTOのDark Matterそのものではない)。
+    if (tilePane) tilePane.style.filter = 'invert(1) hue-rotate(180deg) grayscale(0.6) brightness(0.82) contrast(0.9)';
   }
 }
 
@@ -861,7 +985,10 @@ function addBasemap(m) {
 }
 
 function initMap() {
-  map = L.map('map', { zoomControl: true, attributionControl: true }).setView([31.57, 120.30], 11);
+  // 【2026年10月改訂】ズームは右上、出典表示は左下(モバイルではCSSで地図上部へ移動)。
+  map = L.map('map', { zoomControl: false, attributionControl: false }).setView([31.57, 120.30], 11);
+  L.control.zoom({ position: 'topright' }).addTo(map);
+  L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map);
   // デスクトップでウィンドウ幅を変えた時など、#appのサイズが変わってもLeafletが
   // 内部キャッシュしたサイズのままだとタイルが崩れるため、リサイズのたびに再計算する
   window.addEventListener('resize', () => map.invalidateSize());
@@ -871,72 +998,65 @@ function initMap() {
   layerGroups.freeze = L.layerGroup();
   layerGroups.typhoonHazard = L.layerGroup();
   layerGroups.waterHazard = L.layerGroup();
+  layerGroups.composite = L.layerGroup(); // All(複合)表示用: 4ハザードの最大値で塗る
 }
 
-// 【2026年9月・最終方式】状態を計算してチップに反映する方式(activeLayers/
-// map.hasLayerを毎回読み直す)をやめ、タップされたボタン自身の見た目を直接
-// その場で書き換える方式にした。ボタンの再生成(innerHTML)も毎クリックでは
-// 行わず、既存のボタン要素をそのまま使い回すため、要素の張り替えタイミングに
-// 起因する取りこぼしが構造的に起こらない。
+// 【2026年10月改訂】チップの役割を「地図の塗り分けの切替」だけに変更した。
+// 地点検索の結果(情報パネル)は常に4ハザード+複合を同時に表示し、チップの選択には
+// 左右されない。チップは単一選択(All=複合 / 水害 / 凍結 / 台風 / 地震)。
+// All(既定)は検索地点周辺を「4ハザードの最大値」の1色スケールで塗る(4色を重ねない)。
+// 個別を選ぶと、そのハザードの全国レイヤー(あれば)と検索地点周辺のタイルを表示する。
+// activeLayers は個別選択中のキー1つだけを持つ(All のときは空)。
+const OVERLAY_CHIPS = [
+  { key: 'all', label: 'All (Composite)', color: '#8FCB8A' },
+  { key: 'waterHazard', label: 'Water', color: COLORS.waterHazard },
+  { key: 'freeze', label: 'Freeze', color: COLORS.freeze },
+  { key: 'typhoonHazard', label: 'Typhoon', color: COLORS.typhoonHazard },
+  { key: 'earthquake', label: 'Quake', color: COLORS.earthquake },
+];
+let overlayKey = 'all';
+
 function renderLayerBar() {
   const bar = document.getElementById('layerBar');
   bar.innerHTML = '';
-  // 【2026年9月・再修正】HTML文字列(innerHTML)経由でボタンを一括生成し、後から
-  // data-*属性を読み直す方式をやめた。DOM要素を1つずつ直接作り、各ボタンの
-  // 色・キーはJavaScriptの変数としてクロージャで直接持たせる(HTML属性の
-  // 往復を挟まない)ことで、4つのボタン間で挙動が変わる余地を完全に無くした。
-  LAYERS.forEach(l => {
-    const key = l.key;
-    const color = l.color;
+  OVERLAY_CHIPS.forEach(c => {
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = 'layer-chip';
-    btn.dataset.key = key;
+    btn.dataset.key = c.key;
+    btn.setAttribute('aria-pressed', 'false');
     const dot = document.createElement('span');
     dot.className = 'dot';
-    dot.style.background = color;
+    dot.style.background = c.color;
     btn.appendChild(dot);
-    btn.appendChild(document.createTextNode(l.label));
+    btn.appendChild(document.createTextNode(c.label));
+    btn.addEventListener('click', () => setOverlay(c.key));
     bar.appendChild(btn);
-
-    btn.addEventListener('click', () => {
-      // 色の変更は例外処理の外で、真っ先に行う。この後の処理(地図・凡例更新)が
-      // 何かの理由で失敗しても、ボタンの色だけは確実に変わるようにするため。
-      const nowActive = btn.classList.toggle('active');
-      if (nowActive) {
-        btn.style.background = color;
-        btn.style.borderColor = color;
-        dot.style.background = '#fff';
-      } else {
-        btn.style.background = '';
-        btn.style.borderColor = '';
-        dot.style.background = color;
-      }
-      try {
-        if (nowActive) {
-          activeLayers.add(key);
-          map.addLayer(layerGroups[key]);
-        } else {
-          activeLayers.delete(key);
-          map.removeLayer(layerGroups[key]);
-        }
-        if (BADGE_LAYER_KEYS.includes(key)) {
-          const anyBadgeActive = BADGE_LAYER_KEYS.some(k => activeLayers.has(k));
-          if (!anyBadgeActive) {
-            const resultEl = document.getElementById('searchResult');
-            resultEl.className = 'search-result';
-            resultEl.innerHTML = '';
-          } else if (lastQueriedLatLon) {
-            queryPoint(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
-          }
-        }
-        updateLegend();
-      } catch (err) {
-        // 何が起きても、ボタン自身の色はこの時点で既に変わっているはずなので、
-        // ここから先の処理(凡例更新など)が失敗しても見た目には影響しない。
-        console.error('layer-chip click error for', key, err);
-      }
-    });
   });
+  setOverlay('all', { skipQuery: true });
+}
+
+function setOverlay(key, opts) {
+  const skipQuery = opts && opts.skipQuery;
+  // 直前に出していたグループを外す
+  [...activeLayers].forEach(k => { if (layerGroups[k]) map.removeLayer(layerGroups[k]); });
+  activeLayers.clear();
+  map.removeLayer(layerGroups.composite);
+  overlayKey = key;
+  if (key === 'all') {
+    map.addLayer(layerGroups.composite);
+  } else {
+    activeLayers.add(key);
+    map.addLayer(layerGroups[key]);
+  }
+  document.querySelectorAll('#layerBar .layer-chip').forEach(btn => {
+    const on = btn.dataset.key === key;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  updateLegend();
+  // 検索済みの地点があれば、塗り分けだけを作り直す(情報パネルは同じ地点なので点滅させない)
+  if (!skipQuery && lastQueriedLatLon) queryPoint(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
 }
 
 // レポートに「いつ時点の・何年分のデータで判定したか」を印字するために保持する。
@@ -946,45 +1066,43 @@ let dataRanges = { typhoonHazard: null, earthquake: null, freeze: '2006–2025' 
 // 50年分と30日分では評価の土台がまったく違うため、黙って切り替わってはいけない。
 let earthquakeFallbackLive = false;
 
-// 【2026年9月改訂】層ごとの個別「Show more/less」(legendExpanded)を廃止した。
-// フッター全体の外側トグル(footerToggle)と合わせて「Show more」を2回押す二段階に
-// なっており分かりにくかったため、外側のトグル1つだけで全文を出し入れする形に統一した。
+// 凡例: 5段階の色(画面用)と、選択中の地図表示(All=複合 / 個別ハザード)の説明。
+// 【2026年10月改訂】チップの複数選択をやめたため、個別選択時はそのハザードの説明1件のみを出す。
 function updateLegend() {
   const container = document.getElementById('legendNote');
-  const active = LAYERS.filter(l => activeLayers.has(l.key));
-  if (active.length === 0) {
-    container.innerHTML = 'Select a layer above to see it on the map.';
+  const tiers = `
+    <div class="legend-tiers">${SCREEN_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
+    <div class="legend-tier-labels">${GENERIC_TIER_LABELS.map(l => `<span>${l}</span>`).join('')}</div>`;
+  const typhoonWarn = typhoonDataUnavailable ? `<div style="margin-bottom:6px;">
+        <strong>Typhoon Hazard:</strong>
+        <span style="color:var(--risk-severe);font-weight:600;">Data unavailable.</span>
+        The typhoon dataset could not be loaded, so no typhoon evaluation is produced.
+        This is not an indication of low typhoon hazard. Please retry later.
+      </div>` : '';
+
+  if (overlayKey === 'all') {
+    container.innerHTML = tiers + typhoonWarn + `<div style="margin-bottom:6px;">
+      <strong>All (Composite):</strong> after a point search, the area around the point is colored by the
+      highest of the four hazard levels (water, freeze, typhoon, earthquake) at each location — not averaged.
+      The panel always lists all four hazards. Use the chips on the map to view a single hazard instead.
+    </div>`;
     return;
   }
-  container.innerHTML = active.map(l => {
-    const range = dataRanges[l.key] ? ` <span style="color:var(--text-primary);font-weight:600;">[${dataRanges[l.key]}]</span>` : '';
-    // 台風データの取得に失敗した場合は、凡例の先頭で明示する(0件・低リスクと誤読させない)
-    if (l.key === 'typhoonHazard' && typhoonDataUnavailable) {
-      return `<div style="margin-bottom:6px;">
-        <strong style="color:var(--text-primary);">${l.label}:</strong>
-        <span style="color:var(--risk-severe);font-weight:600;">Data unavailable.</span>
-        The typhoon dataset could not be loaded, so nothing is shown on the map and no typhoon
-        evaluation is produced. This is not an indication of low typhoon hazard. Please retry later.
-      </div>`;
-    }
-    // 【2026年9月改訂】気候シナリオの切替は検索結果バッジ側だけに絞った(地図の凡例には
-    // 置かない)。地図の色を切り替えたい場合は、いずれかの地点を検索してバッジ上部の
-    // ボタンを操作すれば、mapRainfallWarmingは共通なので地図の色も同時に変わる。
-    // 未検索の状態では全国ヒートマップの色を現在気候以外に切り替える手段が無くなる点に注意。
-    const climateToggle = l.key === 'waterHazard' ? `
+
+  const l = LAYERS.find(x => x.key === overlayKey);
+  const range = dataRanges[l.key] ? ` <span style="color:var(--text-primary);font-weight:600;">[${dataRanges[l.key]}]</span>` : '';
+  // 気候シナリオの切替は検索結果(水害の行)側だけに置く。mapRainfallWarmingは共通なので
+  // 検索結果のボタンを操作すれば、水害タイルの色も同時に変わる。
+  const climateNote = l.key === 'waterHazard' ? `
       <div style="color:var(--text-faint); font-size:10.5px; margin-top:3px;">
         Rainfall projected using IPCC AR6 Clausius-Clapeyron scaling (+7%/°C). The Water Hazard score
         shown in point search and PDF reports always uses current-climate observations.
       </div>` : '';
-
-    return `<div style="margin-bottom:6px;">
-      <strong style="color:var(--text-primary);">${l.label}:</strong>${range} ${l.note}
-      ${climateToggle}
+  const unavailable = (l.key === 'typhoonHazard' && typhoonDataUnavailable) ? '' : `<div style="margin-bottom:6px;">
+      <strong>${l.label}:</strong>${range} ${l.note}
+      ${climateNote}
     </div>`;
-  }).join('');
-
-  // climate-chipのクリックはclimateChipsHtml()内のonclick属性で処理するため、
-  // ここでの addEventListener 登録は不要(inline onclickに一本化)。
+  container.innerHTML = tiers + typhoonWarn + unavailable;
 }
 
 // 【2026年9月】気候シナリオの切替をここに一本化。地図の凡例と検索結果バッジの両方に
@@ -1035,28 +1153,12 @@ function renderMethodology() {
     </div>`;
 }
 
-document.getElementById('methodologyBtn').addEventListener('click', () => {
-  const panel = document.getElementById('methodologyPanel');
-  const btn = document.getElementById('methodologyBtn');
-  panel.classList.toggle('visible');
-  btn.classList.toggle('active');
-});
-
 // ヘッダーのタイトル(ロゴ相当)をクリックするとホーム画面(初期表示状態)に戻る。
 // レイヤー選択・検索結果・METHODOLOGY/REPORTSパネルなど、JS側の状態が複数箇所に
 // またがっているため、個別にリセットするより確実な「ページ再読込」方式を採用する。
 // クエリパラメータ(?v=3など)は保持せずベースURLに戻す。
 document.getElementById('brandHome').addEventListener('click', () => {
   window.location.href = window.location.pathname;
-});
-
-
-// 【2026年9月追加】フッター(凡例の説明文・著作権)も既定で折りたたみ、status-bar
-// (1行)だけを常時表示する。ヘッダーと同じ「Show more」の言葉・挙動に揃えている。
-document.getElementById('footerToggle').addEventListener('click', () => {
-  const el = document.getElementById('footerExtra');
-  const nowCollapsed = el.classList.toggle('collapsed');
-  document.getElementById('footerToggle').textContent = nowCollapsed ? 'Show more' : 'Show less';
 });
 
 function escapeHtml(s) {
@@ -1210,7 +1312,6 @@ async function loadFreeze() {
     if (coords && coords[0]) heatingBoundaryLat = coords[0][1]; // [lon, lat]の緯度
   }
 }
-
 
 // 1色を返す。台風の軌跡を線(ポリライン)で描くために使う(ヒートマップの色と統一するため)。
 const HAZARD_GRADIENT_STOPS = [
@@ -2200,13 +2301,117 @@ function renderWaterHeatmap(warmingC) {
   layerGroups.waterHazard.clearLayers();
 }
 
-
 // ==== 地点検索: 各ハザードの5段階配色ロジック(標高以外はローカルデータのみで計算、追加通信なし) ====
 
 // 気象庁の震度階級配色を参考にした地震用5段階(黄→橙→赤→濃い赤→赤紫)
 const EARTHQUAKE_TIER_COLORS = ['#3F8F5F', '#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F'];
 // 気象庁の統一「警戒レベル」配色を参考にした台風・雷・洪水共通5段階(黄→橙→赤→紫→黒)
 const WARNING_TIER_COLORS = ['#3F8F5F', '#D9A22C', '#D9722C', '#C13A2E', '#8C1F1F'];
+
+// 【2026年10月追加】画面(暗色テーマ)専用の5段階色。上の WARNING_TIER_COLORS / EARTHQUAKE_TIER_COLORS /
+// TYPHOON_TIER_COLORS は PDFレポート(白背景)も参照するため変更していない。
+// 画面の一覧・複合カード・地図タイルは、すべて ratio(0–1)から求めた段階でこの色を使う。
+const SCREEN_TIER_COLORS = ['#4FB37A', '#E8C547', '#F29A52', '#E5584A', '#B3263E'];
+function tierFromRatio(r) { return Math.min(4, Math.max(0, Math.ceil(r * 5) - 1)); }
+function hexToRgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+const HAZARD_ROW_META = {
+  waterHazard: { name: 'Water Hazard', color: COLORS.waterHazard,
+    icon: '<path d="M12 3s6 6.2 6 10.5A6 6 0 0 1 6 13.5C6 9.2 12 3 12 3z"/>' },
+  freeze: { name: 'Freeze Hazard', color: COLORS.freeze,
+    icon: '<path d="M12 2v20M4.2 7l15.6 10M19.8 7L4.2 17M9 4l3 2 3-2M9 20l3-2 3 2"/>' },
+  typhoonHazard: { name: 'Typhoon Hazard', color: COLORS.typhoonHazard,
+    icon: '<circle cx="12" cy="12" r="2"/><path d="M12 4a8 8 0 0 1 8 8M12 20a8 8 0 0 1-8-8M7 5.5A8 8 0 0 1 12 4M17 18.5A8 8 0 0 1 12 20"/>' },
+  earthquake: { name: 'Earthquakes', color: COLORS.earthquake,
+    icon: '<path d="M2 12h4l2-6 4 12 3-9 2 3h5"/>' },
+};
+
+// 検索結果(情報パネル)のHTML: 地点カード(複合ハザード) → 主因 → 4ハザード一覧 → 操作 → 標高
+// 詳細(頻度・シナリオ等)の開閉状態。再検索で結果HTMLが差し替わっても保持する
+const openHazardExtras = new Set();
+function pointResultHtml(lat, lon, hazards, overall, ctx) {
+  const seg = (n, color) => Array.from({ length: 5 }, (_, i) =>
+    `<i style="background:${i < n ? color : 'rgba(255,255,255,0.12)'};"></i>`).join('');
+  const rows = hazards.map(h => {
+    const meta = HAZARD_ROW_META[h.key];
+    const has = typeof h.ratio === 'number' && !isNaN(h.ratio);
+    const t = has ? tierFromRatio(h.ratio) : -1;
+    const color = has ? SCREEN_TIER_COLORS[t] : NO_DATA_COLOR;
+    const open = h.extraHtml && openHazardExtras.has(h.key);
+    return `<div class="hz${h.extraHtml ? ' has-extra' : ''}${open ? ' open' : ''}" data-hz="${h.key}">
+      <div class="hz-main"${h.extraHtml ? ' role="button" tabindex="0" aria-expanded="' + (open ? 'true' : 'false') + '"' : ''}>
+        <div class="hz-icon" style="background:${hexToRgba(meta.color, 0.2)};color:${meta.color};">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${meta.icon}</svg>
+        </div>
+        <div class="hz-text"><div class="hz-name">${meta.name}</div><div class="hz-sub">${h.sub}</div></div>
+        <div class="hz-level">
+          <div class="hz-lvl" style="color:${color};">${has ? h.levelLabel : 'No data'}${has ? ` <span class="hz-num">${h.ratio.toFixed(2)}</span>` : ''}</div>
+          <div class="hz-bar">${seg(has ? t + 1 : 0, color)}</div>
+        </div>
+      </div>
+      ${h.extraHtml ? `<div class="hz-extra">${h.extraHtml}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const o = overall;
+  const lvlColor = o ? o.color : NO_DATA_COLOR;
+  const pct = o ? Math.min(99, Math.max(1, o.ratio * 100)) : 0;
+  const driverMeta = o ? HAZARD_ROW_META[o.driverKeys[0]] : null;
+  return `
+    <div class="point-card">
+      <div class="pc-top">
+        <div class="pc-coords"><span>${lat.toFixed(4)}, ${lon.toFixed(4)}</span>
+          <button type="button" class="icon-btn" data-act="copy" aria-label="Copy coordinates">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+          </button>
+        </div>
+        <span class="pc-chip">WGS84</span>
+      </div>
+      <div class="pc-mid">
+        <div><div class="k">Composite hazard</div><div class="pc-lvl" style="color:${lvlColor};">${o ? o.label : 'No data'}</div></div>
+        <div class="pc-score">${o ? o.ratio.toFixed(2) : '—'}</div>
+      </div>
+      <div class="pc-bar-wrap">
+        ${o ? `<div class="pc-marker" style="left:${pct.toFixed(1)}%;"></div>` : ''}
+        <div class="pc-bar">${SCREEN_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
+      </div>
+    </div>
+    ${o ? `<div class="driver-strip"><span class="dot" style="background:${driverMeta.color};"></span><span class="muted">Main driver</span><b>${o.drivers.join(', ')}</b></div>` : ''}
+    <div class="hz-list">${rows}</div>
+    <div class="pc-actions">
+      <button type="button" class="btn-primary" data-act="report">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5zM14 3v5h5M9 13h6M9 17h6"/></svg>
+        Create Report
+      </button>
+      <button type="button" class="btn-ghost" data-act="legend">Legend</button>
+    </div>
+    <div class="elev-strip"><span>Elevation</span><b>${ctx.centerElev.toFixed(1)} m</b></div>
+    <div class="result-elev">${ctx.depLabel.text}</div>
+    <div class="extent-legend">
+      <span><span class="swatch" style="border-top:1.5px dashed #B9C7BB;"></span>Evaluated area (~3.15km)</span>
+      <span><span class="swatch" style="border-top:1.5px dotted #1FA8D9;"></span>Depression check (~1.05km)</span>
+    </div>`;
+}
+
+// 長押し・検索で選んだ地点が、シート(モバイル)や左パネル(PC)に隠れない位置に来るよう
+// 地図の中心をずらす。地図は全面に敷いているため、見えている領域の中心へ合わせる。
+function centerOnPoint(lat, lon, zoom) {
+  map.setView([lat, lon], zoom, { animate: false });
+  const size = map.getSize();
+  const sheet = document.getElementById('sheet');
+  const r = sheet.getBoundingClientRect();
+  const desktop = window.matchMedia('(min-width: 1024px)').matches;
+  if (desktop) {
+    const visibleCenterX = (r.right + size.x) / 2;
+    map.panBy([size.x / 2 - visibleCenterX, 0], { animate: false });
+  } else {
+    const top = 64; // ヘッダーの下端
+    const visibleCenterY = (top + r.top) / 2;
+    map.panBy([0, size.y / 2 - visibleCenterY], { animate: false });
+  }
+}
 
 // 5段階配色のグラデーション凡例(温度計ふう)+データ欠損(灰色)の説明をHTMLで生成する共通関数
 
@@ -2481,7 +2686,6 @@ function floodTileColor(lat, lon) {
   return WARNING_TIER_COLORS[Math.min(4, Math.floor(ratio * 5))];
 }
 
-
 // so failed lookups are retried automatically before surfacing an error.
 // ==== Point lookup: elevation ====
 // Open-Elevation supports CORS for direct browser calls (unlike the free tier of
@@ -2632,9 +2836,12 @@ async function fetchElevations(locations) {
 // 標高タイル(data/elevation_tiles/)もWGS84基準なので、そのままタイルIDを算出してよい。
 async function queryPoint(lat, lon) {
   const resultEl = document.getElementById('searchResult');
-  if (BADGE_LAYER_KEYS.some(k => activeLayers.has(k))) {
-    resultEl.className = 'search-result visible';
-    resultEl.innerHTML = '<div class="result-elev">Fetching…</div>';
+  // 【2026年10月改訂】結果は常に4ハザード+複合を表示する(チップの選択に依存しない)。
+  // 同じ地点の再評価(チップ切替・気候シナリオ切替)では、パネルを「Fetching…」に戻さず
+  // 前回の表示を残したまま差し替える。
+  const samePoint = lastQueriedLatLon && Math.abs(lastQueriedLatLon.lat - lat) < 1e-9 && Math.abs(lastQueriedLatLon.lon - lon) < 1e-9;
+  if (!samePoint) {
+    resultEl.innerHTML = '<div class="empty-card"><div class="ec-title">Evaluating…</div><div class="ec-text">Fetching elevation and evaluating all four hazards.</div></div>';
   }
 
   lastQueriedLatLon = { lat, lon };
@@ -2722,121 +2929,100 @@ async function queryPoint(lat, lon) {
       };
     }
 
-    // 地震・台風・凍結は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)が、
-    // 表示更新のタイミングは水害と揃えて1回にまとめている
-    // 表示順(チップ・バッジ・レポートとも統一): 水災・凍結・台風・地震
-    const badges = [];
-    if (activeLayers.has('waterHazard')) badges.push(waterBadge);
-    if (activeLayers.has('freeze')) {
-      const info = freezeRiskInfo(lat, lon);
-      badges.push(info
-        ? { label: `${tierLabels[info.tier]} freeze hazard (${info.valueLabel})`, color: info.color, colors: WARNING_TIER_COLORS, ratio: info.ratio }
-        : { label: 'No freeze hazard data nearby', color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS });
-    }
-    if (activeLayers.has('typhoonHazard')) {
-      const info = typhoonRiskInfo(lat, lon);
-      const freq = typhoonReturnPeriodInfo(lat, lon);
-      badges.push({
-        ...(info
-          ? { label: `${TYPHOON_TIER_LABELS[info.tier]} hazard (${info.valueLabel})`, color: info.color, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS, ratio: info.ratio }
-          : { label: typhoonNoDataLabel(), color: NO_DATA_COLOR, colors: TYPHOON_TIER_COLORS, labels: TYPHOON_TIER_LABELS }),
-        freqInfo: freq, freqHtmlFn: typhoonFreqHtml,
+    // 地震・台風・凍結は標高フェッチを待つ必要が無い(キャッシュ済みgeojsonのみで判定可能)。
+    // 【2026年10月改訂】4ハザードを常に全て評価して一覧にする(以前はON中のチップだけ)。
+    // 表示順(チップ・一覧・レポートとも統一): 水災・凍結・台風・地震
+    const hazards = [];
+
+    // 水害
+    {
+      const hasWater = typeof waterBadge.ratio === 'number';
+      const wTier = hasWater ? tierFromRatio(waterBadge.ratio) : -1;
+      const extra = [];
+      if (waterBadge.freqInfo && waterBadge.freqHtmlFn) extra.push(waterBadge.freqHtmlFn(waterBadge.freqInfo));
+      if (hasWater && mapRainfallWarming !== 0) extra.push(`<div class="result-freq" style="opacity:0.8;">Reflects the +${mapRainfallWarming}°C scenario selected above.</div>`);
+      if (waterBadge.caveat) extra.push(`<div class="hz-caveat">${waterBadge.caveat}</div>`);
+      hazards.push({
+        key: 'waterHazard', ratio: hasWater ? waterBadge.ratio : null,
+        levelLabel: hasWater ? tierLabels[wTier] : '',
+        sub: hasWater ? (waterBadge.dominant ? `Main mechanism: ${waterBadge.dominant}` : 'Water hazard') : waterBadge.label,
+        extraHtml: extra.join(''),
       });
     }
-    if (activeLayers.has('earthquake')) {
+    // 凍結
+    {
+      const info = freezeRiskInfo(lat, lon);
+      hazards.push(info
+        ? { key: 'freeze', ratio: info.ratio, levelLabel: tierLabels[info.tier], sub: info.valueLabel }
+        : { key: 'freeze', ratio: null, levelLabel: '', sub: 'No freeze hazard data nearby' });
+    }
+    // 台風
+    {
+      const info = typhoonRiskInfo(lat, lon);
+      const freq = typhoonReturnPeriodInfo(lat, lon);
+      hazards.push({
+        key: 'typhoonHazard',
+        ratio: info ? info.ratio : null,
+        levelLabel: info ? TYPHOON_TIER_LABELS[info.tier] : '',
+        sub: info ? info.valueLabel : typhoonNoDataLabel(),
+        extraHtml: freq ? typhoonFreqHtml(freq) : '',
+      });
+    }
+    // 地震
+    {
       const info = earthquakeRiskInfo(lat, lon);
-      badges.push(info
-        ? { label: `${tierLabels[info.tier]} earthquake hazard (${info.valueLabel})`, color: info.color, colors: EARTHQUAKE_TIER_COLORS, ratio: info.ratio }
-        : { label: 'No M5.0+ earthquake within 100km', color: NO_DATA_COLOR, colors: EARTHQUAKE_TIER_COLORS });
+      hazards.push(info
+        ? { key: 'earthquake', ratio: info.ratio, levelLabel: tierLabels[info.tier], sub: info.valueLabel }
+        : { key: 'earthquake', ratio: null, levelLabel: '', sub: 'No M5.0+ earthquake within 100km' });
     }
 
-    if (badges.length > 0) {
-      resultEl.className = 'search-result visible';
-      resultEl.innerHTML = `
-        ${badges.map(b => `
-          <span class="result-badge" style="background:${b.color};">${b.label}</span>
-          ${riskLegendHtml(b.colors, b.ratio, b.labels)}
-          ${b.freqInfo && b.freqHtmlFn ? b.freqHtmlFn(b.freqInfo) : ''}
-        `).join('<div style="height:5px;"></div>')}
-        ${activeLayers.has('waterHazard') ? `
-          ${waterBadge.dominant ? `<div class="result-elev" style="margin-top:5px;">Dominant mechanism: ${waterBadge.dominant}</div>` : ''}
-          ${waterBadge.caveat ? `<div class="result-elev" style="margin-top:5px;color:var(--risk-severe);font-weight:600;">${waterBadge.caveat}</div>` : ''}
-          <div class="result-elev" style="margin-top:5px;">Elevation: ${centerElev.toFixed(1)}m — ${depLabel.text}</div>
-          <div class="extent-legend">
-            <span><span class="swatch" style="border-top:1.5px dashed #5C6675;"></span>Evaluated area (~3.15km)</span>
-            <span><span class="swatch" style="border-top:1.5px dotted #1FA8D9;"></span>Depression check (~1.05km)</span>
-          </div>
-          ${mapRainfallWarming !== 0 ? `<div class="result-elev" style="margin-top:5px; font-family:'JetBrains Mono', monospace; font-size:9px; opacity:0.6;">Reflects the +${mapRainfallWarming}°C scenario selected below.</div>` : ''}
-        ` : ''}
-      `;
-    } else {
-      resultEl.className = 'search-result';
-      resultEl.innerHTML = '';
+    // 複合ハザード: 4ハザードの最大値(PDFレポートと同じ定義。平均はしない)。
+    // 同率1位が複数ある場合は全て主因として挙げる(表示の丸め=小数第2位と一致させる)。
+    const scoredHz = hazards.filter(h => typeof h.ratio === 'number' && !isNaN(h.ratio));
+    let overall = null;
+    if (scoredHz.length > 0) {
+      let top = scoredHz[0];
+      scoredHz.forEach(h => { if (h.ratio > top.ratio) top = h; });
+      const drv = scoredHz.filter(h => Math.abs(h.ratio - top.ratio) < 0.005);
+      const oTier = tierFromRatio(top.ratio);
+      overall = {
+        ratio: top.ratio, tier: oTier, label: tierLabels[oTier], color: SCREEN_TIER_COLORS[oTier],
+        driverKeys: drv.map(h => h.key), drivers: drv.map(h => HAZARD_ROW_META[h.key].name),
+      };
     }
+
+    resultEl.innerHTML = pointResultHtml(lat, lon, hazards, overall, { centerElev, depLabel });
 
     if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
     if (searchExtentLayer) map.removeLayer(searchExtentLayer);
 
-    // 半径1000m(一辺約2.25km、2km四方設計)圏内を、各ハザードのリスクに応じた色のタイルで塗る
-    // (地震・台風はローカルデータのみ、追加通信なし)
-    const hazardTileFns = {
-      earthquake: earthquakeTileColor,
-      freeze: freezeTileColor,
-      typhoonHazard: typhoonTileColor,
-    };
-
+    // 半径1000m(一辺約2.25km、2km四方設計)圏内を、リスクに応じた色のタイルで塗る。
+    // 【2026年10月改訂】All(複合)=4ハザードの最大値の1色スケール / 個別チップ=そのハザードのみ。
+    // 色はいずれも ratio から求めた画面用5段階(SCREEN_TIER_COLORS)。
     Object.entries(searchGridLayers).forEach(([key, layer]) => {
-      if (layer) layerGroups[key].removeLayer(layer);
+      if (layer && layerGroups[key]) layerGroups[key].removeLayer(layer);
     });
     searchGridLayers = {};
 
-    Object.entries(hazardTileFns).forEach(([key, fn]) => {
-      if (!activeLayers.has(key)) return; // チップがOFFなら、そもそもタイルを生成しない(表示崩れの防止)
-      const layer = L.layerGroup();
-      let any = false;
-      gridCells.forEach((cell, idx) => {
-        const color = fn(cell.lat, cell.lon);
-        if (!color) return;
-        any = true;
-        const halfLat = cellDLat / 2;
-        const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
-        L.rectangle(
-          [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
-          { color, weight: 0, fillColor: color, fillOpacity: 0.45 }
-        ).addTo(layer);
-      });
-      if (any) {
-        layer.addTo(layerGroups[key]);
-        searchGridLayers[key] = layer;
-      }
-    });
-
-    // 水害ハザードのタイル: 標高は実測API値(このマス)、降雨強度は最寄りの事前生成データ、
-    // 洪水実績は重みとしてのみ使用。海上のマスは除外。チップがOFFなら生成自体をスキップする。
-    // 水害ハザードのタイル: バッジと同じ3機構モデルで1マスずつ評価する。
-    // 標高は150mタイルの実測値(このマス)、降雨は平滑化済みGumbel、
-    // 窪み係数はグリッド全体の分布から求めた値をマス共通で使う。
-    if (activeLayers.has('waterHazard')) {
-      const waterGridLayer = L.layerGroup();
+    // 水害は標高が要るためマスごとに評価する(他の3つはローカルデータのみ)。
+    // 標高は150mタイルの実測値(このマス)、降雨は平滑化済みGumbel、洪水実績は重み、
+    // 窪み係数はグリッド全体の分布から求めた値をマス共通で使う。海上のマスは除外。
+    const tileKeys = overlayKey === 'all' ? BADGE_LAYER_KEYS : [overlayKey];
+    let waterCellRatios = null;
+    if (tileKeys.includes('waterHazard')) {
+      waterCellRatios = new Array(gridCells.length).fill(null);
       const gridVals = gridElevations;
-      // 【2026年9月・性能改善】441マス全てが検索地点(lat, lon)周辺 約1km以内にあるため、
-      // 候補となる河川・湖はマスごとにほぼ変わらない。ここで検索地点1点ぶんだけ候補を
-      // 取得し、441マス全てで使い回す(fluvialScoreAtへ渡す)。太湖のような大きな湖
-      // (湖岸453点)の近くで検索するとPCブラウザの反応が悪化する、という報告を受けて
-      // 追加した最適化。
+      // 【2026年9月・性能改善】441マス全てが検索地点周辺 約1km以内にあるため、候補となる
+      // 河川・湖はマスごとにほぼ変わらない。検索地点1点ぶんだけ候補を取得して使い回す。
       const localRiverCandidates = nearbyRiverFeatures(lat, lon);
       const localLakeCandidates = nearbyLakeFeatures(lat, lon);
       gridCells.forEach((cell, idx) => {
         const cellElev = gridVals[idx];
         if (typeof cellElev !== 'number') return;
-        // 陸/海の判定: CHINA_COASTLINE_POLYGON は30頂点しかなく、海南島・青島・大連などを
-        // 「海」と誤判定してタイルが1枚も描画されない問題があった。標高タイルでは海面が0mで
-        // 埋まっているため、粗いポリゴンで陸と判定されるか、標高が0mより高ければ陸とみなす。
+        // 陸/海の判定: 粗いポリゴンで陸と判定されるか、標高が0mより高ければ陸とみなす。
         if (!isOnLand(cell.lat, cell.lon) && !(cellElev > 0)) return;
 
-        // 【2026年9月修正】ここにmapRainfallWarmingを渡し忘れていたため、地図の気候
-        // シナリオを切り替えても、検索中の地点の水害タイル(150m格子)だけは常に現在気候
-        // のまま変わらなかった(全国俯瞰のヒートマップだけが変化していた)。
+        // 【2026年9月修正】mapRainfallWarming(気候シナリオ)を渡す。
         const cellRain = rainfallIntensityScore(cell.lat, cell.lon, mapRainfallWarming);
         const cellDep = depressionFactor(cellElev,
           subGridAround(gridVals, GRID_STEPS * 2 + 1, Math.floor(idx / (GRID_STEPS * 2 + 1)), idx % (GRID_STEPS * 2 + 1), DEPRESSION_HALF));
@@ -2849,26 +3035,46 @@ async function queryPoint(lat, lon) {
         const weight = floodWeightAt(cell.lat, cell.lon);
         const finalRisk = Math.min(1.0, cellCombined.base * weight);
         if (finalRisk <= 0) return;
-
-        const halfLat = cellDLat / 2;
-        const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
-        const tileColor = WARNING_TIER_COLORS[Math.min(4, Math.max(0, Math.ceil(finalRisk * 5) - 1))];
-        L.rectangle(
-          [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
-          { color: tileColor, weight: 0, fillColor: tileColor, fillOpacity: 0.45 }
-        ).addTo(waterGridLayer);
+        waterCellRatios[idx] = finalRisk;
       });
-      waterGridLayer.addTo(layerGroups.waterHazard);
-      searchGridLayers.waterHazard = waterGridLayer;
+    }
+    const cellInfoFns = { earthquake: earthquakeRiskInfo, freeze: freezeRiskInfo, typhoonHazard: typhoonRiskInfo };
+    const cellRatio = (key, idx, cell) => {
+      if (key === 'waterHazard') return waterCellRatios ? waterCellRatios[idx] : null;
+      const info = cellInfoFns[key](cell.lat, cell.lon);
+      return info && typeof info.ratio === 'number' && !isNaN(info.ratio) ? info.ratio : null;
+    };
+    const tileGroupKey = overlayKey === 'all' ? 'composite' : overlayKey;
+    const tileLayer = L.layerGroup();
+    let anyTile = false;
+    gridCells.forEach((cell, idx) => {
+      let best = null;
+      tileKeys.forEach(k => {
+        const r = cellRatio(k, idx, cell);
+        if (r !== null && (best === null || r > best)) best = r;
+      });
+      if (best === null) return;
+      anyTile = true;
+      const color = SCREEN_TIER_COLORS[tierFromRatio(best)];
+      const halfLat = cellDLat / 2;
+      const halfLon = metersToDegLon(GRID_CELL_M, cell.lat) / 2;
+      L.rectangle(
+        [[cell.lat - halfLat, cell.lon - halfLon], [cell.lat + halfLat, cell.lon + halfLon]],
+        { color, weight: 0, fillColor: color, fillOpacity: 0.5, interactive: false }
+      ).addTo(tileLayer);
+    });
+    if (anyTile) {
+      tileLayer.addTo(layerGroups[tileGroupKey]);
+      searchGridLayers[tileGroupKey] = tileLayer;
     }
 
-    // 指定地点そのものは📍ピンで表示(どのチップの状態にも関わらず常に表示)
+    // 指定地点そのものはピンで表示(どのチップの状態にも関わらず常に表示)
     searchMarkerLayer = L.marker([lat, lon], {
       icon: L.divIcon({
-        html: '<div style="font-size:26px;line-height:1;transform:translateY(-4px);">📍</div>',
+        html: '<div class="pin-marker"><i class="r1"></i><i class="r2"></i><i class="r3"></i></div>',
         className: '',
-        iconSize: [26, 26],
-        iconAnchor: [13, 26],
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
       }),
     }).addTo(map);
 
@@ -2904,9 +3110,9 @@ async function queryPoint(lat, lon) {
     // Leafletが内部キャッシュしている古いサイズのままcenterがズレないよう、
     // setViewの直前に再計算させる
     map.invalidateSize();
-    map.setView([lat, lon], Math.max(map.getZoom(), 13));
+    centerOnPoint(lat, lon, Math.max(map.getZoom(), 13));
   } catch (e) {
-    resultEl.innerHTML = '<div class="result-elev">Could not fetch elevation data. Please try again shortly.</div>';
+    resultEl.innerHTML = '<div class="empty-card"><div class="ec-title">Could not evaluate this point</div><div class="ec-text">Could not fetch elevation data. Please try again shortly.</div></div>';
   }
 }
 
@@ -3025,7 +3231,7 @@ function syncReportLocationFromSearch(lat, lon) {
   reportLocations[0].lat = String(lat);
   reportLocations[0].lon = String(lon);
   const panel = document.getElementById('reportPanel');
-  if (panel && panel.style.display !== 'none' && panel.innerHTML) {
+  if (panel && panel.innerHTML) {
     renderReportLocList();
   }
 }
@@ -3096,18 +3302,6 @@ function renderReportLocList() {
     });
   });
 }
-
-document.getElementById('reportsBtn').addEventListener('click', () => {
-  const panel = document.getElementById('reportPanel');
-  const btn = document.getElementById('reportsBtn');
-  const visible = panel.style.display !== 'none';
-  panel.style.display = visible ? 'none' : 'block';
-  btn.classList.toggle('active', !visible);
-  if (!visible) {
-    if (!panel.innerHTML) renderReportPanel();
-    if (lastQueriedLatLon) syncReportLocationFromSearch(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
-  }
-});
 
 // 降雨のGumbelパラメータ(mu, beta)を最寄り地点から取得(rainfallReturnPeriodInfoと同じ検索ロジックだが、
 // グローバルなrainfallSelectedWarmingに依存せず、4シナリオ分を一度に計算するために分離)
@@ -3886,10 +4080,102 @@ async function renderReportView(results, lang) {
   })));
 }
 
+
+// ============================================================
+// 画面の骨格(2026年10月改訂): 下部タブバー(PCでは左パネル上部のタブ)、シートの開閉、
+// 凡例の開閉、検索結果内のボタン、座標系UI。計算ロジックには触れない。
+// ============================================================
+function setTab(name) {
+  const app = document.getElementById('app');
+  app.dataset.tab = name;
+  document.querySelectorAll('#tabbar .tab').forEach(t => {
+    t.setAttribute('aria-selected', t.dataset.tab === name ? 'true' : 'false');
+  });
+  document.getElementById('sheet').classList.remove('collapsed');
+  if (name === 'reports') {
+    const panel = document.getElementById('reportPanel');
+    if (!panel.innerHTML) renderReportPanel();
+    if (lastQueriedLatLon) syncReportLocationFromSearch(lastQueriedLatLon.lat, lastQueriedLatLon.lon);
+  }
+  if (name === 'lookup') {
+    const lat = document.getElementById('searchLat');
+    if (lat && !lat.value) setTimeout(() => lat.focus(), 50);
+  }
+}
+
+function updateCoordUi() {
+  const sel = document.querySelector('input[name="coordSystem"]:checked').value;
+  const help = {
+    wgs84: ['WGS84 (OpenStreetMap, GPS) — no conversion needed', 'https://www.openstreetmap.org'],
+    gcj02: ['GCJ-02 (Amap / 高德地图) — converts automatically', 'https://amap.com'],
+    bd09: ['BD-09 (Baidu Maps / 百度地图) — converts automatically', 'https://map.baidu.com'],
+  }[sel];
+  document.getElementById('coordHelp').innerHTML =
+    `${help[0]} <a href="${help[1]}" target="_blank" rel="noopener">look up ↗</a>`;
+  document.getElementById('coordPillText').textContent =
+    { wgs84: 'WGS84', gcj02: 'GCJ-02', bd09: 'BD-09' }[sel];
+}
+
+function initShell() {
+  document.querySelectorAll('#tabbar .tab').forEach(t => {
+    t.addEventListener('click', () => setTab(t.dataset.tab));
+  });
+  document.getElementById('coordPill').addEventListener('click', () => setTab('lookup'));
+  document.getElementById('topSearchBtn').addEventListener('click', () => setTab('lookup'));
+  document.getElementById('sheetHandle').addEventListener('click', () => {
+    document.getElementById('sheet').classList.toggle('collapsed');
+  });
+  document.getElementById('brandHome').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.location.href = window.location.pathname; }
+  });
+
+  // 凡例の開閉
+  const legendBtn = document.getElementById('footerToggle');
+  legendBtn.addEventListener('click', () => {
+    const el = document.getElementById('footerExtra');
+    const nowCollapsed = el.classList.toggle('collapsed');
+    legendBtn.textContent = nowCollapsed ? 'Legend' : 'Hide legend';
+    legendBtn.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
+    if (!nowCollapsed) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  // 検索結果内のボタン(結果は毎回HTMLごと差し替わるため、委譲で1回だけ登録する)
+  document.getElementById('searchResult').addEventListener('click', (e) => {
+    const hm = e.target.closest('.hz-main[aria-expanded]');
+    if (hm && !e.target.closest('.hz-extra')) {
+      const row = hm.parentElement, k = row.dataset.hz;
+      const nowOpen = row.classList.toggle('open');
+      hm.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
+      if (nowOpen) openHazardExtras.add(k); else openHazardExtras.delete(k);
+      return;
+    }
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const act = btn.dataset.act;
+    if (act === 'lookup') setTab('lookup');
+    else if (act === 'report') setTab('reports');
+    else if (act === 'legend') document.getElementById('footerToggle').click();
+    else if (act === 'copy' && lastQueriedLatLon) {
+      const text = `${lastQueriedLatLon.lat.toFixed(4)}, ${lastQueriedLatLon.lon.toFixed(4)}`;
+      try { navigator.clipboard.writeText(text); } catch (err) { /* 非対応環境では何もしない */ }
+    }
+  });
+
+  // 座標系の切替と、Enterキーでの検索
+  document.querySelectorAll('input[name="coordSystem"]').forEach(r => r.addEventListener('change', updateCoordUi));
+  updateCoordUi();
+  document.getElementById('searchForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    document.getElementById('searchBtn').click();
+  });
+  setTab('map');
+}
+
 document.getElementById('copyrightYear').textContent = new Date().getFullYear();
 
 initMap();
 renderLayerBar();
+initShell();
 renderMethodology();
 updateLegend();
 loadEarthquakes();
