@@ -416,7 +416,14 @@
   .result-elev { font-family: var(--mono); font-size: 11px; color: var(--text-primary); margin-top: 6px; line-height: 1.4; }
   .result-freq { font-family: var(--mono); font-size: 10px; color: var(--text-muted); line-height: 1.45; }
   #app:not([data-tab="map"]) .ec-intro { display: none; }
-  .hz-list[hidden] { display: none; }
+  .hz-more[hidden] { display: none; }
+  .pc-driver { display: flex; align-items: center; gap: 7px; margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 13px; }
+  .pc-driver .dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .pc-driver .muted { font-size: 11.5px; color: var(--text-muted); }
+  .view-main:has(.point-card) .status-row { display: none; }
+  .pc-mid { margin-top: 6px; }
+  .pc-lvl { font-size: 22px; }
+  .pc-score { font-size: 24px; }
   .hz-toggle {
     width: 100%; margin-top: 10px; height: 38px; padding: 0 16px; border-radius: 19px; cursor: pointer;
     display: flex; align-items: center; justify-content: space-between;
@@ -2395,13 +2402,14 @@ function pointResultHtml(lat, lon, hazards, overall, ctx) {
         ${o ? `<div class="pc-marker" style="left:${pct.toFixed(1)}%;"></div>` : ''}
         <div class="pc-bar">${SCREEN_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
       </div>
+      ${o ? `<div class="pc-driver"><span class="dot" style="background:${driverMeta.color};"></span><span class="muted">Main driver</span><b>${o.drivers.join(', ')}</b></div>` : ''}
     </div>
-    ${o ? `<div class="driver-strip"><span class="dot" style="background:${driverMeta.color};"></span><span class="muted">Main driver</span><b>${o.drivers.join(', ')}</b></div>` : ''}
     <button type="button" class="hz-toggle" data-act="hzlist" aria-expanded="${hzListOpen ? 'true' : 'false'}">
-      <span>Hazard details <small>(${hazards.length})</small></span>
+      <span>Details <small>(all hazards, report, elevation)</small></span>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <div class="hz-list" id="hzList"${hzListOpen ? '' : ' hidden'}>${rows}</div>
+    <div class="hz-more" id="hzList"${hzListOpen ? '' : ' hidden'}>
+    <div class="hz-list">${rows}</div>
     <div class="pc-actions">
       <button type="button" class="btn-primary" data-act="report">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5zM14 3v5h5M9 13h6M9 17h6"/></svg>
@@ -2414,6 +2422,7 @@ function pointResultHtml(lat, lon, hazards, overall, ctx) {
     <div class="extent-legend">
       <span><span class="swatch" style="border-top:1.5px dashed #B9C7BB;"></span>Evaluated area (~3.15km)</span>
       <span><span class="swatch" style="border-top:1.5px dotted #1FA8D9;"></span>Depression check (~1.05km)</span>
+    </div>
     </div>`;
 }
 
@@ -2430,7 +2439,8 @@ function centerOnPoint(lat, lon, zoom) {
     map.panBy([size.x / 2 - visibleCenterX, 0], { animate: false });
   } else {
     const top = 64; // ヘッダーの下端
-    const visibleCenterY = (top + r.top) / 2;
+    const bar = document.getElementById('layerBar').getBoundingClientRect();
+    const visibleCenterY = (top + Math.min(r.top, bar.top)) / 2;
     map.panBy([0, size.y / 2 - visibleCenterY], { animate: false });
   }
 }
