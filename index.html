@@ -890,7 +890,7 @@ const METHODOLOGY = [
   { label: 'Water Hazard', color: COLORS.waterHazard,
     desc: 'Three flood mechanisms are evaluated separately and the most severe one is reported: river flooding (distance to river, river scale, height above the river), surface water flooding (extreme rainfall intensity combined with how low-lying the site is relative to its surroundings), and coastal storm surge (elevation against a surge level that decays inland). Proximity to a river confluence increases the river flooding term modestly. Past flood records adjust the result upward by at most 20%. The point search reads 150m elevation tiles directly; the map-wide layer is an approximation that omits the local terrain terms. A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
   { label: 'Freeze Hazard', color: COLORS.freeze,
-    desc: 'Source: NASA POWER daily climate data, 2006–2025. Two independent scores are computed and the higher one is used: a sustained-cold score (freezing degree days using daily minimum temperature, boosted on nights meeting radiative-cooling conditions — clear sky, calm wind, low humidity) and a sudden-cold-snap score (based on CMA cold wave alert tiers, GB/T 20484-2017). The result is then scaled by a heating factor based on annual days with mean temperature ≤5°C: ×1.3 where heating is rarely needed (≤60 days; buildings and pipes generally not built for cold) down to ×0.7 where long-season heating and frost-proofing are standard (≥120 days; no reduction south of 33°N). A climatological estimate, not a forecast.' },
+    desc: 'Source: NASA POWER daily climate data, 2006–2025. Two independent scores are computed and the higher one is used: a sustained-cold score (freezing degree days using daily minimum temperature, boosted on nights meeting radiative-cooling conditions — clear sky, calm wind, low humidity) and a sudden-cold-snap score (based on CMA cold wave alert tiers, GB/T 20484-2017). The result is then scaled by a heating factor based on annual days with mean temperature ≤5°C: ×1.3 where heating is not called for (<60 days; buildings and pipes generally not built for cold) down to ×0.7 where heating facilities are required (≥90 days, per the GB 50736-2012 criterion), interpolated in between. A climatological estimate, not a forecast.' },
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
   { label: 'Earthquakes', color: COLORS.earthquake,
@@ -2710,29 +2710,32 @@ const FREEZE_LOG_F0 = 10;
 const FREEZE_LOG_FDD_MAX = 6600;
 const FREEZE_RADIATIVE_BETA = 0.3;        // 放射冷却頻度による補正の強さ(仮置き)
 const FREEZE_RADIATIVE_FREQ_CAP = 10;     // この頻度(年間回数)で補正が頭打ちになる(仮置き)
-// 暖房区係数: 暖房日数(日平均気温5℃以下の日数の年平均)が60日以下なら×1.3(備え少)、
-// 120日以上なら×0.7(暖房・埋設等の備えあり)、間は直線補間。±0.3は仮置き。
+// 暖房区係数(GB 50736-2012 第5.1.2/5.1.3条を参照。条文は第三者の要約で、原文は未確認):
+//   日平均5℃以下の日数 >=90日 → 暖房設備の設置が必要(集中暖房が望ましい) → ×0.7(備えあり)
+//   60〜89日 → 設置が望ましい → ×1.3〜×0.7を直線補間
+//   60日未満でも 8℃以下が75日以上 → 設置が望ましい → 係数を1.0以下に抑える
+//   上記以外 → 設置要求・推奨なし → ×1.3(備え少)
+// ±0.3は仮置き。本基準は民用建築が対象で、工場は参照適用にとどまる。
+// 旧版にあった「北緯33度未満では減衰しない」ガードは、基準(チベット等も全域が該当)に
+// 合わせて撤廃した。
 const FREEZE_HEATING_DAYS_LOW = 60;
-const FREEZE_HEATING_DAYS_HIGH = 120;
+const FREEZE_HEATING_DAYS_HIGH = 90;
+const FREEZE_HEATING_DAYS8_MIN = 75;
 const FREEZE_FACTOR_UNHEATED = 1.3;
 const FREEZE_FACTOR_HEATED = 0.7;
-// 暖房日数が多くても北緯33度未満(南方の高地など)では減衰(×1.0未満)を適用しない。
-const FREEZE_HEATED_LAT_MIN = 33.0;
 
 function freezeScoreA(fddTRef, radiativeFreq) {
   const ratio = Math.min(1, Math.log(1 + fddTRef / FREEZE_LOG_F0) / Math.log(1 + FREEZE_LOG_FDD_MAX / FREEZE_LOG_F0));
   const boost = 1 + FREEZE_RADIATIVE_BETA * Math.min(1, radiativeFreq / FREEZE_RADIATIVE_FREQ_CAP);
   return Math.min(1, ratio * boost);
 }
-function freezeHeatingFactor(heatingDays, lat) {
-  let f;
+function freezeHeatingFactor(heatingDays, lat, heatingDays8) {
   if (typeof heatingDays !== 'number') {
-    f = lat < heatingBoundaryLat ? FREEZE_FACTOR_UNHEATED : FREEZE_FACTOR_HEATED; // 旧データ用の緯度フォールバック
-  } else {
-    const t = Math.max(0, Math.min(1, (heatingDays - FREEZE_HEATING_DAYS_LOW) / (FREEZE_HEATING_DAYS_HIGH - FREEZE_HEATING_DAYS_LOW)));
-    f = FREEZE_FACTOR_UNHEATED + (FREEZE_FACTOR_HEATED - FREEZE_FACTOR_UNHEATED) * t;
-    if (lat < FREEZE_HEATED_LAT_MIN) f = Math.max(1.0, f);
+    return lat < heatingBoundaryLat ? FREEZE_FACTOR_UNHEATED : FREEZE_FACTOR_HEATED; // 旧データ用の緯度フォールバック
   }
+  const t = Math.max(0, Math.min(1, (heatingDays - FREEZE_HEATING_DAYS_LOW) / (FREEZE_HEATING_DAYS_HIGH - FREEZE_HEATING_DAYS_LOW)));
+  let f = FREEZE_FACTOR_UNHEATED + (FREEZE_FACTOR_HEATED - FREEZE_FACTOR_UNHEATED) * t;
+  if (heatingDays < FREEZE_HEATING_DAYS_LOW && typeof heatingDays8 === 'number' && heatingDays8 >= FREEZE_HEATING_DAYS8_MIN) f = Math.min(f, 1.0);
   return f;
 }
 function freezeScoreB(coldWaveSeverity) {
@@ -2751,7 +2754,7 @@ function freezeRiskInfo(lat, lon) {
   const scoreA = freezeScoreA(nearest.fdd_t_ref || 0, nearest.radiative_freq || 0);
   const scoreB = freezeScoreB(nearest.cold_wave_severity || 0);
   const base = Math.max(scoreA, scoreB);
-  const heatingFactor = freezeHeatingFactor(nearest.heating_days, lat);
+  const heatingFactor = freezeHeatingFactor(nearest.heating_days, lat, nearest.heating_days_8);
   const isSouth = heatingFactor > 1.0;
   const ratio = Math.min(1, base * heatingFactor);
   const tier = Math.min(4, Math.floor(ratio * 5));
@@ -3306,7 +3309,7 @@ const HAZARD_DESCRIPTIONS_I18N = {
     earthquake: 'USGS地震カタログ(M5.0以上、1976年〜)。周辺100km以内の地震をマグニチュードと距離で重み付けし、最も影響の大きい値を表示。',
     typhoon: 'IBTrACSのベストトラックデータ。下記のJMA階級で分類し、この地点での観測史上最大の影響を表示。',
     water: '3つの機構のうち最も深刻な値を表示:',
-    freeze: 'NASA POWER気候データ(2006〜2025年)。持続型スコアと急変型スコア(中国気象局の寒潮階級)のうち高い方を採用し、日平均5℃以下の日数に基づく暖房区係数(×1.3〜×0.7)で補正。',
+    freeze: 'NASA POWER気候データ(2006〜2025年)。持続型スコアと急変型スコア(中国気象局の寒潮階級)のうち高い方を採用し、日平均5℃以下の日数(GB 50736-2012の暖房基準を参照)に基づく暖房区係数(×1.3〜×0.7)で補正。',
     overall: '4種のハザードスコアのうち最大値(平均はしない — 高頻度・低損害のハザードと稀・甚大なハザードは同列に扱えないため)。これはハザード指標であり、予想損害額の見積もりではない。',
   },
   zh: {
