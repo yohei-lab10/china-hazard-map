@@ -169,6 +169,12 @@ INTER_REQUEST_SLEEP_SEC = 1.0  # NASA POWER側への負荷配慮
 # 高いが、要調査)。矩形なので国境の細部までは正確ではない(西方の隣国の一部を
 # わずかに含みうる)が、少なくとも今回確認された東側への漏れは経度の上限だけで
 # 確実に除外できるため、これを暫定的な安全策として追加する。
+# ③ 暖房日数: 日平均気温(T2M)が HEATING_TEMP_THRESHOLD_C 以下の日数(年平均)。
+# 暖房区判定(北緯33度の直線の代替)に使う。基準は GB 50736-2012(民用建筑供暖通风与
+# 空气调节设计规范)の「累年日平均温度稳定低于或等于5℃的日数>=90日→集中暖房」と
+# 記憶しているが、本文は未確認。「稳定」(移動平均等)は再現せず、単純な日数で近似。
+HEATING_TEMP_THRESHOLD_C = 5.0
+
 CHINA_BBOX = {"lon_min": 73.0, "lon_max": 135.5, "lat_min": 18.0, "lat_max": 54.0}
 
 
@@ -436,6 +442,11 @@ def compute_indices(daily):
             radiative_count += 1
     radiative_annual_freq = radiative_count / n_years
 
+    # ③ 暖房日数: T2M(日平均気温) <= 5℃ の日数の年平均(単純日数による近似)
+    heating_count = sum(1 for d in dates_sorted
+                        if _valid(t2m.get(d)) and t2m[d] <= HEATING_TEMP_THRESHOLD_C)
+    heating_days = heating_count / n_years
+
     return {
         "fdd": round(fdd_annual_mean, 1),  # 参考値: 単純な複数年平均(スコアには不使用)
         "fdd_t_ref": round(fdd_t_ref, 1),  # スコアに使用: FDD_REFERENCE_RETURN_PERIOD_YEARS年再現期間相当のFDD
@@ -446,6 +457,7 @@ def compute_indices(daily):
         "cold_wave_freq": round(cold_wave_annual_freq, 2),
         "cold_wave_severity": round(cold_wave_severity, 3),
         "radiative_freq": round(radiative_annual_freq, 2),
+        "heating_days": round(heating_days, 1),
         "years_used": n_years,
     }
 
@@ -497,7 +509,7 @@ def main():
                      "②cold_wave_severity(年最悪の寒潮階級[蓝0.33/黄0.66/橙1.0]の複数年平均、"
                      "統合スコアはこちらを使用) "
                      "④radiative_freq(放射冷却条件の年平均発生回数)。"
-                     "③供暖区分は別ファイル heating_boundary.geojson。"
+                     "③heating_days(日平均気温5℃以下の日数の年平均。暖房区判定に使用、近似)。"
                      "統合スコアの算出はindex.html側で行う。"),
         },
         "features": features,
