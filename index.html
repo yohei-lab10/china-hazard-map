@@ -861,7 +861,7 @@ const LAYERS = [
   { key: 'waterHazard', label: 'Water Hazard', color: COLORS.waterHazard,
     note: 'Water Hazard: evaluates three flood mechanisms separately — river flooding, surface water flooding, and coastal storm surge — and reports the most severe of the three, adjusted by past flood records. Map-wide view not shown (a national approximation was not reliable enough); search a point to see the evaluation, which uses 150m elevation tiles.' },
   { key: 'freeze', label: 'Freeze Hazard', color: COLORS.freeze,
-    note: 'Freeze Hazard: risk of frozen/burst water pipes. Combines a sustained-cold score (freezing degree days, adjusted for radiative-cooling nights) and a sudden-cold-snap score (CMA cold wave alert tiers), taking the higher of the two, then applies a multiplier south of the Qinling–Huaihe heating line where buildings and pipes are typically not built for cold. A climatological estimate based on 2006–2025 data, not a forecast. Map-wide view not shown; search a point to see the evaluation.' },
+    note: 'Freeze Hazard: risk of frozen/burst water pipes. Combines a sustained-cold score (freezing degree days, adjusted for radiative-cooling nights) and a sudden-cold-snap score (CMA cold wave alert tiers), taking the higher of the two, then applies a heating factor (×1.3 where heating is rarely needed, ×0.7 where long-season heating is standard, based on days with mean temperature ≤5°C). A climatological estimate based on 2006–2025 data, not a forecast. Map-wide view not shown; search a point to see the evaluation.' },
   { key: 'typhoonHazard', label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     note: 'Typhoon Hazard: created based on historical typhoon track and wind speed data. Reflects past activity, not a forecast.' },
   { key: 'earthquake', label: 'Earthquakes', color: COLORS.earthquake,
@@ -890,7 +890,7 @@ const METHODOLOGY = [
   { label: 'Water Hazard', color: COLORS.waterHazard,
     desc: 'Three flood mechanisms are evaluated separately and the most severe one is reported: river flooding (distance to river, river scale, height above the river), surface water flooding (extreme rainfall intensity combined with how low-lying the site is relative to its surroundings), and coastal storm surge (elevation against a surge level that decays inland). Proximity to a river confluence increases the river flooding term modestly. Past flood records adjust the result upward by at most 20%. The point search reads 150m elevation tiles directly; the map-wide layer is an approximation that omits the local terrain terms. A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
   { label: 'Freeze Hazard', color: COLORS.freeze,
-    desc: 'Source: NASA POWER daily climate data, 2006–2025. Two independent scores are computed and the higher one is used: a sustained-cold score (freezing degree days using daily minimum temperature, boosted on nights meeting radiative-cooling conditions — clear sky, calm wind, low humidity) and a sudden-cold-snap score (based on CMA cold wave alert tiers, GB/T 20484-2017). South of the Qinling–Huaihe heating line (approximated as 33°N), the result is further increased to reflect buildings and pipes generally not built for cold there. A climatological estimate, not a forecast.' },
+    desc: 'Source: NASA POWER daily climate data, 2006–2025. Two independent scores are computed and the higher one is used: a sustained-cold score (freezing degree days using daily minimum temperature, boosted on nights meeting radiative-cooling conditions — clear sky, calm wind, low humidity) and a sudden-cold-snap score (based on CMA cold wave alert tiers, GB/T 20484-2017). The result is then scaled by a heating factor based on annual days with mean temperature ≤5°C: ×1.3 where heating is rarely needed (≤60 days; buildings and pipes generally not built for cold) down to ×0.7 where long-season heating and frost-proofing are standard (≥120 days; no reduction south of 33°N). A climatological estimate, not a forecast.' },
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
     desc: 'Source: IBTrACS historical typhoon track data. Reflects past storm activity along the China coast, not a forecast.' },
   { label: 'Earthquakes', color: COLORS.earthquake,
@@ -2701,21 +2701,39 @@ function typhoonReturnPeriodInfo(lat, lon) {
 // FDD_REFERENCE_RETURN_PERIOD_YEARSと同じ土俵)で揃え直すと: 広州3.7(②が主因のため
 // 除外)/ 上海36.6 / 武漢64.0 / 長沙67.2 / 貴陽102.3 / 南京131.9。
 // この5値(広州除く)のうち上海・武漢・貴陽の3値を閾値として採用した。
-const FREEZE_FDD_TIER_BOUNDS = [36.6, 64.0, 102.3]; // 較正結果(上海/武漢/貴陽の10年再現期間FDD)
+// 【2026年10月・再設計】10年再現FDDを4段階の折れ線(都市較正)で0〜1にする方式は、
+// 上端(102.3)を超える地点が全国の76%に及び、北緯40度以北は全域が1.0(最上位)に
+// 張り付いたため廃止した。対数スケール score = ln(1+FDD/F0) / ln(1+FDD_MAX/F0) に変更。
+// F0=10(約-3℃が3日続く程度の立ち上がり、仮置き)。FDD_MAX=6600は全地点の99パーセンタイル
+// (全国分布に依存する値で、実損データで要再較正)。
+const FREEZE_LOG_F0 = 10;
+const FREEZE_LOG_FDD_MAX = 6600;
 const FREEZE_RADIATIVE_BETA = 0.3;        // 放射冷却頻度による補正の強さ(仮置き)
 const FREEZE_RADIATIVE_FREQ_CAP = 10;     // この頻度(年間回数)で補正が頭打ちになる(仮置き)
-const FREEZE_SOUTH_MULTIPLIER = 0.3;      // 南方(供暖区外)への割増し係数γ(仮置き)
+// 暖房区係数: 暖房日数(日平均気温5℃以下の日数の年平均)が60日以下なら×1.3(備え少)、
+// 120日以上なら×0.7(暖房・埋設等の備えあり)、間は直線補間。±0.3は仮置き。
+const FREEZE_HEATING_DAYS_LOW = 60;
+const FREEZE_HEATING_DAYS_HIGH = 120;
+const FREEZE_FACTOR_UNHEATED = 1.3;
+const FREEZE_FACTOR_HEATED = 0.7;
+// 暖房日数が多くても北緯33度未満(南方の高地など)では減衰(×1.0未満)を適用しない。
+const FREEZE_HEATED_LAT_MIN = 33.0;
 
 function freezeScoreA(fddTRef, radiativeFreq) {
-  const b = FREEZE_FDD_TIER_BOUNDS;
-  const fdd = fddTRef;
-  let ratio;
-  if (fdd < b[0]) ratio = (fdd / b[0]) * 0.25;
-  else if (fdd < b[1]) ratio = 0.25 + ((fdd - b[0]) / (b[1] - b[0])) * 0.25;
-  else if (fdd < b[2]) ratio = 0.5 + ((fdd - b[1]) / (b[2] - b[1])) * 0.25;
-  else ratio = Math.min(1, 0.75 + ((fdd - b[2]) / b[2]) * 0.25);
+  const ratio = Math.min(1, Math.log(1 + fddTRef / FREEZE_LOG_F0) / Math.log(1 + FREEZE_LOG_FDD_MAX / FREEZE_LOG_F0));
   const boost = 1 + FREEZE_RADIATIVE_BETA * Math.min(1, radiativeFreq / FREEZE_RADIATIVE_FREQ_CAP);
   return Math.min(1, ratio * boost);
+}
+function freezeHeatingFactor(heatingDays, lat) {
+  let f;
+  if (typeof heatingDays !== 'number') {
+    f = lat < heatingBoundaryLat ? FREEZE_FACTOR_UNHEATED : FREEZE_FACTOR_HEATED; // 旧データ用の緯度フォールバック
+  } else {
+    const t = Math.max(0, Math.min(1, (heatingDays - FREEZE_HEATING_DAYS_LOW) / (FREEZE_HEATING_DAYS_HIGH - FREEZE_HEATING_DAYS_LOW)));
+    f = FREEZE_FACTOR_UNHEATED + (FREEZE_FACTOR_HEATED - FREEZE_FACTOR_UNHEATED) * t;
+    if (lat < FREEZE_HEATED_LAT_MIN) f = Math.max(1.0, f);
+  }
+  return f;
 }
 function freezeScoreB(coldWaveSeverity) {
   return Math.max(0, Math.min(1, coldWaveSeverity));
@@ -2733,14 +2751,16 @@ function freezeRiskInfo(lat, lon) {
   const scoreA = freezeScoreA(nearest.fdd_t_ref || 0, nearest.radiative_freq || 0);
   const scoreB = freezeScoreB(nearest.cold_wave_severity || 0);
   const base = Math.max(scoreA, scoreB);
-  const isSouth = lat < heatingBoundaryLat;
-  const ratio = isSouth ? Math.min(1, base * (1 + FREEZE_SOUTH_MULTIPLIER)) : base;
+  const heatingFactor = freezeHeatingFactor(nearest.heating_days, lat);
+  const isSouth = heatingFactor > 1.0;
+  const ratio = Math.min(1, base * heatingFactor);
   const tier = Math.min(4, Math.floor(ratio * 5));
   return {
     tier, ratio, color: WARNING_TIER_COLORS[tier], valueLabel: ratio.toFixed(2),
     fdd: nearest.fdd, fddTRef: nearest.fdd_t_ref, fddReturnPeriodYears: nearest.fdd_return_period_years,
     maxConsecFreezeDays: nearest.max_consec_freeze_days,
     coldWaveFreq: nearest.cold_wave_freq, coldWaveSeverity: nearest.cold_wave_severity, isSouth,
+    heatingDays: nearest.heating_days, heatingFactor,
   };
 }
 function freezeTileColor(lat, lon) {
@@ -3279,21 +3299,21 @@ const HAZARD_DESCRIPTIONS_I18N = {
     earthquake: 'USGS catalog, M5.0+, 1976 to present. Weighted by magnitude and distance within 100km; strongest effective influence shown.',
     typhoon: 'IBTrACS best-track data. Storms are classified on the JMA scale below; strongest historical impact at this point shown.',
     water: 'Highest of three mechanisms is shown:',
-    freeze: 'NASA POWER climate data, 2006–2025. Higher of a sustained-cold score and a sudden-cold-snap score (CMA cold wave tiers), increased south of the Qinling–Huaihe heating line.',
+    freeze: 'NASA POWER climate data, 2006–2025. Higher of a sustained-cold score and a sudden-cold-snap score (CMA cold wave tiers), scaled by a heating factor (×1.3 to ×0.7) from days with mean temperature ≤5°C.',
     overall: 'Highest of the four hazard scores (not averaged — a frequent, low-severity peril and a rare, catastrophic one are not interchangeable). This is a hazard indicator, not an expected loss estimate.',
   },
   ja: {
     earthquake: 'USGS地震カタログ(M5.0以上、1976年〜)。周辺100km以内の地震をマグニチュードと距離で重み付けし、最も影響の大きい値を表示。',
     typhoon: 'IBTrACSのベストトラックデータ。下記のJMA階級で分類し、この地点での観測史上最大の影響を表示。',
     water: '3つの機構のうち最も深刻な値を表示:',
-    freeze: 'NASA POWER気候データ(2006〜2025年)。持続型スコアと急変型スコア(中国気象局の寒潮階級)のうち高い方を採用し、秦嶺・淮河線より南では割増し。',
+    freeze: 'NASA POWER気候データ(2006〜2025年)。持続型スコアと急変型スコア(中国気象局の寒潮階級)のうち高い方を採用し、日平均5℃以下の日数に基づく暖房区係数(×1.3〜×0.7)で補正。',
     overall: '4種のハザードスコアのうち最大値(平均はしない — 高頻度・低損害のハザードと稀・甚大なハザードは同列に扱えないため)。これはハザード指標であり、予想損害額の見積もりではない。',
   },
   zh: {
     earthquake: '基于USGS地震目录(M5.0以上,1976年至今)。对100公里范围内的地震按震级与距离加权,显示影响最大的数值。',
     typhoon: '基于IBTrACS最佳路径数据。按下方JMA等级分类,显示该地点历史上影响最大的一次。',
     water: '显示三种机制中最严重的数值:',
-    freeze: '基于NASA POWER气候数据(2006-2025年)。取持续低温得分与急剧寒潮得分(中国气象局寒潮等级)中的较高值,秦岭-淮河供暖线以南地区上调。',
+    freeze: '基于NASA POWER气候数据(2006-2025年)。取持续低温得分与急剧寒潮得分(中国气象局寒潮等级)中的较高值,并按日均温≤5℃天数的供暖系数(×1.3〜×0.7)调整。',
     overall: '四类灾害得分中的最高值(不取平均——高频低损灾害与罕见但严重的灾害不可等同看待)。本指标为灾害指标,并非预期损失估算。',
   },
 };
@@ -3435,7 +3455,8 @@ const RPT_I18N = {
     }[kind]),
     noDataEq: 'No M5.0+ earthquake within 100km',
     noDataFreeze: 'No freeze hazard data nearby',
-    freezeSouthNote: 'South of the Qinling–Huaihe heating line — increased for buildings/pipes typically not built for cold.',
+    freezeSouthNote: 'Little heating demand (few days ≤5°C) — increased for buildings/pipes typically not built for cold.',
+    freezeNorthNote: 'Long heating season (many days ≤5°C) — reduced for heating/frost-proofing. Actual losses may still occur.',
     typhoonFreq: (yrs, total) => `Category 1+ passages occur on average once every ~${yrs} years, based on ${total} years of track data.`,
     waterMechLabels: { river: 'River flooding', surface: 'Surface water', surge: 'Storm surge' },
     dominantMech: (name) => `Dominant mechanism: <b>${name}</b>.`,
@@ -3471,7 +3492,8 @@ const RPT_I18N = {
     }[kind]),
     noDataEq: '半径100km以内にM5.0以上の地震なし',
     noDataFreeze: '周辺に凍結ハザードデータなし',
-    freezeSouthNote: '秦嶺・淮河線より南 — 建物・配管が寒冷地仕様でないことを考慮し割増し。',
+    freezeSouthNote: '暖房需要が小さい地域(日平均5℃以下の日数が少ない) — 建物・配管が寒冷地仕様でないことを考慮し割増し。',
+    freezeNorthNote: '暖房期間が長い地域(日平均5℃以下の日数が多い) — 暖房・凍結対策を考慮し減算。実際の損害は発生し得る。',
     typhoonFreq: (yrs, total) => `Category 1以上の通過:約${yrs}年に1回(${total}年分のデータ)。`,
     waterMechLabels: { river: '外水氾濫', surface: '内水氾濫', surge: '高潮' },
     dominantMech: (name) => `支配的機構:<b>${name}</b>。`,
@@ -3507,7 +3529,8 @@ const RPT_I18N = {
     }[kind]),
     noDataEq: '100公里范围内无M5.0以上地震',
     noDataFreeze: '附近无冻结灾害数据',
-    freezeSouthNote: '位于秦岭-淮河供暖线以南——建筑与管道通常未按防寒标准建造,故上调。',
+    freezeSouthNote: '供暖需求小的地区(日均温≤5℃天数少)——建筑与管道通常未按防寒标准建造,故上调。',
+    freezeNorthNote: '供暖期长的地区(日均温≤5℃天数多)——考虑供暖与防冻措施,故下调。仍可能发生损失。',
     typhoonFreq: (yrs, total) => `Category 1级以上台风:平均约每${yrs}年一次(基于${total}年数据)。`,
     waterMechLabels: { river: '河流洪水', surface: '内涝', surge: '风暴潮' },
     dominantMech: (name) => `主导机制:<b>${name}</b>。`,
@@ -3617,7 +3640,7 @@ async function computeReportData(lat, lon, lang) {
   const freeze = frInfo
     ? { label: T.hazardLabel('freeze', tierWords[frInfo.tier], frInfo.valueLabel), color: frInfo.color, colors: WARNING_TIER_COLORS, ratio: frInfo.ratio,
         fdd: frInfo.fdd, fddTRef: frInfo.fddTRef, fddReturnPeriodYears: frInfo.fddReturnPeriodYears,
-        maxConsecFreezeDays: frInfo.maxConsecFreezeDays, coldWaveFreq: frInfo.coldWaveFreq, isSouth: frInfo.isSouth }
+        maxConsecFreezeDays: frInfo.maxConsecFreezeDays, coldWaveFreq: frInfo.coldWaveFreq, isSouth: frInfo.isSouth, heatingFactor: frInfo.heatingFactor }
     : { label: T.noDataFreeze, color: NO_DATA_COLOR, colors: WARNING_TIER_COLORS, ratio: null, isSouth: false };
 
   const tyInfo = typhoonRiskInfo(lat, lon);
@@ -4044,7 +4067,7 @@ async function renderReportView(results, lang) {
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].freeze}</div>
         ${rptLegendBar(r.data.freeze.colors, r.data.freeze.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.freeze.color).bg}; color:${rptBadgeColors(r.data.freeze.color).text};">${r.data.freeze.label}</span>
-        ${r.data.freeze.isSouth ? `<div class="rpt-comment">${T.freezeSouthNote}</div>` : ''}
+        ${r.data.freeze.isSouth ? `<div class="rpt-comment">${T.freezeSouthNote}</div>` : (r.data.freeze.heatingFactor < 1 ? `<div class="rpt-comment">${T.freezeNorthNote}</div>` : '')}
         ${typeof r.data.freeze.fddTRef === 'number' ? `
         <div class="rpt-kv" style="margin-top:8px;">
           <div class="rpt-kv-item"><div class="rpt-kv-k">FDD (${r.data.freeze.fddReturnPeriodYears}yr)</div><div class="rpt-kv-v">${r.data.freeze.fddTRef.toFixed(1)}°C·day</div></div>
