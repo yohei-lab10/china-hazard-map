@@ -896,7 +896,7 @@ const METHODOLOGY = [
   { label: 'Earthquakes', color: COLORS.earthquake,
     desc: 'Source: USGS Earthquake Catalog. Historical M5.0+ events across China, updated periodically.' },
   { label: 'Point Lookup', color: '#5C6675',
-    desc: 'A point search (coordinates, or a long-press on the map) evaluates all four hazards at once and shows each level together with a composite level, which is the highest of the four (not an average). Elevation is read for the point and its surroundings. The chips on the map only change which hazard is drawn on the map after a search: All draws only the highest-level hazard at the point, or pick a single hazard to see it on its own. Nothing is drawn before a search.' },
+    desc: 'A point search (coordinates, or a long-press on the map) evaluates all four hazards at once and shows each hazard level separately (no combined rating — the hazards are different kinds of risk). Elevation is read for the point and its surroundings. The chips on the map only change which hazard is drawn on the map after a search: Select one or more hazard chips to draw them on the map around the point. Nothing is drawn before a search or until a chip is selected.' },
 ];
 
 function inLandBbox(lat, lon) {
@@ -1026,23 +1026,18 @@ function initMap() {
   layerGroups.freeze = L.layerGroup();
   layerGroups.typhoonHazard = L.layerGroup();
   layerGroups.waterHazard = L.layerGroup();
-  layerGroups.composite = L.layerGroup(); // All(複合)表示用: 4ハザードの最大値で塗る
 }
 
 // 【2026年10月改訂】チップの役割を「地図の塗り分けの切替」だけに変更した。
-// 地点検索の結果(情報パネル)は常に4ハザード+複合を同時に表示し、チップの選択には
-// 左右されない。チップは単一選択(All=複合 / 水害 / 凍結 / 台風 / 地震)。
-// All(既定)は検索地点周辺を「4ハザードの最大値」の1色スケールで塗る(4色を重ねない)。
-// 個別を選ぶと、そのハザードの全国レイヤー(あれば)と検索地点周辺のタイルを表示する。
-// activeLayers は個別選択中のキー1つだけを持つ(All のときは空)。
+// 【2026年10月】総合評価(4ハザードの最大値)とAllチップは廃止した。ハザードごとにリスクの性質が異なるため、
+// 1つの評価に束ねない。チップ未選択=何も塗らない(パネルは4ハザードを個別に並べる)。
+// 個別チップを選ぶと、そのハザードの検索地点周辺タイルを表示する(複数選択可)。
 const OVERLAY_CHIPS = [
-  { key: 'all', label: 'All', color: '#8FCB8A' },
   { key: 'waterHazard', label: 'Water', color: COLORS.waterHazard },
   { key: 'freeze', label: 'Freeze', color: COLORS.freeze },
   { key: 'typhoonHazard', label: 'Typhoon', color: COLORS.typhoonHazard },
   { key: 'earthquake', label: 'Quake', color: COLORS.earthquake },
 ];
-let overlayKey = 'all';
 
 function renderLayerBar() {
   const bar = document.getElementById('layerBar');
@@ -1061,12 +1056,11 @@ function renderLayerBar() {
     btn.addEventListener('click', () => setOverlay(c.key));
     bar.appendChild(btn);
   });
-  setOverlay('all', { skipQuery: true });
+  setOverlay(null, { skipQuery: true }); // 何も選択していない状態で初期化
 }
 
 // 【2026年10月】地点検索をするまで地図の塗り(全国レイヤー・タイル)は一切出さない。
-// 検索後: All = 総合で最も高いハザード(同率なら全て)だけ / 個別チップ = そのハザードのみ。
-let lastDriverKeys = [];
+// 検索後: チップ未選択 = 何も塗らない / 個別チップ = 選択したハザードのみ。
 const overlaySel = new Set();
 function applyOverlayLayers(keys) {
   BADGE_LAYER_KEYS.forEach(k => { if (layerGroups[k]) map.removeLayer(layerGroups[k]); });
@@ -1075,15 +1069,14 @@ function applyOverlayLayers(keys) {
 }
 function setOverlay(key, opts) {
   const skipQuery = opts && opts.skipQuery;
-  // 【2026年10月】チップは複数選択可。個別チップはON/OFFのトグル、何も選ばない状態 = All。
-  // All を押すと個別選択を全て解除する。
-  if (key === 'all') overlaySel.clear();
+  // 【2026年10月】チップは複数選択可。個別チップはON/OFFのトグル、何も選ばない状態 = 地図に何も塗らない。
+  // key=null は初期化(選択を全て解除)。
+  if (key === null) overlaySel.clear();
   else if (overlaySel.has(key)) overlaySel.delete(key);
   else overlaySel.add(key);
-  overlayKey = overlaySel.size ? 'multi' : 'all';
-  applyOverlayLayers(!lastQueriedLatLon ? [] : (overlaySel.size ? [...overlaySel] : lastDriverKeys));
+  applyOverlayLayers(!lastQueriedLatLon ? [] : [...overlaySel]);
   document.querySelectorAll('#layerBar .layer-chip').forEach(btn => {
-    const on = btn.dataset.key === 'all' ? overlaySel.size === 0 : overlaySel.has(btn.dataset.key);
+    const on = overlaySel.has(btn.dataset.key);
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
@@ -1099,7 +1092,7 @@ let dataRanges = { typhoonHazard: null, earthquake: null, freeze: '2006–2025' 
 // 50年分と30日分では評価の土台がまったく違うため、黙って切り替わってはいけない。
 let earthquakeFallbackLive = false;
 
-// 凡例: 5段階の色(画面用)と、選択中の地図表示(All=複合 / 個別ハザード)の説明。
+// 凡例: 5段階の色(画面用)と、選択中の地図表示(個別ハザード)の説明。
 // 【2026年10月改訂】チップの複数選択をやめたため、個別選択時はそのハザードの説明1件のみを出す。
 function updateLegend() {
   const container = document.getElementById('legendNote');
@@ -1115,7 +1108,7 @@ function updateLegend() {
 
   if (!overlaySel.size) {
     container.innerHTML = tiers + typhoonWarn + `<div style="margin-bottom:6px;">
-      <strong>All:</strong> no map coloring until a point is searched. After a search, only the highest-level hazard at that point is drawn (all of them if tied). The panel always lists all four hazards. Use the chips on the map to view a single hazard instead.
+      <strong>Map:</strong> nothing is drawn until you select a hazard chip. The panel lists the four hazards separately — they are different kinds of risk and are not combined into one rating.
     </div>`;
     return;
   }
@@ -2364,11 +2357,11 @@ const HAZARD_ROW_META = {
 // 検索結果(情報パネル)のHTML: 地点カード(複合ハザード) → 主因 → 4ハザード一覧 → 操作 → 標高
 // 詳細(頻度・シナリオ等)の開閉状態。再検索で結果HTMLが差し替わっても保持する
 const openHazardExtras = new Set();
-let hzListOpen = false; // 個別ハザード一覧の開閉(既定は閉じる。地図の塗りが見えない小画面では総合のみ表示)
-function pointResultHtml(lat, lon, hazards, overall, ctx) {
+let hzListOpen = false; // 個別ハザード一覧の開閉(既定は閉じる。4ハザードをカードに並べて表示)
+function pointResultHtml(lat, lon, hazards, ctx) {
   const seg = (n, color) => Array.from({ length: 5 }, (_, i) =>
     `<i style="background:${i < n ? color : 'rgba(255,255,255,0.12)'};"></i>`).join('');
-  // 個別チップ選択中は、折りたたみ内の一覧も選択したハザードだけにする(All のときは4ハザード全部)
+  // 個別チップ選択中は、折りたたみ内の一覧も選択したハザードだけにする(未選択のときは4ハザード全部)
   const listHazards = (ctx.sel && ctx.sel.length) ? hazards.filter(h => ctx.sel.includes(h.key)) : hazards;
   const rows = listHazards.map(h => {
     const meta = HAZARD_ROW_META[h.key];
@@ -2391,26 +2384,12 @@ function pointResultHtml(lat, lon, hazards, overall, ctx) {
     </div>`;
   }).join('');
 
-  const o = overall;
-  const lvlColor = o ? o.color : NO_DATA_COLOR;
-  const pct = o ? Math.min(99, Math.max(1, o.ratio * 100)) : 0;
-  const driverMeta = o ? HAZARD_ROW_META[o.driverKeys[0]] : null;
   const selKeys = ctx.sel || [];
   const selH = selKeys.map(k => hazards.find(h => h.key === k)).filter(Boolean);
-  const compositeBody = `
-      <div class="pc-mid">
-        <div><div class="k">Composite hazard</div><div class="pc-lvl" style="color:${lvlColor};">${o ? o.label : 'No data'}</div></div>
-        <div class="pc-score">${o ? o.ratio.toFixed(2) : '—'}</div>
-      </div>
-      <div class="pc-bar-wrap">
-        ${o ? `<div class="pc-marker" style="left:${pct.toFixed(1)}%;"></div>` : ''}
-        <div class="pc-bar">${SCREEN_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
-      </div>
-      ${o ? `<div class="pc-driver"><span class="dot" style="background:${driverMeta.color};"></span><span class="muted">Main driver</span><b>${o.drivers.join(', ')}</b></div>` : ''}`;
-  const compRef = o ? `<span class="pc-ref">Composite ${o.label} ${o.ratio.toFixed(2)}</span>` : '';
-  let cardBody = compositeBody;
+  // 総合評価は出さない(ハザードごとにリスクの性質が異なるため)。
+  // チップ未選択=4ハザードを並べて表示 / 1つ選択=そのハザードを大きく表示 / 複数=選択分を並べる。
+  let cardBody;
   if (selH.length === 1) {
-    // 個別チップ1つ: カードをそのハザードの表示に切り替える(総合は参考として1行だけ残す)
     const h = selH[0], meta = HAZARD_ROW_META[h.key];
     const has = typeof h.ratio === 'number' && !isNaN(h.ratio);
     const t = has ? tierFromRatio(h.ratio) : -1;
@@ -2425,10 +2404,10 @@ function pointResultHtml(lat, lon, hazards, overall, ctx) {
         ${has ? `<div class="pc-marker" style="left:${hp.toFixed(1)}%;"></div>` : ''}
         <div class="pc-bar">${SCREEN_TIER_COLORS.map(c => `<span style="background:${c};"></span>`).join('')}</div>
       </div>
-      <div class="pc-driver"><span class="dot" style="background:${meta.color};"></span><span class="muted pc-sub">${h.sub}</span>${compRef}</div>`;
-  } else if (selH.length > 1) {
-    // 複数チップ: 選択したハザードを並べて表示(総合は参考として1行だけ残す)
-    cardBody = `<div class="pcm-list">${selH.map(h => {
+      <div class="pc-driver"><span class="dot" style="background:${meta.color};"></span><span class="muted pc-sub">${h.sub}</span></div>`;
+  } else {
+    const listH = selH.length ? selH : hazards;
+    cardBody = `<div class="pcm-list">${listH.map(h => {
       const meta = HAZARD_ROW_META[h.key];
       const has = typeof h.ratio === 'number' && !isNaN(h.ratio);
       const t = has ? tierFromRatio(h.ratio) : -1;
@@ -2437,8 +2416,7 @@ function pointResultHtml(lat, lon, hazards, overall, ctx) {
         <span class="pcm-name">${meta.name}</span>
         <span class="pcm-lvl" style="color:${col};">${has ? h.levelLabel : 'No data'}${has ? ` <span class="hz-num">${h.ratio.toFixed(2)}</span>` : ''}</span>
         <div class="hz-bar pcm-bar">${seg(has ? t + 1 : 0, col)}</div></div>`;
-    }).join('')}</div>
-    <div class="pc-driver">${compRef}</div>`;
+    }).join('')}</div>`;
   }
   return `
     <div class="point-card">
@@ -3079,22 +3057,7 @@ async function queryPoint(lat, lon) {
         : { key: 'earthquake', ratio: null, levelLabel: '', sub: 'No M5.0+ earthquake within 100km' });
     }
 
-    // 複合ハザード: 4ハザードの最大値(PDFレポートと同じ定義。平均はしない)。
-    // 同率1位が複数ある場合は全て主因として挙げる(表示の丸め=小数第2位と一致させる)。
-    const scoredHz = hazards.filter(h => typeof h.ratio === 'number' && !isNaN(h.ratio));
-    let overall = null;
-    if (scoredHz.length > 0) {
-      let top = scoredHz[0];
-      scoredHz.forEach(h => { if (h.ratio > top.ratio) top = h; });
-      const drv = scoredHz.filter(h => Math.abs(h.ratio - top.ratio) < 0.005);
-      const oTier = tierFromRatio(top.ratio);
-      overall = {
-        ratio: top.ratio, tier: oTier, label: tierLabels[oTier], color: SCREEN_TIER_COLORS[oTier],
-        driverKeys: drv.map(h => h.key), drivers: drv.map(h => HAZARD_ROW_META[h.key].name),
-      };
-    }
-
-    resultEl.innerHTML = pointResultHtml(lat, lon, hazards, overall, { centerElev, depLabel, sel: [...overlaySel] });
+    resultEl.innerHTML = pointResultHtml(lat, lon, hazards, { centerElev, depLabel, sel: [...overlaySel] });
 
     if (searchMarkerLayer) map.removeLayer(searchMarkerLayer);
     if (searchExtentLayer) map.removeLayer(searchExtentLayer);
@@ -3110,8 +3073,7 @@ async function queryPoint(lat, lon) {
     // 水害は標高が要るためマスごとに評価する(他の3つはローカルデータのみ)。
     // 標高は150mタイルの実測値(このマス)、降雨は平滑化済みGumbel、洪水実績は重み、
     // 窪み係数はグリッド全体の分布から求めた値をマス共通で使う。海上のマスは除外。
-    const tileKeys = overlaySel.size ? [...overlaySel] : (overall ? overall.driverKeys.slice() : []);
-    lastDriverKeys = overall ? overall.driverKeys.slice() : [];
+    const tileKeys = [...overlaySel];
     applyOverlayLayers(tileKeys);
     let waterCellRatios = null;
     if (tileKeys.includes('waterHazard')) {
@@ -3303,21 +3265,18 @@ const HAZARD_DESCRIPTIONS_I18N = {
     typhoon: 'IBTrACS best-track data. Storms are classified on the JMA scale below; strongest historical impact at this point shown.',
     water: 'Highest of three mechanisms is shown:',
     freeze: 'NASA POWER climate data, 2006–2025. Higher of a sustained-cold score and a sudden-cold-snap score (CMA cold wave tiers), scaled by a heating factor (×1.3 to ×0.7) from days with mean temperature ≤5°C.',
-    overall: 'Highest of the four hazard scores (not averaged — a frequent, low-severity peril and a rare, catastrophic one are not interchangeable). This is a hazard indicator, not an expected loss estimate.',
   },
   ja: {
     earthquake: 'USGS地震カタログ(M5.0以上、1976年〜)。周辺100km以内の地震をマグニチュードと距離で重み付けし、最も影響の大きい値を表示。',
     typhoon: 'IBTrACSのベストトラックデータ。下記のJMA階級で分類し、この地点での観測史上最大の影響を表示。',
     water: '3つの機構のうち最も深刻な値を表示:',
     freeze: 'NASA POWER気候データ(2006〜2025年)。持続型スコアと急変型スコア(中国気象局の寒潮階級)のうち高い方を採用し、日平均5℃以下の日数(GB 50736-2012の暖房基準を参照)に基づく暖房区係数(×1.3〜×0.7)で補正。',
-    overall: '4種のハザードスコアのうち最大値(平均はしない — 高頻度・低損害のハザードと稀・甚大なハザードは同列に扱えないため)。これはハザード指標であり、予想損害額の見積もりではない。',
   },
   zh: {
     earthquake: '基于USGS地震目录(M5.0以上,1976年至今)。对100公里范围内的地震按震级与距离加权,显示影响最大的数值。',
     typhoon: '基于IBTrACS最佳路径数据。按下方JMA等级分类,显示该地点历史上影响最大的一次。',
     water: '显示三种机制中最严重的数值:',
     freeze: '基于NASA POWER气候数据(2006-2025年)。取持续低温得分与急剧寒潮得分(中国气象局寒潮等级)中的较高值,并按日均温≤5℃天数的供暖系数(×1.3〜×0.7)调整。',
-    overall: '四类灾害得分中的最高值(不取平均——高频低损灾害与罕见但严重的灾害不可等同看待)。本指标为灾害指标,并非预期损失估算。',
   },
 };
 
@@ -3446,8 +3405,7 @@ const TYPHOON_TIER_KT = ['34kt+', '64kt+', '85kt+', '105kt+'];
 const RPT_I18N = {
   en: {
     title: 'Natural Catastrophe Risk Report', country: 'China',
-    overallHazard: 'Overall hazard',
-    drivenBy: (who, tied) => `Driven by <b>${who}</b> — ${tied ? 'tied as the highest of the four perils' : 'the highest of the four perils'}.`,
+    hazardScores: 'Hazard scores (each hazard is evaluated separately)',
     perilNames: { earthquake: 'Earthquake', typhoon: 'Typhoon', water: 'Water', freeze: 'Freeze' },
     sectionTitles: { earthquake: 'Earthquake', typhoon: 'Typhoon', water: 'Water hazard', freeze: 'Freeze hazard' },
     hazardLabel: (kind, tier, value) => ({
@@ -3472,8 +3430,8 @@ const RPT_I18N = {
     terrainTitle: 'Terrain around the site (approx. 1.05km)',
     terrainBody: 'Terrain sampled from 150m elevation tiles around the site. Vertical scale exaggerated for visibility.',
     elevation: 'Elevation', terrainNoteSuffix: 'considering the surrounding ~1.05km (roughly 450m in each direction from the site) — factored into the score above.',
-    portfolioTitle: 'Portfolio summary', portfolioSub: (n) => `${n} locations, ranked by overall hazard. Detailed pages follow in the same order as entered.`,
-    colLocation: 'Location', colCoords: 'Coordinates', colOverall: 'Overall', colDriver: 'Driver',
+    portfolioTitle: 'Portfolio summary', portfolioSub: (n) => `${n} locations, with each hazard scored separately. Detailed pages follow in the same order as entered.`,
+    colLocation: 'Location', colCoords: 'Coordinates',
     dataUsedTitle: (d) => `Data used for this assessment (generated ${d}).`,
     provenance: { earthquakes: 'Earthquakes', typhoons: 'Typhoons', rainfall: 'Rainfall', elevation: 'Elevation', freeze: 'Freeze hazard' },
     multiYearMean: 'multi-year mean', gumbelNote: 'CHIRPS annual maxima, Gumbel fit (see per-site year count)', resampledNote: 'JAXA AW3D30, resampled to 150 m',
@@ -3483,8 +3441,7 @@ const RPT_I18N = {
   },
   ja: {
     title: '自然災害リスクレポート', country: '中国',
-    overallHazard: '総合ハザード',
-    drivenBy: (who, tied) => `支配ハザード:<b>${who}</b> — ${tied ? '4種のうち同率で最大' : '4種のうち最大'}。`,
+    hazardScores: 'ハザード別スコア(ハザードごとに個別評価)',
     perilNames: { earthquake: '地震', typhoon: '台風', water: '水害', freeze: '凍結' },
     sectionTitles: { earthquake: '地震', typhoon: '台風', water: '水害', freeze: '凍結ハザード' },
     hazardLabel: (kind, tier, value) => ({
@@ -3509,8 +3466,8 @@ const RPT_I18N = {
     terrainTitle: '敷地周辺の地形(約1.05km)',
     terrainBody: '敷地周辺の地形を150m標高タイルからサンプリング。見やすさのため鉛直方向を誇張。',
     elevation: '標高', terrainNoteSuffix: '周辺(半径約450m)の高所と比較 — 上記スコアに反映済み。',
-    portfolioTitle: 'ポートフォリオ概要', portfolioSub: (n) => `${n}拠点、総合ハザードの高い順。詳細ページは入力順で続く。`,
-    colLocation: '拠点', colCoords: '座標', colOverall: '総合', colDriver: '支配要因',
+    portfolioTitle: 'ポートフォリオ概要', portfolioSub: (n) => `${n}拠点、ハザードごとのスコア。詳細ページは入力順で続く。`,
+    colLocation: '拠点', colCoords: '座標',
     dataUsedTitle: (d) => `本評価に使用したデータ(生成日:${d})。`,
     provenance: { earthquakes: '地震', typhoons: '台風', rainfall: '降雨', elevation: '標高', freeze: '凍結ハザード' },
     multiYearMean: '年の多年平均', gumbelNote: 'CHIRPS年最大値、Gumbel分布フィット(地点ごとの年数は本文参照)', resampledNote: 'JAXA AW3D30、150mにリサンプリング',
@@ -3520,8 +3477,7 @@ const RPT_I18N = {
   },
   zh: {
     title: '自然灾害风险报告', country: '中国',
-    overallHazard: '综合灾害等级',
-    drivenBy: (who, tied) => `主导灾害:<b>${who}</b> — ${tied ? '四类中并列最高' : '四类中的最高值'}。`,
+    hazardScores: '分灾害得分(各灾害单独评估)',
     perilNames: { earthquake: '地震', typhoon: '台风', water: '水灾', freeze: '冻结' },
     sectionTitles: { earthquake: '地震', typhoon: '台风', water: '水灾', freeze: '冻结灾害' },
     hazardLabel: (kind, tier, value) => ({
@@ -3546,8 +3502,8 @@ const RPT_I18N = {
     terrainTitle: '场地周边地形(约1.05公里)',
     terrainBody: '从150米标高瓦片采样场地周边地形。为便于观察,垂直方向已做夸张处理。',
     elevation: '标高', terrainNoteSuffix: '相较于周边(半径约450米)高地——已计入上方得分。',
-    portfolioTitle: '投资组合概要', portfolioSub: (n) => `共${n}个地点,按综合灾害等级排序。详细页面按录入顺序排列。`,
-    colLocation: '地点', colCoords: '坐标', colOverall: '综合', colDriver: '主导因素',
+    portfolioTitle: '投资组合概要', portfolioSub: (n) => `共${n}个地点,按灾害分别评分。详细页面按录入顺序排列。`,
+    colLocation: '地点', colCoords: '坐标',
     dataUsedTitle: (d) => `本次评估所使用的数据(生成日期:${d})。`,
     provenance: { earthquakes: '地震', typhoons: '台风', rainfall: '降雨', elevation: '标高', freeze: '冻结灾害' },
     multiYearMean: '年多年平均', gumbelNote: 'CHIRPS年最大值,Gumbel拟合(各地点年数详见正文)', resampledNote: 'JAXA AW3D30,重采样至150米',
@@ -3678,38 +3634,13 @@ async function computeReportData(lat, lon, lang) {
     { key: 'typhoon', label: T.perilNames.typhoon, ratio: typhoon.ratio },
     { key: 'earthquake', label: T.perilNames.earthquake, ratio: earthquake.ratio },
   ];
-  const scored = perilList.filter(x => typeof x.ratio === 'number' && !isNaN(x.ratio));
-  let overall = null;
-  if (scored.length > 0) {
-    let top = scored[0];
-    scored.forEach(x => { if (x.ratio > top.ratio) top = x; });
-    // 同率1位が複数ある場合は全て挙げる。max()を採る方式では珍しくなく、
-    // 1つだけ表示すると「他は下位」という誤った印象を与えるため。
-    // 表示上の丸め(小数第2位)と一致させるので、0.999と1.000のような差では並記しない。
-    const drivers = scored.filter(x => Math.abs(x.ratio - top.ratio) < 0.005).map(x => x.label);
-    const tier = Math.min(4, Math.max(0, Math.ceil(top.ratio * 5) - 1));
-    const joinWord = lang === 'ja' ? '、' : (lang === 'zh' ? '、' : ', ');
-    overall = {
-      ratio: top.ratio,
-      tier,
-      label: tierWords[tier],
-      drivenBy: drivers.length > 1
-        ? `${drivers.slice(0, -1).join(joinWord)}${lang === 'en' ? ' and ' : lang === 'ja' ? 'と' : '和'}${drivers[drivers.length - 1]}`
-        : drivers[0],
-      driverCount: drivers.length,
-      colors: WARNING_TIER_COLORS,
-      color: WARNING_TIER_COLORS[tier],
-      breakdown: perilList,
-    };
-  }
-
   // 降雨の「現在の水準」: Gumbel分布の平均値 = mu + 0.5772 * beta。
   // これは観測期間における「年最大24時間降水量の平均」に一致するため、
   // 再現期間の外挿値に対する基準として提示する。
   const rainfallTypical = gumbel ? gumbel.mu + 0.5772157 * gumbel.beta : null;
 
   return { centerElev, depLabel: reportDepLabel, water, earthquake, typhoon, freeze,
-    rainfallCurves, rainfallTypical, overall, terrain,
+    rainfallCurves, rainfallTypical, breakdown: perilList, terrain,
     yearsUsed: gumbel ? gumbel.yearsUsed : null };
 }
 
@@ -3924,10 +3855,10 @@ async function renderReportView(results, lang) {
     </div>`;
   };
 
-  // --- 複合ハザードのヒーローブロック + 内訳 ---
-  const heroBlock = (o) => {
-    if (!o) return '';
-    const rows = o.breakdown.map(b => {
+  // --- ハザード別スコアの内訳(総合評価は出さない: ハザードごとにリスクの性質が異なるため) ---
+  const heroBlock = (breakdown) => {
+    if (!breakdown) return '';
+    const rows = breakdown.map(b => {
       const has = typeof b.ratio === 'number' && !isNaN(b.ratio);
       const pct = has ? Math.max(2, Math.min(100, b.ratio * 100)) : 0;
       const tier = has ? Math.min(4, Math.max(0, Math.ceil(b.ratio * 5) - 1)) : 0;
@@ -3939,15 +3870,8 @@ async function renderReportView(results, lang) {
         </div>`;
     }).join('');
     return `
-      <div class="rpt-hero" style="border-left-color:${o.color};">
-        <div class="rpt-hero-top">
-          <div>
-            <div class="rpt-hero-k">${T.overallHazard}</div>
-            <div class="rpt-hero-v" style="color:${o.color};">${o.label}</div>
-          </div>
-          <div class="rpt-hero-score" style="color:${o.color};">${o.ratio.toFixed(2)}</div>
-        </div>
-        <div class="rpt-hero-driver">${T.drivenBy(o.drivenBy, o.driverCount > 1)}</div>
+      <div class="rpt-hero">
+        <div class="rpt-hero-k">${T.hazardScores}</div>
         <div class="rpt-bd">${rows}</div>
       </div>`;
   };
@@ -3955,24 +3879,19 @@ async function renderReportView(results, lang) {
   // --- 拠点が2件以上のときだけ、冒頭にポートフォリオ一覧ページを置く ---
   let summaryHtml = '';
   if (results.length > 1) {
-    const ranked = results
-      .map((r, i) => ({ r, i, ratio: r.data.overall ? r.data.overall.ratio : -1 }))
-      .sort((a, b) => b.ratio - a.ratio);
+    // 総合評価は出さないため、入力順のまま各ハザードのスコアを並べる。
+    const ranked = results.map((r, i) => ({ r, i }));
     const rows = ranked.map((x, n) => {
-      const o = x.r.data.overall;
       const cell = (v) => {
         if (typeof v !== 'number' || isNaN(v)) return '<td class="mono num">—</td>';
         const t = Math.min(4, Math.max(0, Math.ceil(v * 5) - 1));
         return `<td class="mono num" style="color:${WARNING_TIER_COLORS[t]}; font-weight:700;">${v.toFixed(2)}</td>`;
       };
-      const bc = o ? rptBadgeColors(o.color) : null;
       return `
         <tr>
           <td class="rpt-rank">${String(n + 1).padStart(2, '0')}</td>
           <td style="font-weight:600;">${escapeHtml(x.r.name)}</td>
           <td class="mono">${x.r.lat.toFixed(3)}, ${x.r.lon.toFixed(3)}</td>
-          <td>${o ? `<span class="rpt-pill" style="background:${bc.bg}; color:${bc.text};">${o.label} ${o.ratio.toFixed(2)}</span>` : '—'}</td>
-          <td class="mono" style="font-size:10px;">${o ? o.drivenBy : '—'}</td>
           ${cell(x.r.data.water.ratio)}
           ${cell(x.r.data.freeze.ratio)}
           ${cell(x.r.data.typhoon.ratio)}
@@ -3987,13 +3906,12 @@ async function renderReportView(results, lang) {
       <table class="rpt-tbl">
         <thead>
           <tr>
-            <th></th><th>${T.colLocation}</th><th>${T.colCoords}</th><th>${T.colOverall}</th><th>${T.colDriver}</th>
+            <th></th><th>${T.colLocation}</th><th>${T.colCoords}</th>
             <th class="num">WA</th><th class="num">FZ</th><th class="num">TY</th><th class="num">EQ</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <div class="rpt-desc" style="margin-top:14px;">${HAZARD_DESCRIPTIONS_I18N[lang].overall}</div>
       ${rptFooter}
     </div>`;
   }
@@ -4004,7 +3922,7 @@ async function renderReportView(results, lang) {
       <div class="rpt-loc-name">${escapeHtml(r.name)}</div>
       <div class="rpt-loc-coords">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
 
-      ${heroBlock(r.data.overall)}
+      ${heroBlock(r.data.breakdown)}
 
       <div class="rpt-section">
         <div class="rpt-h">${T.sectionTitles.water}</div>
