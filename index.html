@@ -62,13 +62,13 @@
   #reportView { position: fixed; top: 0; left: -99999px; width: 720px; background: #fff; z-index: -1; }
   #reportView:empty { left: -99999px; }
   #reportView { font-family: 'Noto Sans JP','Montserrat','Inter',sans-serif; color: #0E1F12; background: #fff; }
-  #reportView .rpt-page { max-width: 720px; margin: 0 auto; padding: 30px 34px 26px; }
+  #reportView .rpt-page { max-width: 720px; margin: 0 auto; padding: 22px 28px 18px; background: #fff; }
 
   /* --- ヘッダー: 細い罫線と大きめの余白で誌面らしさを出す --- */
   #reportView .rpt-head {
     display: flex; justify-content: space-between; align-items: flex-start;
     background: #152E1A; border-bottom: 3px solid #8FCB8A; color: #F2F7F2;
-    margin: -30px -34px 24px; padding: 16px 34px 14px;
+    margin: -22px -28px 14px; padding: 15px 28px 13px;
   }
   #reportView .rpt-brand { display: flex; align-items: center; gap: 12px; }
   #reportView .rpt-title { font-family: 'Montserrat','Noto Sans JP',sans-serif !important; }
@@ -79,23 +79,25 @@
   }
   #reportView .rpt-title {
     font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
-    letter-spacing: 2.4px; text-transform: uppercase; color: #F2F7F2;
+    letter-spacing: 0; text-transform: none; color: #F2F7F2;
   }
+  #reportView .rpt-title { font-size: 17px !important; font-weight: 800 !important; letter-spacing: -0.2px !important; line-height: 1.15; }
+  #reportView .rpt-subtitle { font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 1.2px; text-transform: uppercase; color: #8FCB8A; margin-top: 3px; }
   #reportView .rpt-meta {
     font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #B9C7BB;
     text-align: right; letter-spacing: 0.6px; line-height: 1.7;
   }
 
   /* --- 拠点名: 大きく、座標はモノスペースで --- */
-  #reportView .rpt-loc-name { font-size: 25px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.15; }
+  #reportView .rpt-loc-name { font-size: 22px; color: #152E1A; font-weight: 700; letter-spacing: -0.4px; line-height: 1.15; }
   #reportView .rpt-loc-coords {
     font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5F7262;
-    margin-top: 5px; margin-bottom: 20px; letter-spacing: 0.5px;
+    margin-top: 4px; margin-bottom: 12px; letter-spacing: 0.5px;
   }
 
   /* --- 複合ハザードのヒーローブロック --- */
   #reportView .rpt-hero {
-    border-radius: 6px; padding: 16px 18px 14px; margin-bottom: 22px; background: #152E1A; color: #F2F7F2;
+    border-radius: 6px; padding: 12px 16px 10px; margin-bottom: 12px; background: #152E1A; color: #F2F7F2;
   }
   #reportView .rpt-hero-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
   #reportView .rpt-hero-k {
@@ -113,8 +115,8 @@
   #reportView .rpt-hero-driver b { font-weight: 700; }
 
   /* --- 内訳の横棒 --- */
-  #reportView .rpt-bd { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(143,203,138,.25); }
-  #reportView .rpt-bd-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  #reportView .rpt-bd { margin-top: 8px; padding-top: 9px; border-top: 1px solid rgba(143,203,138,.25); }
+  #reportView .rpt-bd-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
   #reportView .rpt-bd-row:last-child { margin-bottom: 0; }
   #reportView .rpt-bd-name {
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.8px;
@@ -128,18 +130,29 @@
   }
 
   /* --- 各ハザードのセクション --- */
-  #reportView .rpt-section { margin-bottom: 22px; border: 1px solid #D5E2D6; border-radius: 8px; overflow: hidden; background: #fff; }
-  #reportView .rpt-sec-body { padding: 14px 18px 14px; }
-  #reportView .rpt-sec-head { display: flex; align-items: center; gap: 12px; padding: 11px 18px; background: #152E1A; color: #F2F7F2; border-left: 7px solid var(--hc); }
+  #reportView .rpt-section { margin-bottom: 9px; border: 1px solid #D5E2D6; border-radius: 8px; overflow: hidden; background: #fff; }
+  #reportView .rpt-sec-body { padding: 8px 14px 8px; }
+  #reportView .rpt-sec-body .rpt-desc { font-size: 8.5px; line-height: 1.5; margin-bottom: 6px; }
+  #reportView .rpt-sec-body .rpt-comment { font-size: 9.5px; margin-top: 5px; }
+  #reportView .rpt-sec-body .rpt-bar-wrap { margin: 9px 0 7px; }
+  #reportView .rpt-sec-body .rpt-tiers { margin-top: 6px; }
+  #reportView .rpt-sec-head { display: flex; align-items: center; gap: 12px; padding: 6px 14px; background: #152E1A; color: #F2F7F2; border-left: 7px solid var(--hc); }
   #reportView .rpt-sec-code { font-family: 'Montserrat',sans-serif; font-weight: 800; font-size: 11px; letter-spacing: 1.2px; color: #0E1F12; background: var(--hc); border-radius: 4px; padding: 5px 7px; min-width: 30px; text-align: center; }
   #reportView .rpt-sec-tt { flex: 1; }
-  #reportView .rpt-sec-ttl { font-size: 15px; font-weight: 700; letter-spacing: .2px; line-height: 1.2; }
+  #reportView .rpt-sec-ttl { font-size: 14px; font-weight: 700; letter-spacing: .2px; line-height: 1.2; }
   #reportView .rpt-sec-sub { font-size: 9px; color: #B9C7BB; margin-top: 2px; letter-spacing: .3px; }
   #reportView .rpt-sec-score { text-align: right; font-family: 'JetBrains Mono',monospace; line-height: 1; }
   #reportView .rpt-sec-score b { font-size: 22px; font-weight: 700; color: #8FCB8A; }
   #reportView .rpt-sec-score span { font-size: 9px; color: #8FA092; margin-left: 2px; }
-  #reportView .rpt-explain { background: #F4F8F4; border-left: 3px solid var(--hc); border-radius: 0 5px 5px 0; padding: 9px 12px; margin-bottom: 12px; }
-  #reportView .rpt-explain p { font-size: 10px; line-height: 1.7; color: #33463A; margin: 0 0 5px; }
+  #reportView .rpt-sec-score em { display: block; font-style: normal; font-family: 'Montserrat','Noto Sans JP',sans-serif; font-size: 8.5px; letter-spacing: 1px; color: #B9C7BB; margin-bottom: 3px; }
+  #reportView .rpt-two { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 14px; margin-top: 8px; }
+  #reportView .rpt-two .rpt-kv { gap: 6px 12px; }
+  #reportView .rpt-two .rpt-kv-v { font-size: 12px; }
+  #reportView .rpt-two .rpt-h { font-size: 9px !important; }
+  #reportView .rpt-sub-name { font-size: 15px; font-weight: 700; color: #152E1A; margin-bottom: 10px; }
+  #reportView .rpt-explain { background: #F4F8F4; border-left: 3px solid var(--hc); border-radius: 0 5px 5px 0; padding: 6px 11px; margin-bottom: 6px; }
+  #reportView .rpt-explain { column-count: 2; column-gap: 16px; }
+  #reportView .rpt-explain p { break-inside: avoid; font-size: 8px; line-height: 1.45; color: #33463A; margin: 0 0 5px; }
   #reportView .rpt-explain p:last-child { margin-bottom: 0; }
   #reportView .rpt-explain b { color: #2C5F31; font-weight: 700; }
   #reportView .rpt-scale { display: flex; gap: 3px; margin-top: 12px; }
@@ -209,8 +222,8 @@
   }
 
   #reportView .rpt-footer {
-    border-top: 1px solid #DCE7DD; padding-top: 11px; margin-top: 22px;
-    font-size: 8.5px; color: #8FA092; line-height: 1.7;
+    border-top: 1px solid #DCE7DD; padding-top: 8px; margin-top: 12px;
+    font-size: 7.8px; color: #5F7262; line-height: 1.55;
   }
   #reportView .rpt-footer b { color: #5F7262; font-weight: 700; }
   #reportView .rpt-copyright {
@@ -727,7 +740,6 @@
 
   <header class="topbar">
     <div class="brand" id="brandHome" title="Return to home" role="button" tabindex="0">
-      <div class="brand-mark" aria-hidden="true">CH</div>
       <div class="brand-text">
         <div class="brand-title">Catnet Hazard Map<span class="desk"> (China)</span></div>
         <div class="brand-sub">China Disaster Risk<span class="desk"> Information System</span></div>
@@ -3300,7 +3312,7 @@ const HAZARD_DESCRIPTIONS_I18N = {
 
 const HAZARD_EXPLAIN_I18N = {
   en: {
-    labels: { what: 'What it is', read: 'How to read', limit: 'Note' },
+    score: 'SCORE', latitude: 'Latitude', longitude: 'Longitude', labels: { what: 'What it is', read: 'How to read', limit: 'Note' },
     scaleLow: 'Low', scaleHigh: 'Extreme',
     scaleNote: 'Scores run from 0 (lowest) to 1 (highest) in five bands. Each hazard is scored on its own scale; scores of different hazards are not combined or directly comparable.',
     sub: { water: 'River · Heavy rain · Storm surge', freeze: 'Sub-zero spells · Cold waves', typhoon: 'Tropical cyclones · JMA scale', earthquake: 'Ground shaking · Seismic history' },
@@ -3310,7 +3322,7 @@ const HAZARD_EXPLAIN_I18N = {
     earthquake: { what: 'Exposure to ground shaking from earthquakes recorded around the site over several decades.', read: 'Nearby events are weighted by size and distance, so large, close earthquakes count most. The score is a relative indicator, not a seismic-intensity or loss estimate.', limit: 'Soil conditions, building codes and faults not yet in the catalogue are not reflected.' },
   },
   ja: {
-    labels: { what: '概要', read: '見方', limit: '留意点' },
+    score: 'スコア', latitude: '緯度', longitude: '経度', labels: { what: '概要', read: '見方', limit: '留意点' },
     scaleLow: '低', scaleHigh: '極めて高',
     scaleNote: 'スコアは0(最小)〜1(最大)を5段階で表します。ハザードごとに別の尺度で評価しており、ハザード間でスコアを合算・単純比較することはできません。',
     sub: { water: '河川・豪雨・高潮', freeze: '氷点下の持続・寒波', typhoon: '熱帯低気圧・JMA階級', earthquake: '地震動・観測履歴' },
@@ -3320,7 +3332,7 @@ const HAZARD_EXPLAIN_I18N = {
     earthquake: { what: '拠点周辺で過去数十年に観測された地震による揺れの危険度。', read: '周辺の地震を規模と距離で重み付けし、大きく近い地震ほど強く反映します。相対的な指標であり、震度や損害額の推定ではありません。', limit: '地盤条件、建築基準、カタログ未記載の断層は反映されません。' },
   },
   zh: {
-    labels: { what: '概述', read: '解读', limit: '说明' },
+    score: '得分', latitude: '纬度', longitude: '经度', labels: { what: '概述', read: '解读', limit: '说明' },
     scaleLow: '低', scaleHigh: '极高',
     scaleNote: '得分范围为0(最低)至1(最高),分为五档。各灾害使用各自的尺度评估,不同灾害的得分不合并,也不宜直接比较。',
     sub: { water: '河流·暴雨·风暴潮', freeze: '持续低温·寒潮', typhoon: '热带气旋·JMA等级', earthquake: '地震动·历史记录' },
@@ -3476,7 +3488,7 @@ const TYPHOON_TIER_KT = ['34kt+', '64kt+', '85kt+', '105kt+'];
 // 別途判断すべき変更のため、今回は対象外としている。
 const RPT_I18N = {
   en: {
-    title: 'Natural Catastrophe Risk Report', country: 'China',
+    title: 'Catnet Hazard Map (China) Report', country: 'China',
     hazardScores: 'Hazard scores (each hazard is evaluated separately)',
     perilNames: { earthquake: 'Earthquake', typhoon: 'Typhoon', water: 'Water', freeze: 'Freeze' },
     sectionTitles: { earthquake: 'Earthquake', typhoon: 'Typhoon', water: 'Water hazard', freeze: 'Freeze hazard' },
@@ -3512,7 +3524,7 @@ const RPT_I18N = {
     copyright: (y) => `© ${y} YM @MSIG. All rights reserved.`,
   },
   ja: {
-    title: '自然災害リスクレポート', country: '中国',
+    title: 'Catnet Hazard Map (China) Report', country: '中国',
     hazardScores: 'ハザード別スコア(ハザードごとに個別評価)',
     perilNames: { earthquake: '地震', typhoon: '台風', water: '水害', freeze: '凍結' },
     sectionTitles: { earthquake: '地震', typhoon: '台風', water: '水害', freeze: '凍結ハザード' },
@@ -3548,7 +3560,7 @@ const RPT_I18N = {
     copyright: (y) => `© ${y} YM @MSIG. All rights reserved.`,
   },
   zh: {
-    title: '自然灾害风险报告', country: '中国',
+    title: 'Catnet Hazard Map (China) Report', country: '中国',
     hazardScores: '分灾害得分(各灾害单独评估)',
     perilNames: { earthquake: '地震', typhoon: '台风', water: '水灾', freeze: '冻结' },
     sectionTitles: { earthquake: '地震', typhoon: '台风', water: '水灾', freeze: '冻结灾害' },
@@ -3817,10 +3829,23 @@ async function generateIntegratedReport() {
       // 事前に取得しておき、297mm境界がブロックの内部に来る場合はブロックの直前まで
       // 切り上げ、そのブロックを丸ごと次ページへ送る。
       const canvas = await html2canvas(pages[i], { scale: HTML2CANVAS_SCALE, backgroundColor: '#ffffff', useCORS: true });
+      const fitPage = pages[i].classList.contains('rpt-fit');
       const zones = rptSafeBreakZones(pages[i], HTML2CANVAS_SCALE);
       const pxPerMm = canvas.width / A4_W_MM;
       const idealSliceHeightPx = pxPerMm * A4_H_MM;
 
+      if (fitPage) {
+        // 拠点ページは1枚=A4 1ページに収める。はみ出す場合は縦横比を保って縮小(中央寄せ)。
+        const pg = document.createElement('canvas');
+        pg.width = canvas.width; pg.height = Math.round(idealSliceHeightPx);
+        const pctx = pg.getContext('2d');
+        pctx.fillStyle = '#ffffff'; pctx.fillRect(0, 0, pg.width, pg.height);
+        const k = Math.min(1, idealSliceHeightPx / canvas.height);
+        pctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, (pg.width - canvas.width * k) / 2, 0, canvas.width * k, canvas.height * k);
+        if (!pdf) pdf = new jsPDF({ unit: 'mm', format: [A4_W_MM, A4_H_MM] }); else pdf.addPage([A4_W_MM, A4_H_MM]);
+        pdf.addImage(pg.toDataURL('image/png'), 'PNG', 0, 0, A4_W_MM, A4_H_MM);
+        continue;
+      }
       let cursor = 0;
       while (cursor < canvas.height - 1) {
         let cut = Math.min(canvas.height, cursor + idealSliceHeightPx);
@@ -3871,8 +3896,7 @@ async function renderReportView(results, lang) {
   const rptHead = (rightLine) => `
       <div class="rpt-head">
         <div class="rpt-brand">
-          <div class="rpt-logo">LOGO</div>
-          <div class="rpt-title">${T.title}</div>
+          <div><div class="rpt-title">${T.title}</div><div class="rpt-subtitle">China Disaster Risk Information System</div></div>
         </div>
         <div class="rpt-meta">${today}<br>WGS84 · ${lang === 'en' ? T.country.toUpperCase() : T.country}</div>
       </div>`;
@@ -3932,15 +3956,16 @@ async function renderReportView(results, lang) {
   const EX = HAZARD_EXPLAIN_I18N[lang] || HAZARD_EXPLAIN_I18N.en;
   const secHead = (key, ratio) => `
         <div class="rpt-sec-head" style="--hc:${RPT_HC[key]};">
-          <div class="rpt-sec-code">${RPT_CODE[key]}</div>
           <div class="rpt-sec-tt"><div class="rpt-sec-ttl">${T.sectionTitles[key]}</div><div class="rpt-sec-sub">${EX.sub[key]}</div></div>
-          <div class="rpt-sec-score">${typeof ratio === 'number' && !isNaN(ratio) ? `<b>${ratio.toFixed(2)}</b><span>/ 1.00</span>` : '<b>—</b>'}</div>
+          <div class="rpt-sec-score"><em>${EX.score}</em>${typeof ratio === 'number' && !isNaN(ratio) ? `<b>${ratio.toFixed(2)}</b><span>/ 1.00</span>` : '<b>—</b>'}</div>
         </div>`;
   const explainBox = (key) => `
         <div class="rpt-explain" style="--hc:${RPT_HC[key]};">
           <p><b>${EX.labels.what}</b>　${EX[key].what}</p>
           <p><b>${EX.labels.read}</b>　${EX[key].read}</p>
           <p><b>${EX.labels.limit}</b>　${EX[key].limit}</p>
+          <p><b>${HAZARD_CLIMATE_I18N[lang].rp}</b>　${HAZARD_CLIMATE_I18N[lang].items[key][0]}</p>
+          <p><b>${HAZARD_CLIMATE_I18N[lang].cc}</b>　${HAZARD_CLIMATE_I18N[lang].items[key][1]}</p>
         </div>`;
   const FZ_LBL = ({
     en: { spell: 'Longest freezing spell', days: 'days', waves: 'Cold waves per year', intensity: n => `Freezing intensity (${n}-yr level)`, dayU: 'day' },
@@ -4020,10 +4045,11 @@ async function renderReportView(results, lang) {
   }
 
   view.innerHTML = summaryHtml + results.map((r, i) => `
-    <div class="rpt-page">
+    <div class="rpt-page rpt-fit">
       ${rptHead()}
-      <div class="rpt-loc-name">${escapeHtml(r.name)}</div>
-      <div class="rpt-loc-coords">${isCoordName(r.name) ? '' : `${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}`}</div>
+      ${isCoordName(r.name)
+        ? `<div class="rpt-loc-name">${EX.latitude} ${r.lat.toFixed(4)}　${EX.longitude} ${r.lon.toFixed(4)}</div><div class="rpt-loc-coords"></div>`
+        : `<div class="rpt-loc-name">${escapeHtml(r.name)}</div><div class="rpt-loc-coords">${EX.latitude} ${r.lat.toFixed(4)}　${EX.longitude} ${r.lon.toFixed(4)}</div>`}
 
       ${heroBlock(r.data.breakdown)}
 
@@ -4031,7 +4057,6 @@ async function renderReportView(results, lang) {
         ${secHead('water', r.data.water.ratio)}
         <div class="rpt-sec-body">
         ${explainBox('water')}
-        ${climateBox('water')}
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].water}</div>
         ${waterMechChips(r.data.water)}
         <div style="margin-top:10px;"><span class="rpt-badge" style="background:${rptBadgeColors(r.data.water.color).bg}; color:${rptBadgeColors(r.data.water.color).text};">${r.data.water.label}</span></div>
@@ -4047,8 +4072,9 @@ async function renderReportView(results, lang) {
         </div>
         <div class="rpt-desc" style="margin-top:2px;">${T.scNote}</div>` : ''}
 
+        <div class="rpt-two">
         ${r.data.rainfallCurves ? `
-        <div style="margin-top:16px;">
+        <div>
           <div class="rpt-h" style="font-size:9.5px;">${T.rainfallTitle}</div>
           <div class="rpt-desc">${T.rainfallBody(r.data.yearsUsed)}</div>
           <div class="rpt-kv">
@@ -4064,8 +4090,7 @@ async function renderReportView(results, lang) {
             </div>`).join('')}
           </div>
           <div class="rpt-desc" style="margin-top:2px;">${T.cmaNote}</div>
-          <div class="rpt-desc" style="margin-top:2px;">${T.currentNote(RAINFALL_CC_PCT_PER_DEG)}</div>
-          <div style="margin:10px 0 4px;"><canvas id="rptChart${i}" width="640" height="220"></canvas></div>
+          <div style="margin:6px 0 4px;"><canvas id="rptChart${i}" width="300" height="170"></canvas></div>
           <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:9.5px; color:#52514e;">
             ${RAINFALL_WARMING_SCENARIOS.map((w, wi) => `
             <span><span style="display:inline-block;width:8px;height:8px;background:${CURVE_COLORS_RPT[wi]};border-radius:2px;margin-right:4px;"></span>${w === 0 ? T.scCurrent : '+' + w + '°C'}</span>`).join('')}
@@ -4075,7 +4100,7 @@ async function renderReportView(results, lang) {
         <!-- 標高・3D地形図: ユーザー確認済みにつき描画方法(Plotly surface)は変更しない。
              周囲の説明文のみ多言語化する。depLabel.textは地図ポップアップと共有の
              depressionFactorLabel()が英語で返すため、ja/zhでもこの部分だけ英語のまま。 -->
-        <div style="margin-top:16px;">
+        <div>
           <div class="rpt-h" style="font-size:9.5px;">${T.terrainTitle}</div>
           <div class="rpt-desc">${T.terrainBody}</div>
           <div class="rpt-kv">
@@ -4085,16 +4110,19 @@ async function renderReportView(results, lang) {
             </div>
           </div>
           <div class="rpt-desc" style="margin-top:2px;">${r.data.depLabel.text}, ${T.terrainNoteSuffix}</div>
-          <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
+          <div id="rptTerrain${i}" style="width:100%; height:170px;"></div>
+        </div>
         </div>
         </div>
       </div>
 
+    </div>
+    <div class="rpt-page rpt-fit">
+      ${rptHead()}
       <div class="rpt-section">
         ${secHead('freeze', r.data.freeze.ratio)}
         <div class="rpt-sec-body">
         ${explainBox('freeze')}
-        ${climateBox('freeze')}
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].freeze}</div>
         ${rptLegendBar(r.data.freeze.colors, r.data.freeze.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.freeze.color).bg}; color:${rptBadgeColors(r.data.freeze.color).text};">${r.data.freeze.label}</span>
@@ -4112,7 +4140,6 @@ async function renderReportView(results, lang) {
         ${secHead('typhoon', r.data.typhoon.ratio)}
         <div class="rpt-sec-body">
         ${explainBox('typhoon')}
-        ${climateBox('typhoon')}
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].typhoon}</div>
         ${typhoonTierBand(r.data.typhoon)}
         <div style="margin-top:10px;"><span class="rpt-badge" style="background:${rptBadgeColors(r.data.typhoon.color).bg}; color:${rptBadgeColors(r.data.typhoon.color).text};">${r.data.typhoon.label}</span></div>
@@ -4124,7 +4151,6 @@ async function renderReportView(results, lang) {
         ${secHead('earthquake', r.data.earthquake.ratio)}
         <div class="rpt-sec-body">
         ${explainBox('earthquake')}
-        ${climateBox('earthquake')}
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].earthquake}</div>
         ${rptLegendBar(r.data.earthquake.colors, r.data.earthquake.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.earthquake.color).bg}; color:${rptBadgeColors(r.data.earthquake.color).text};">${r.data.earthquake.label}</span>
@@ -4204,12 +4230,12 @@ async function renderReportView(results, lang) {
       }, { displayModeBar: false, responsive: false })
         // html2canvas/印刷はWebGLキャンバスを正しく捕捉できないことがあるため、
         // Plotly自身の画像書き出しAPIで静止画に変換し、<img>に差し替えて確実にPDFへ焼き込む
-        .then(() => Plotly.toImage(terrainDiv, { format: 'png', width: terrainDiv.clientWidth * 2, height: 230 * 2 }))
+        .then(() => Plotly.toImage(terrainDiv, { format: 'png', width: terrainDiv.clientWidth * 2, height: 170 * 2 }))
         .then(dataUrl => {
           const img = document.createElement('img');
           img.src = dataUrl;
           img.style.width = '100%';
-          img.style.height = '230px';
+          img.style.height = '170px';
           img.style.display = 'block';
           terrainDiv.replaceWith(img);
         })
