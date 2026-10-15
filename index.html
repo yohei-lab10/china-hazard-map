@@ -61,45 +61,46 @@
      Chart.js/Plotly can lay out and html2canvas can capture it. Positioned off-viewport instead. */
   #reportView { position: fixed; top: 0; left: -99999px; width: 720px; background: #fff; z-index: -1; }
   #reportView:empty { left: -99999px; }
-  #reportView { font-family: 'Inter', sans-serif; color: #0b0b0b; background: #fff; }
+  #reportView { font-family: 'Noto Sans JP','Montserrat','Inter',sans-serif; color: #0E1F12; background: #fff; }
   #reportView .rpt-page { max-width: 720px; margin: 0 auto; padding: 30px 34px 26px; }
 
   /* --- ヘッダー: 細い罫線と大きめの余白で誌面らしさを出す --- */
   #reportView .rpt-head {
     display: flex; justify-content: space-between; align-items: flex-start;
-    border-bottom: 2px solid #26215C; padding-bottom: 10px; margin-bottom: 22px;
+    background: #152E1A; border-bottom: 3px solid #8FCB8A; color: #F2F7F2;
+    margin: -30px -34px 24px; padding: 16px 34px 14px;
   }
   #reportView .rpt-brand { display: flex; align-items: center; gap: 12px; }
+  #reportView .rpt-title { font-family: 'Montserrat','Noto Sans JP',sans-serif !important; }
   #reportView .rpt-logo {
     width: 68px; height: 22px; background: #f5f5f3; border-radius: 3px;
-    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #b4b2ac;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #8FA092;
     display: flex; align-items: center; justify-content: center; letter-spacing: 1px;
   }
   #reportView .rpt-title {
     font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
-    letter-spacing: 2.4px; text-transform: uppercase; color: #26215C;
+    letter-spacing: 2.4px; text-transform: uppercase; color: #F2F7F2;
   }
   #reportView .rpt-meta {
-    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #898781;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #B9C7BB;
     text-align: right; letter-spacing: 0.6px; line-height: 1.7;
   }
 
   /* --- 拠点名: 大きく、座標はモノスペースで --- */
   #reportView .rpt-loc-name { font-size: 25px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.15; }
   #reportView .rpt-loc-coords {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #898781;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5F7262;
     margin-top: 5px; margin-bottom: 20px; letter-spacing: 0.5px;
   }
 
   /* --- 複合ハザードのヒーローブロック --- */
   #reportView .rpt-hero {
-    border: 1px solid #e4e2dc; border-left: 5px solid #26215C; border-radius: 3px;
-    padding: 16px 18px; margin-bottom: 22px; background: #fbfbfa;
+    border-radius: 6px; padding: 16px 18px 14px; margin-bottom: 22px; background: #152E1A; color: #F2F7F2;
   }
   #reportView .rpt-hero-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
   #reportView .rpt-hero-k {
     font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
-    letter-spacing: 1.8px; text-transform: uppercase; color: #898781; margin-bottom: 5px;
+    letter-spacing: 1.8px; text-transform: uppercase; color: #8FCB8A; margin-bottom: 5px;
   }
   #reportView .rpt-hero-v { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -0.8px; }
   #reportView .rpt-hero-score {
@@ -107,98 +108,114 @@
     line-height: 1; letter-spacing: -1px;
   }
   #reportView .rpt-hero-driver {
-    font-family: 'Inter', sans-serif; font-size: 11px; color: #52514e; margin-top: 9px;
+    font-family: 'Inter', sans-serif; font-size: 11px; color: #33463A; margin-top: 9px;
   }
   #reportView .rpt-hero-driver b { font-weight: 700; }
 
   /* --- 内訳の横棒 --- */
-  #reportView .rpt-bd { margin-top: 14px; padding-top: 13px; border-top: 1px solid #e8e6e0; }
+  #reportView .rpt-bd { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(143,203,138,.25); }
   #reportView .rpt-bd-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
   #reportView .rpt-bd-row:last-child { margin-bottom: 0; }
   #reportView .rpt-bd-name {
     font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.8px;
-    text-transform: uppercase; color: #52514e; width: 82px; flex-shrink: 0;
+    text-transform: uppercase; color: #F2F7F2; width: 96px; flex-shrink: 0;
   }
-  #reportView .rpt-bd-track { flex: 1; height: 5px; background: #ecebe6; border-radius: 3px; overflow: hidden; }
+  #reportView .rpt-bd-track { flex: 1; height: 6px; background: rgba(255,255,255,.12); border-radius: 3px; overflow: hidden; }
   #reportView .rpt-bd-fill { height: 100%; border-radius: 3px; }
   #reportView .rpt-bd-val {
-    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #52514e;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #F2F7F2;
     width: 30px; text-align: right; flex-shrink: 0;
   }
 
   /* --- 各ハザードのセクション --- */
-  #reportView .rpt-section { margin-bottom: 20px; }
+  #reportView .rpt-section { margin-bottom: 22px; border: 1px solid #D5E2D6; border-radius: 8px; overflow: hidden; background: #fff; }
+  #reportView .rpt-sec-body { padding: 14px 18px 14px; }
+  #reportView .rpt-sec-head { display: flex; align-items: center; gap: 12px; padding: 11px 18px; background: #152E1A; color: #F2F7F2; border-left: 7px solid var(--hc); }
+  #reportView .rpt-sec-code { font-family: 'Montserrat',sans-serif; font-weight: 800; font-size: 11px; letter-spacing: 1.2px; color: #0E1F12; background: var(--hc); border-radius: 4px; padding: 5px 7px; min-width: 30px; text-align: center; }
+  #reportView .rpt-sec-tt { flex: 1; }
+  #reportView .rpt-sec-ttl { font-size: 15px; font-weight: 700; letter-spacing: .2px; line-height: 1.2; }
+  #reportView .rpt-sec-sub { font-size: 9px; color: #B9C7BB; margin-top: 2px; letter-spacing: .3px; }
+  #reportView .rpt-sec-score { text-align: right; font-family: 'JetBrains Mono',monospace; line-height: 1; }
+  #reportView .rpt-sec-score b { font-size: 22px; font-weight: 700; color: #8FCB8A; }
+  #reportView .rpt-sec-score span { font-size: 9px; color: #8FA092; margin-left: 2px; }
+  #reportView .rpt-explain { background: #F4F8F4; border-left: 3px solid var(--hc); border-radius: 0 5px 5px 0; padding: 9px 12px; margin-bottom: 12px; }
+  #reportView .rpt-explain p { font-size: 10px; line-height: 1.7; color: #33463A; margin: 0 0 5px; }
+  #reportView .rpt-explain p:last-child { margin-bottom: 0; }
+  #reportView .rpt-explain b { color: #2C5F31; font-weight: 700; }
+  #reportView .rpt-scale { display: flex; gap: 3px; margin-top: 12px; }
+  #reportView .rpt-scale i { flex: 1; height: 4px; border-radius: 2px; display: block; }
+  #reportView .rpt-scale-lbl { display: flex; justify-content: space-between; font-size: 8.5px; color: #8FA092; margin-top: 4px; letter-spacing: .3px; }
   #reportView .rpt-h {
     font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
-    letter-spacing: 1.8px; text-transform: uppercase; color: #26215C;
-    padding-bottom: 5px; border-bottom: 1px solid #e8e6e0; margin-bottom: 9px;
+    letter-spacing: 1.8px; text-transform: uppercase; color: #2C5F31;
+    padding-bottom: 5px; border-bottom: 1px solid #DCE7DD; margin-bottom: 9px;
   }
-  #reportView .rpt-desc { font-size: 9.5px; color: #898781; line-height: 1.65; margin-bottom: 10px; }
+  #reportView .rpt-desc { font-size: 9.5px; color: #5F7262; line-height: 1.65; margin-bottom: 10px; }
   #reportView .rpt-bar-wrap { position: relative; height: 7px; border-radius: 4px; margin: 12px 0 11px; }
-  #reportView .rpt-bar-marker { position: absolute; top: -10px; transform: translateX(-50%); font-size: 9px; color: #26215C; }
+  #reportView .rpt-bar-marker { position: absolute; top: -10px; transform: translateX(-50%); font-size: 9px; color: #2C5F31; }
   #reportView .rpt-badge {
     font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 4px;
     display: inline-block; letter-spacing: 0.2px;
   }
-  #reportView .rpt-comment { font-size: 10.5px; color: #52514e; line-height: 1.6; margin-top: 8px; }
+  #reportView .rpt-comment { font-size: 10.5px; color: #33463A; line-height: 1.6; margin-top: 8px; }
   #reportView .rpt-mono { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; line-height: 1.75; }
 
   /* --- 台風JMA階級の帯(図解)。長文説明の代わりに該当階級を強調する。2026年9月追加 --- */
   #reportView .rpt-tiers { display: flex; gap: 4px; margin-top: 10px; }
-  #reportView .rpt-tier { flex: 1; text-align: center; padding: 6px 3px; border-radius: 5px; background: #f2f1ec; }
-  #reportView .rpt-tier-kt { font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #b4b2ac; }
-  #reportView .rpt-tier-nm { font-size: 9.5px; font-weight: 700; color: #6b6a63; margin-top: 2px; }
+  #reportView .rpt-tier { flex: 1; text-align: center; padding: 6px 3px; border-radius: 5px; background: #EEF4EE; }
+  #reportView .rpt-tier-kt { font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #8FA092; }
+  #reportView .rpt-tier-nm { font-size: 9.5px; font-weight: 700; color: #4A5E50; margin-top: 2px; }
   #reportView .rpt-tier.active { background: #FBEADC; }
   #reportView .rpt-tier.active .rpt-tier-nm { color: #9A5A22; }
 
   /* --- 水害3機構の内訳チップ(図解)。支配的な機構を強調する。2026年9月追加 --- */
   #reportView .rpt-wchips { display: flex; gap: 8px; margin-top: 10px; }
-  #reportView .rpt-wchip { flex: 1; background: #f2f1ec; border-radius: 7px; padding: 8px 6px; text-align: center; }
-  #reportView .rpt-wchip-nm { font-size: 9.5px; color: #6b6a63; font-weight: 600; }
-  #reportView .rpt-wchip-v { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; display: block; margin-top: 3px; color: #26215C; }
-  #reportView .rpt-wchip.dom { background: #26215C; }
-  #reportView .rpt-wchip.dom .rpt-wchip-nm { color: #C9C6E8; }
-  #reportView .rpt-wchip.dom .rpt-wchip-v { color: #F0B15A; }
+  #reportView .rpt-wchip { flex: 1; background: #EEF4EE; border-radius: 7px; padding: 8px 6px; text-align: center; }
+  #reportView .rpt-wchip-nm { font-size: 9.5px; color: #4A5E50; font-weight: 600; }
+  #reportView .rpt-wchip-v { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; display: block; margin-top: 3px; color: #2C5F31; }
+  #reportView .rpt-wchip.dom { background: #2C5F31; }
+  #reportView .rpt-wchip.dom .rpt-wchip-nm { color: #CFE5CC; }
+  #reportView .rpt-wchip.dom .rpt-wchip-v { color: #8FCB8A; }
 
   /* --- 数値を並べる小さなキー・バリュー --- */
   #reportView .rpt-kv { display: flex; gap: 26px; margin: 10px 0 4px; flex-wrap: wrap; }
   #reportView .rpt-kv-item { }
   #reportView .rpt-kv-k {
     font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 1.2px;
-    text-transform: uppercase; color: #b4b2ac; margin-bottom: 2px;
+    text-transform: uppercase; color: #8FA092; margin-bottom: 2px;
   }
-  #reportView .rpt-kv-v { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #26215C; }
+  #reportView .rpt-kv-v { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #2C5F31; }
 
   /* --- ポートフォリオ一覧ページ --- */
   #reportView .rpt-sum-title { font-size: 25px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 4px; }
-  #reportView .rpt-sum-sub { font-size: 11px; color: #898781; margin-bottom: 22px; }
+  #reportView .rpt-sum-sub { font-size: 11px; color: #5F7262; margin-bottom: 22px; }
   #reportView table.rpt-tbl { width: 100%; border-collapse: collapse; }
   #reportView table.rpt-tbl th {
     font-family: 'JetBrains Mono', monospace; font-size: 8.5px; font-weight: 700;
-    letter-spacing: 1.2px; text-transform: uppercase; color: #898781;
-    text-align: left; padding: 0 6px 7px; border-bottom: 1.5px solid #26215C;
+    letter-spacing: 1.2px; text-transform: uppercase; color: #5F7262;
+    text-align: left; padding: 0 6px 7px; border-bottom: 1.5px solid #2C5F31;
   }
   #reportView table.rpt-tbl th.num, #reportView table.rpt-tbl td.num { text-align: right; }
   #reportView table.rpt-tbl td {
-    padding: 9px 6px; border-bottom: 1px solid #eeece7; font-size: 11.5px; vertical-align: middle;
+    padding: 9px 6px; border-bottom: 1px solid #E6EEE6; font-size: 11.5px; vertical-align: middle;
   }
-  #reportView table.rpt-tbl td.mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #52514e; }
+  #reportView table.rpt-tbl td.mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #33463A; }
   #reportView .rpt-pill {
     display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
     font-weight: 700; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.4px;
   }
   #reportView .rpt-rank {
-    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #b4b2ac; width: 20px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8FA092; width: 20px;
   }
 
   #reportView .rpt-footer {
-    border-top: 1px solid #e8e6e0; padding-top: 11px; margin-top: 22px;
-    font-size: 8.5px; color: #b4b2ac; line-height: 1.7;
+    border-top: 1px solid #DCE7DD; padding-top: 11px; margin-top: 22px;
+    font-size: 8.5px; color: #8FA092; line-height: 1.7;
   }
-  #reportView .rpt-footer b { color: #898781; font-weight: 700; }
+  #reportView .rpt-footer b { color: #5F7262; font-weight: 700; }
   #reportView .rpt-copyright {
-    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #898781;
-    letter-spacing: 0.4px; margin-top: 7px; padding-top: 7px; border-top: 1px solid #eeece7;
+    font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: #5F7262;
+    letter-spacing: 0.4px; margin-top: 7px; padding-top: 7px; border-top: 1px solid #E6EEE6;
   }
   .method-item:last-child { margin-bottom: 0; }
   .method-label {
@@ -3264,20 +3281,75 @@ const HAZARD_DESCRIPTIONS_I18N = {
     earthquake: 'USGS catalog, M5.0+, 1976 to present. Weighted by magnitude and distance within 100km; strongest effective influence shown.',
     typhoon: 'IBTrACS best-track data. Storms are classified on the JMA scale below; strongest historical impact at this point shown.',
     water: 'Highest of three mechanisms is shown:',
-    freeze: 'NASA POWER climate data, 2006–2025. Higher of a sustained-cold score and a sudden-cold-snap score (CMA cold wave tiers), scaled by a heating factor (×1.3 to ×0.7) from days with mean temperature ≤5°C.',
+    freeze: 'Source: NASA POWER daily climate data, 2006–2025, combined with CMA cold-wave classes.',
   },
   ja: {
     earthquake: 'USGS地震カタログ(M5.0以上、1976年〜)。周辺100km以内の地震をマグニチュードと距離で重み付けし、最も影響の大きい値を表示。',
     typhoon: 'IBTrACSのベストトラックデータ。下記のJMA階級で分類し、この地点での観測史上最大の影響を表示。',
     water: '3つの機構のうち最も深刻な値を表示:',
-    freeze: 'NASA POWER気候データ(2006〜2025年)。持続型スコアと急変型スコア(中国気象局の寒潮階級)のうち高い方を採用し、日平均5℃以下の日数(GB 50736-2012の暖房基準を参照)に基づく暖房区係数(×1.3〜×0.7)で補正。',
+    freeze: '出典:NASA POWER日次気候データ(2006〜2025年)、中国気象局の寒潮階級を併用。',
   },
   zh: {
     earthquake: '基于USGS地震目录(M5.0以上,1976年至今)。对100公里范围内的地震按震级与距离加权,显示影响最大的数值。',
     typhoon: '基于IBTrACS最佳路径数据。按下方JMA等级分类,显示该地点历史上影响最大的一次。',
     water: '显示三种机制中最严重的数值:',
-    freeze: '基于NASA POWER气候数据(2006-2025年)。取持续低温得分与急剧寒潮得分(中国气象局寒潮等级)中的较高值,并按日均温≤5℃天数的供暖系数(×1.3〜×0.7)调整。',
+    freeze: '数据来源:NASA POWER逐日气候数据(2006-2025年),并结合中国气象局寒潮等级。',
   },
+};
+
+
+const HAZARD_EXPLAIN_I18N = {
+  en: {
+    labels: { what: 'What it is', read: 'How to read', limit: 'Note' },
+    scaleLow: 'Low', scaleHigh: 'Extreme',
+    scaleNote: 'Scores run from 0 (lowest) to 1 (highest) in five bands. Each hazard is scored on its own scale; scores of different hazards are not combined or directly comparable.',
+    sub: { water: 'River · Heavy rain · Storm surge', freeze: 'Sub-zero spells · Cold waves', typhoon: 'Tropical cyclones · JMA scale', earthquake: 'Ground shaking · Seismic history' },
+    water: { what: 'Exposure to flooding from rivers, ponding after heavy rain, and coastal storm surge. The three are assessed separately and the most severe one sets the score.', read: 'Rainfall figures show the 24-hour rain expected once in 10 to 100 years. Low-lying or bowl-shaped ground raises the chance of water collecting. Warming scenarios show sensitivity only.', limit: 'Based on regional-scale data. It does not replace a site survey or a review of drainage and flood defences.' },
+    freeze: { what: 'Exposure to long sub-zero spells and sudden cold snaps that can burst pipes, damage outdoor equipment and interrupt operations.', read: 'The score reflects how long and how intense the worst freezing spells are, and how often severe cold waves occur. It also considers whether the region normally has winter heating: a mild-winter region can be hit harder because buildings and pipes are rarely built for deep cold.', limit: 'Regional climate data. Local insulation, heating and pipe protection are not reflected.' },
+    typhoon: { what: 'Exposure to tropical cyclones that have passed near the site, grouped by the JMA intensity scale.', read: 'The highlighted band is the strongest class of storm recorded near the site. The return period shows roughly how often a storm of that kind has passed.', limit: 'Based on historical tracks. Actual wind at the site also depends on terrain and building structure.' },
+    earthquake: { what: 'Exposure to ground shaking from earthquakes recorded around the site over several decades.', read: 'Nearby events are weighted by size and distance, so large, close earthquakes count most. The score is a relative indicator, not a seismic-intensity or loss estimate.', limit: 'Soil conditions, building codes and faults not yet in the catalogue are not reflected.' },
+  },
+  ja: {
+    labels: { what: '概要', read: '見方', limit: '留意点' },
+    scaleLow: '低', scaleHigh: '極めて高',
+    scaleNote: 'スコアは0(最小)〜1(最大)を5段階で表します。ハザードごとに別の尺度で評価しており、ハザード間でスコアを合算・単純比較することはできません。',
+    sub: { water: '河川・豪雨・高潮', freeze: '氷点下の持続・寒波', typhoon: '熱帯低気圧・JMA階級', earthquake: '地震動・観測履歴' },
+    water: { what: '河川の氾濫、豪雨後の内水(冠水)、沿岸の高潮による浸水の危険度。3つの機構を個別に評価し、最も深刻なものをスコアとします。', read: '降雨量は、10〜100年に一度想定される24時間雨量です。低地や窪地では水が溜まりやすくなります。気候シナリオは感度を示す参考値です。', limit: '広域データに基づく評価です。現地調査や排水・防水設備の確認の代わりにはなりません。' },
+    freeze: { what: '長く続く氷点下や急な寒波により、配管の破裂、屋外設備の損傷、操業停止が起こる危険度。', read: '最悪クラスの凍結期間の長さと強さ、強い寒波の頻度を反映します。冬に暖房が通常使われる地域かどうかも考慮し、冬が温暖な地域は建物・配管が寒さに備えていないことが多いため、相対的に高くなる場合があります。', limit: '広域の気候データに基づきます。個別の断熱・暖房・配管保護の状況は反映されません。' },
+    typhoon: { what: '拠点の近くを通過した熱帯低気圧の強さを、JMA階級で分類した危険度。', read: '強調表示された帯が、近傍で観測された最大の階級です。再現期間は、その規模の台風がおおよそ何年に一度通過したかを示します。', limit: '過去の進路記録に基づきます。実際の風速は地形や建物構造にも左右されます。' },
+    earthquake: { what: '拠点周辺で過去数十年に観測された地震による揺れの危険度。', read: '周辺の地震を規模と距離で重み付けし、大きく近い地震ほど強く反映します。相対的な指標であり、震度や損害額の推定ではありません。', limit: '地盤条件、建築基準、カタログ未記載の断層は反映されません。' },
+  },
+  zh: {
+    labels: { what: '概述', read: '解读', limit: '说明' },
+    scaleLow: '低', scaleHigh: '极高',
+    scaleNote: '得分范围为0(最低)至1(最高),分为五档。各灾害使用各自的尺度评估,不同灾害的得分不合并,也不宜直接比较。',
+    sub: { water: '河流·暴雨·风暴潮', freeze: '持续低温·寒潮', typhoon: '热带气旋·JMA等级', earthquake: '地震动·历史记录' },
+    water: { what: '河流泛滥、暴雨后内涝积水及沿海风暴潮造成淹没的风险。三种机制分别评估,取最严重者作为得分。', read: '降雨量为10至100年一遇的24小时雨量。低洼或碗状地形更易积水。气候情景仅用于反映敏感性。', limit: '基于区域尺度数据,不能替代现场勘查及排水、防洪设施的核查。' },
+    freeze: { what: '长时间低于冰点及突发寒潮导致管道冻裂、室外设备受损和停产的风险。', read: '得分反映最严重冰冻时段的持续时间与强度,以及强寒潮的出现频率,并考虑该地区冬季是否通常供暖:冬季温和地区的建筑和管道往往未按严寒设防,风险可能相对更高。', limit: '基于区域气候数据,未反映个别场所的保温、供暖和管道防护情况。' },
+    typhoon: { what: '场地附近曾经过的热带气旋,按JMA强度等级分类后的风险。', read: '高亮色带为场地附近记录到的最强等级。重现期大致表示该规模台风多少年经过一次。', limit: '基于历史路径记录,实际风力还取决于地形与建筑结构。' },
+    earthquake: { what: '场地周边数十年来记录到的地震所带来的地震动风险。', read: '按震级与距离对周边地震加权,近而强的地震影响最大。该得分为相对指标,并非烈度或损失估算。', limit: '未反映土壤条件、建筑规范及目录中尚未记录的断层。' },
+  },
+};
+
+const HAZARD_CLIMATE_I18N = {
+  en: { title: 'Return period & climate change', cc: 'Climate change', rp: 'Return period', items: {
+    water: ['A “50-year” rainfall is the amount with a 2% chance of being reached or exceeded in any single year. It is a probability, not a schedule: two such events can occur in consecutive years. Figures beyond the length of the record are extrapolations and carry more uncertainty.', 'A warmer atmosphere holds more moisture, so extreme rainfall tends to intensify as temperatures rise. The +1.5°C / +2°C values show how the score may respond; the headline score always uses current conditions. Sea-level rise, which would add to storm-surge risk, is not included.'],
+    freeze: ['The 10-year level is the freezing intensity with a 10% chance of being reached in any single year.', 'Winters are warming on average, which may reduce typical frost, but severe cold waves still occur. Future warming is not applied to this score.'],
+    typhoon: ['The return period shows, on average, how many years pass between storms of the highlighted class near the site. It is an average over the record, not a forecast.', 'Research suggests the strongest typhoons may become more intense in a warmer climate, while the change in frequency is less certain. Future change is not applied to this score.'],
+    earthquake: ['Earthquakes are assessed from the recorded history only; the catalogue is far shorter than the interval between very large events, so rare large earthquakes may be under-represented.', 'Earthquakes are not driven by climate change, so no climate scenario applies.'],
+  } },
+  ja: { title: '再現期間と気候変動', cc: '気候変動', rp: '再現期間', items: {
+    water: ['「50年確率」の雨量とは、ある1年にその量以上が発生する確率が2%という意味です。周期ではなく確率であり、連続した年に起こることもあります。観測期間を超える値は外挿のため、不確実性が大きくなります。', '気温が上がると大気中の水蒸気量が増え、極端な降雨は強まりやすくなります。+1.5℃/+2℃の値はスコアがどう変わり得るかの目安で、見出しスコアは常に現在の条件で算出しています。高潮リスクを高める海面上昇は含みません。'],
+    freeze: ['10年確率とは、ある1年にその強さの凍結が起こる確率が10%という意味です。', '冬は平均的に温暖化していて通常の凍結は減り得ますが、強い寒波は今後も起こります。将来の温暖化はこのスコアに反映していません。'],
+    typhoon: ['再現期間は、近傍で強調表示された階級の台風が平均して何年に一度来るかを表します。観測期間の平均であり、予測ではありません。', '温暖化が進むと最強クラスの台風はより強まる可能性が指摘されていますが、発生頻度の変化は不確実です。将来変化はこのスコアに反映していません。'],
+    earthquake: ['地震は記録された履歴のみで評価しています。カタログの期間は巨大地震の発生間隔より短いため、まれな大地震は過小に表れる可能性があります。', '地震は気候変動とは無関係のため、気候シナリオは適用していません。'],
+  } },
+  zh: { title: '重现期与气候变化', cc: '气候变化', rp: '重现期', items: {
+    water: ['“50年一遇”的降雨量,指任意一年中达到或超过该雨量的概率为2%。这是概率而非周期,连续两年发生也有可能。超出观测年限的数值属于外推,不确定性更大。', '气温升高使大气含水量增加,极端降雨往往随之增强。+1.5°C/+2°C的数值用于显示得分可能的变化,总体得分始终采用当前条件。会加剧风暴潮风险的海平面上升未计入。'],
+    freeze: ['10年一遇水平,指任意一年中出现该强度冰冻的概率为10%。', '冬季总体趋于变暖,常规霜冻可能减少,但强寒潮仍会发生。未来变暖未计入该得分。'],
+    typhoon: ['重现期表示高亮等级的台风在场地附近平均多少年出现一次。这是观测期内的平均值,而非预测。', '研究表明,气候变暖下最强台风的强度可能增大,而频次变化尚不确定。未来变化未计入该得分。'],
+    earthquake: ['地震仅依据历史记录评估。目录年限远短于特大地震的间隔,罕见大震可能被低估。', '地震与气候变化无关,因此不适用气候情景。'],
+  } },
 };
 
 // 地点検索(queryPoint)の結果、またはREPORTSパネルを開いたタイミングで呼ばれる。
@@ -3416,17 +3488,17 @@ const RPT_I18N = {
     }[kind]),
     noDataEq: 'No M5.0+ earthquake within 100km',
     noDataFreeze: 'No freeze hazard data nearby',
-    freezeSouthNote: 'Little heating demand (few days ≤5°C) — increased for buildings/pipes typically not built for cold.',
-    freezeNorthNote: 'Long heating season (many days ≤5°C) — reduced for heating/frost-proofing. Actual losses may still occur.',
+    freezeSouthNote: 'Mild-winter region: buildings and pipes are rarely built for deep cold, so the freeze score is adjusted upward.',
+    freezeNorthNote: 'Cold-winter region with a long heating season: heating and frost-proofing are normally in place, so the score is adjusted downward. Losses can still occur.',
     typhoonFreq: (yrs, total) => `Category 1+ passages occur on average once every ~${yrs} years, based on ${total} years of track data.`,
     waterMechLabels: { river: 'River flooding', surface: 'Surface water', surge: 'Storm surge' },
     dominantMech: (name) => `Dominant mechanism: <b>${name}</b>.`,
     scCurrent: 'Current', scNote: 'Score under each climate scenario (reference only — headline score always uses Current rainfall).',
     rainfallTitle: 'Rainfall intensity',
-    rainfallBody: (yrs) => `Average annual maximum 24h rainfall; return periods from a Gumbel fit to the annual maxima.${yrs && yrs < 50 ? ` The 50- and 100-year figures extrapolate beyond the ${yrs}-year record.` : ''}`,
+    rainfallBody: (yrs) => `Average annual maximum 24h rainfall; return periods are estimated statistically from the annual maxima.${yrs && yrs < 50 ? ` The 50- and 100-year figures extrapolate beyond the ${yrs}-year record.` : ''}`,
     observedLbl: (yrs) => `Observed (${yrs || '—'}yr avg)`, yearLbl: (T) => `${T}-year`,
     cmaNote: 'For reference: CMA classifies 50mm+ as rainstorm, 100mm+ as heavy rainstorm, 250mm+ as extreme rainstorm.',
-    currentNote: (pct) => `Score always uses the Current 50-year value; +1.5°C/+2°C shown for reference only (IPCC AR6 scaling, ~${pct}%/°C).`,
+    currentNote: (pct) => `Score always uses the Current 50-year value; +1.5°C/+2°C shown for reference only.`,
     terrainTitle: 'Terrain around the site (approx. 1.05km)',
     terrainBody: 'Terrain sampled from 150m elevation tiles around the site. Vertical scale exaggerated for visibility.',
     elevation: 'Elevation', terrainNoteSuffix: 'considering the surrounding ~1.05km (roughly 450m in each direction from the site) — factored into the score above.',
@@ -3434,7 +3506,7 @@ const RPT_I18N = {
     colLocation: 'Location', colCoords: 'Coordinates',
     dataUsedTitle: (d) => `Data used for this assessment (generated ${d}).`,
     provenance: { earthquakes: 'Earthquakes', typhoons: 'Typhoons', rainfall: 'Rainfall', elevation: 'Elevation', freeze: 'Freeze hazard' },
-    multiYearMean: 'multi-year mean', gumbelNote: 'CHIRPS annual maxima, Gumbel fit (see per-site year count)', resampledNote: 'JAXA AW3D30, resampled to 150 m',
+    multiYearMean: 'multi-year mean', gumbelNote: 'CHIRPS annual maxima, statistical return-period estimate', resampledNote: 'JAXA AW3D30, resampled to 150 m',
     disclaimerTitle: 'Disclaimer.',
     disclaimerBody: 'Screening-level hazard indicators from public historical and climatological data. Not a guarantee of future events, not an expected loss estimate, and not a sole basis for underwriting, pricing, or coverage decisions. Scores are relative within mainland China only. Rainfall figures beyond the observation period are statistical extrapolations. Elevation/terrain figures are for reference and not used directly in the scores.',
     copyright: (y) => `© ${y} YM @MSIG. All rights reserved.`,
@@ -3452,17 +3524,17 @@ const RPT_I18N = {
     }[kind]),
     noDataEq: '半径100km以内にM5.0以上の地震なし',
     noDataFreeze: '周辺に凍結ハザードデータなし',
-    freezeSouthNote: '暖房需要が小さい地域(日平均5℃以下の日数が少ない) — 建物・配管が寒冷地仕様でないことを考慮し割増し。',
-    freezeNorthNote: '暖房期間が長い地域(日平均5℃以下の日数が多い) — 暖房・凍結対策を考慮し減算。実際の損害は発生し得る。',
+    freezeSouthNote: '冬が温暖な地域:建物・配管が寒冷地仕様でないことが多いため、凍結スコアを上方補正しています。',
+    freezeNorthNote: '寒冷地で暖房期間が長い地域:暖房・凍結対策が通常備わっているため、スコアを下方補正しています。損害が生じ得ないわけではありません。',
     typhoonFreq: (yrs, total) => `Category 1以上の通過:約${yrs}年に1回(${total}年分のデータ)。`,
     waterMechLabels: { river: '外水氾濫', surface: '内水氾濫', surge: '高潮' },
     dominantMech: (name) => `支配的機構:<b>${name}</b>。`,
     scCurrent: '現在', scNote: '気候シナリオ別のスコア(参考値 — 見出しスコアは常に現在の降雨を使用)。',
     rainfallTitle: '降雨強度',
-    rainfallBody: (yrs) => `年間最大24時間降水量の平均値。年最大値にGumbel分布をフィットし再現期間を算出。${yrs && yrs < 50 ? `50年・100年の値は${yrs}年の記録を超える外挿。` : ''}`,
+    rainfallBody: (yrs) => `年間最大24時間降水量の平均値。年最大値から統計的に再現期間を推定。${yrs && yrs < 50 ? `50年・100年の値は${yrs}年の記録を超える外挿。` : ''}`,
     observedLbl: (yrs) => `観測値(${yrs || '—'}年平均)`, yearLbl: (T) => `${T}年確率`,
     cmaNote: '参考:中国気象局は50mm以上を暴雨、100mm以上を大暴雨、250mm以上を特大暴雨と分類。',
-    currentNote: (pct) => `スコアは常に現在の50年確率値を使用。+1.5℃/+2℃は参考値(IPCC AR6換算、約${pct}%/℃)。`,
+    currentNote: (pct) => `スコアは常に現在の50年確率値を使用。+1.5℃/+2℃は参考値。`,
     terrainTitle: '敷地周辺の地形(約1.05km)',
     terrainBody: '敷地周辺の地形を150m標高タイルからサンプリング。見やすさのため鉛直方向を誇張。',
     elevation: '標高', terrainNoteSuffix: '周辺(半径約450m)の高所と比較 — 上記スコアに反映済み。',
@@ -3470,7 +3542,7 @@ const RPT_I18N = {
     colLocation: '拠点', colCoords: '座標',
     dataUsedTitle: (d) => `本評価に使用したデータ(生成日:${d})。`,
     provenance: { earthquakes: '地震', typhoons: '台風', rainfall: '降雨', elevation: '標高', freeze: '凍結ハザード' },
-    multiYearMean: '年の多年平均', gumbelNote: 'CHIRPS年最大値、Gumbel分布フィット(地点ごとの年数は本文参照)', resampledNote: 'JAXA AW3D30、150mにリサンプリング',
+    multiYearMean: '年の多年平均', gumbelNote: 'CHIRPS年最大値、統計的な再現期間推定', resampledNote: 'JAXA AW3D30、150mにリサンプリング',
     disclaimerTitle: '免責事項。',
     disclaimerBody: '本レポートは公開の過去実績・気候データに基づくスクリーニングレベルの指標です。将来の災害発生の保証、予想損害額の見積もり、または引受・保険料算定・補償内容決定の唯一の根拠となるものではありません。スコアは中国本土内での相対値です。観測期間を超える降雨の値は統計的な外挿です。標高・地形の数値は参考値であり、スコアの算出に直接使用されるものではありません。',
     copyright: (y) => `© ${y} YM @MSIG. All rights reserved.`,
@@ -3488,17 +3560,17 @@ const RPT_I18N = {
     }[kind]),
     noDataEq: '100公里范围内无M5.0以上地震',
     noDataFreeze: '附近无冻结灾害数据',
-    freezeSouthNote: '供暖需求小的地区(日均温≤5℃天数少)——建筑与管道通常未按防寒标准建造,故上调。',
-    freezeNorthNote: '供暖期长的地区(日均温≤5℃天数多)——考虑供暖与防冻措施,故下调。仍可能发生损失。',
+    freezeSouthNote: '冬季温和地区:建筑与管道通常未按严寒标准建造,故冻结得分上调。',
+    freezeNorthNote: '严寒且供暖期长的地区:通常具备供暖与防冻措施,故得分下调,但仍可能发生损失。',
     typhoonFreq: (yrs, total) => `Category 1级以上台风:平均约每${yrs}年一次(基于${total}年数据)。`,
     waterMechLabels: { river: '河流洪水', surface: '内涝', surge: '风暴潮' },
     dominantMech: (name) => `主导机制:<b>${name}</b>。`,
     scCurrent: '当前', scNote: '各气候情景下的得分(仅供参考——总体得分始终采用当前降雨数据)。',
     rainfallTitle: '降雨强度',
-    rainfallBody: (yrs) => `年最大24小时降水量的平均值;通过对年最大值拟合Gumbel分布得出重现期。${yrs && yrs < 50 ? `50年和100年数值超出${yrs}年观测记录进行外推。` : ''}`,
+    rainfallBody: (yrs) => `年最大24小时降水量的平均值;重现期由年最大值经统计方法推算。${yrs && yrs < 50 ? `50年和100年数值超出${yrs}年观测记录进行外推。` : ''}`,
     observedLbl: (yrs) => `观测值(${yrs || '—'}年平均)`, yearLbl: (T) => `${T}年一遇`,
     cmaNote: '参考:中国气象局将50毫米以上定义为暴雨,100毫米以上为大暴雨,250毫米以上为特大暴雨。',
-    currentNote: (pct) => `得分始终采用当前的50年一遇数值;+1.5°C/+2°C仅供参考(依据IPCC AR6换算,约${pct}%/°C)。`,
+    currentNote: (pct) => `得分始终采用当前的50年一遇数值;+1.5°C/+2°C仅供参考。`,
     terrainTitle: '场地周边地形(约1.05公里)',
     terrainBody: '从150米标高瓦片采样场地周边地形。为便于观察,垂直方向已做夸张处理。',
     elevation: '标高', terrainNoteSuffix: '相较于周边(半径约450米)高地——已计入上方得分。',
@@ -3506,7 +3578,7 @@ const RPT_I18N = {
     colLocation: '地点', colCoords: '坐标',
     dataUsedTitle: (d) => `本次评估所使用的数据(生成日期:${d})。`,
     provenance: { earthquakes: '地震', typhoons: '台风', rainfall: '降雨', elevation: '标高', freeze: '冻结灾害' },
-    multiYearMean: '年多年平均', gumbelNote: 'CHIRPS年最大值,Gumbel拟合(各地点年数详见正文)', resampledNote: 'JAXA AW3D30,重采样至150米',
+    multiYearMean: '年多年平均', gumbelNote: 'CHIRPS年最大值,统计推算重现期', resampledNote: 'JAXA AW3D30,重采样至150米',
     disclaimerTitle: '免责声明。',
     disclaimerBody: '本报告基于公开的历史及气候数据,提供筛查级别的灾害指标。不构成对未来事件的保证,不是预期损失估算,也不能作为核保、定价或承保决策的唯一依据。得分仅为中国大陆范围内的相对值。超出观测期的降雨数值为统计外推结果。标高与地形数据仅供参考,未直接用于得分计算。',
     copyright: (y) => `© ${y} YM @MSIG. 保留所有权利。`,
@@ -3675,7 +3747,7 @@ async function loadScriptOnce(src) {
 function rptSafeBreakZones(pageEl, scale) {
   const rootTop = pageEl.getBoundingClientRect().top;
   const zones = [];
-  pageEl.querySelectorAll('.rpt-hero, .rpt-section, .rpt-sum-title, .rpt-sum-sub, .rpt-tbl, .rpt-footer').forEach(el => {
+  pageEl.querySelectorAll('.rpt-hero, .rpt-sec-head, .rpt-explain, .rpt-section, .rpt-sum-title, .rpt-sum-sub, .rpt-tbl, .rpt-footer').forEach(el => {
     const r = el.getBoundingClientRect();
     zones.push([(r.top - rootTop) * scale, (r.bottom - rootTop) * scale]);
   });
@@ -3855,6 +3927,34 @@ async function renderReportView(results, lang) {
     </div>`;
   };
 
+  const RPT_HC = { water: '#3F82C4', freeze: '#6EC1D8', typhoon: '#9A86D1', earthquake: '#D39A57' };
+  const RPT_CODE = { water: 'WA', freeze: 'FZ', typhoon: 'TY', earthquake: 'EQ' };
+  const EX = HAZARD_EXPLAIN_I18N[lang] || HAZARD_EXPLAIN_I18N.en;
+  const secHead = (key, ratio) => `
+        <div class="rpt-sec-head" style="--hc:${RPT_HC[key]};">
+          <div class="rpt-sec-code">${RPT_CODE[key]}</div>
+          <div class="rpt-sec-tt"><div class="rpt-sec-ttl">${T.sectionTitles[key]}</div><div class="rpt-sec-sub">${EX.sub[key]}</div></div>
+          <div class="rpt-sec-score">${typeof ratio === 'number' && !isNaN(ratio) ? `<b>${ratio.toFixed(2)}</b><span>/ 1.00</span>` : '<b>—</b>'}</div>
+        </div>`;
+  const explainBox = (key) => `
+        <div class="rpt-explain" style="--hc:${RPT_HC[key]};">
+          <p><b>${EX.labels.what}</b>　${EX[key].what}</p>
+          <p><b>${EX.labels.read}</b>　${EX[key].read}</p>
+          <p><b>${EX.labels.limit}</b>　${EX[key].limit}</p>
+        </div>`;
+  const FZ_LBL = ({
+    en: { spell: 'Longest freezing spell', days: 'days', waves: 'Cold waves per year', intensity: n => `Freezing intensity (${n}-yr level)`, dayU: 'day' },
+    ja: { spell: '最長の連続氷点下', days: '日', waves: '年間の寒波回数', intensity: n => `凍結の強さ(${n}年確率)`, dayU: '日' },
+    zh: { spell: '最长连续冰冻', days: '天', waves: '年均寒潮次数', intensity: n => `冻结强度(${n}年一遇)`, dayU: '天' },
+  })[lang] || null;
+  const CL = HAZARD_CLIMATE_I18N[lang] || HAZARD_CLIMATE_I18N.en;
+  const climateBox = (key) => `
+        <div class="rpt-explain" style="--hc:${RPT_HC[key]};">
+          <p><b>${CL.rp}</b>　${CL.items[key][0]}</p>
+          <p><b>${CL.cc}</b>　${CL.items[key][1]}</p>
+        </div>`;
+  const isCoordName = (n) => /^-?\d+(\.\d+)?\s*[,，]\s*-?\d+(\.\d+)?$/.test(String(n).trim());
+
   // --- ハザード別スコアの内訳(総合評価は出さない: ハザードごとにリスクの性質が異なるため) ---
   const heroBlock = (breakdown) => {
     if (!breakdown) return '';
@@ -3873,6 +3973,9 @@ async function renderReportView(results, lang) {
       <div class="rpt-hero">
         <div class="rpt-hero-k">${T.hazardScores}</div>
         <div class="rpt-bd">${rows}</div>
+        <div class="rpt-scale">${WARNING_TIER_COLORS.map(c => `<i style="background:${c};"></i>`).join('')}</div>
+        <div class="rpt-scale-lbl"><span>${EX.scaleLow}</span><span>${EX.scaleHigh}</span></div>
+        <div class="rpt-scale-lbl" style="display:block;margin-top:6px;line-height:1.6;color:#B9C7BB;">${EX.scaleNote}</div>
       </div>`;
   };
 
@@ -3920,12 +4023,15 @@ async function renderReportView(results, lang) {
     <div class="rpt-page">
       ${rptHead()}
       <div class="rpt-loc-name">${escapeHtml(r.name)}</div>
-      <div class="rpt-loc-coords">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
+      <div class="rpt-loc-coords">${isCoordName(r.name) ? '' : `${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}`}</div>
 
       ${heroBlock(r.data.breakdown)}
 
       <div class="rpt-section">
-        <div class="rpt-h">${T.sectionTitles.water}</div>
+        ${secHead('water', r.data.water.ratio)}
+        <div class="rpt-sec-body">
+        ${explainBox('water')}
+        ${climateBox('water')}
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].water}</div>
         ${waterMechChips(r.data.water)}
         <div style="margin-top:10px;"><span class="rpt-badge" style="background:${rptBadgeColors(r.data.water.color).bg}; color:${rptBadgeColors(r.data.water.color).text};">${r.data.water.label}</span></div>
@@ -3981,36 +4087,48 @@ async function renderReportView(results, lang) {
           <div class="rpt-desc" style="margin-top:2px;">${r.data.depLabel.text}, ${T.terrainNoteSuffix}</div>
           <div id="rptTerrain${i}" style="width:100%; height:230px;"></div>
         </div>
+        </div>
       </div>
 
       <div class="rpt-section">
-        <div class="rpt-h">${T.sectionTitles.freeze}</div>
+        ${secHead('freeze', r.data.freeze.ratio)}
+        <div class="rpt-sec-body">
+        ${explainBox('freeze')}
+        ${climateBox('freeze')}
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].freeze}</div>
         ${rptLegendBar(r.data.freeze.colors, r.data.freeze.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.freeze.color).bg}; color:${rptBadgeColors(r.data.freeze.color).text};">${r.data.freeze.label}</span>
         ${r.data.freeze.isSouth ? `<div class="rpt-comment">${T.freezeSouthNote}</div>` : (r.data.freeze.heatingFactor < 1 ? `<div class="rpt-comment">${T.freezeNorthNote}</div>` : '')}
         ${typeof r.data.freeze.fddTRef === 'number' ? `
         <div class="rpt-kv" style="margin-top:8px;">
-          <div class="rpt-kv-item"><div class="rpt-kv-k">FDD (${r.data.freeze.fddReturnPeriodYears}yr)</div><div class="rpt-kv-v">${r.data.freeze.fddTRef.toFixed(1)}°C·day</div></div>
-          <div class="rpt-kv-item"><div class="rpt-kv-k">FDD (avg, ref. only)</div><div class="rpt-kv-v">${typeof r.data.freeze.fdd === 'number' ? r.data.freeze.fdd.toFixed(1) : '—'}°C·day</div></div>
-          <div class="rpt-kv-item"><div class="rpt-kv-k">Max consec. freeze days</div><div class="rpt-kv-v">${r.data.freeze.maxConsecFreezeDays.toFixed(1)}</div></div>
-          <div class="rpt-kv-item"><div class="rpt-kv-k">Cold wave freq/yr</div><div class="rpt-kv-v">${r.data.freeze.coldWaveFreq.toFixed(2)}</div></div>
+          <div class="rpt-kv-item"><div class="rpt-kv-k">${FZ_LBL.spell}</div><div class="rpt-kv-v">${r.data.freeze.maxConsecFreezeDays.toFixed(1)} ${FZ_LBL.days}</div></div>
+          <div class="rpt-kv-item"><div class="rpt-kv-k">${FZ_LBL.waves}</div><div class="rpt-kv-v">${r.data.freeze.coldWaveFreq.toFixed(2)}</div></div>
+          <div class="rpt-kv-item"><div class="rpt-kv-k">${FZ_LBL.intensity(r.data.freeze.fddReturnPeriodYears)}</div><div class="rpt-kv-v">${r.data.freeze.fddTRef.toFixed(1)}°C·${FZ_LBL.dayU}</div></div>
         </div>` : ''}
+        </div>
       </div>
 
       <div class="rpt-section">
-        <div class="rpt-h">${T.sectionTitles.typhoon}</div>
+        ${secHead('typhoon', r.data.typhoon.ratio)}
+        <div class="rpt-sec-body">
+        ${explainBox('typhoon')}
+        ${climateBox('typhoon')}
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].typhoon}</div>
         ${typhoonTierBand(r.data.typhoon)}
         <div style="margin-top:10px;"><span class="rpt-badge" style="background:${rptBadgeColors(r.data.typhoon.color).bg}; color:${rptBadgeColors(r.data.typhoon.color).text};">${r.data.typhoon.label}</span></div>
         ${r.data.typhoon.freq && r.data.typhoon.freq.observed ? `<div class="rpt-comment">${T.typhoonFreq(r.data.typhoon.freq.returnPeriod.toFixed(1), r.data.typhoon.freq.totalYears)}</div>` : ''}
+        </div>
       </div>
 
       <div class="rpt-section">
-        <div class="rpt-h">${T.sectionTitles.earthquake}</div>
+        ${secHead('earthquake', r.data.earthquake.ratio)}
+        <div class="rpt-sec-body">
+        ${explainBox('earthquake')}
+        ${climateBox('earthquake')}
         <div class="rpt-desc">${HAZARD_DESCRIPTIONS_I18N[lang].earthquake}</div>
         ${rptLegendBar(r.data.earthquake.colors, r.data.earthquake.ratio)}
         <span class="rpt-badge" style="background:${rptBadgeColors(r.data.earthquake.color).bg}; color:${rptBadgeColors(r.data.earthquake.color).text};">${r.data.earthquake.label}</span>
+        </div>
       </div>
 
       ${rptFooter}
