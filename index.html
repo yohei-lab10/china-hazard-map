@@ -3292,6 +3292,7 @@ document.getElementById('searchBtn').addEventListener('click', () => {
 // レポートは常に4種類すべてを計算するため、内部のリスク判定関数(earthquakeRiskInfo等)を
 // 直接呼び出す専用の計算パイプラインをここに用意する(DOM更新やactiveLayersには依存しない)。
 let reportLocations = [{ name: '', lat: '', lon: '' }];
+let reportLocAutoFilled = false; // Location 1が検索地点からの自動入力のままか
 
 // 【2026年9月】レポートの多言語対応にともない、各ハザードの説明文はHAZARD_DESCRIPTIONS_I18N
 // (英/日/中・簡潔版)に統合した。長い方法論の詳細は本文からは外し、免責事項(rptFooter)で
@@ -3379,9 +3380,16 @@ const HAZARD_CLIMATE_I18N = {
 // パネルが表示中であれば、その場でリストを再描画して反映する。
 function syncReportLocationFromSearch(lat, lon) {
   if (reportLocations.length !== 1) return;
-  if (reportLocations[0].lat !== '' || reportLocations[0].lon !== '') return;
-  reportLocations[0].lat = String(lat);
-  reportLocations[0].lon = String(lon);
+  // 空欄、または前回の検索から自動入力した値のままなら、新しい検索地点で更新する。
+  // ユーザーが手で編集した場合(reportLocAutoFilled=false)は上書きしない。
+  const empty = reportLocations[0].lat === '' && reportLocations[0].lon === '';
+  if (!empty && !reportLocAutoFilled) return;
+  reportLocations[0].lat = String(Number(lat.toFixed(6)));
+  reportLocations[0].lon = String(Number(lon.toFixed(6)));
+  reportLocAutoFilled = true;
+  // 検索結果の座標はWGS84へ変換済みなので、レポート側の座標系もWGS84に合わせる(二重変換の防止)
+  const wgs = document.querySelector('input[name="reportCoordSystem"][value="wgs84"]');
+  if (wgs) wgs.checked = true;
   const panel = document.getElementById('reportPanel');
   if (panel && panel.innerHTML) {
     renderReportLocList();
@@ -3445,6 +3453,7 @@ function renderReportLocList() {
   el.querySelectorAll('input[data-field]').forEach(inp => {
     inp.addEventListener('input', () => {
       reportLocations[+inp.dataset.idx][inp.dataset.field] = inp.value;
+      reportLocAutoFilled = false; // 手入力したら以後は自動上書きしない
     });
   });
   el.querySelectorAll('.report-loc-remove').forEach(btn => {
