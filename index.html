@@ -1833,6 +1833,7 @@ function lakeAreaFactor(areaKm2) {
 const ELEV_TILE_PX = 720;
 const ELEV_TILE_DIR = 'data/elevation_tiles/';
 const elevTileCache = new Map(); // "N034E113" -> Promise<GeoTIFFImage>
+const elevTileErrors = new Map(); // タイルごとの読み込み失敗理由(原因切り分け用に画面とコンソールへ出す)
 
 function elevTileKey(latFloor, lonFloor) {
   const la = String(latFloor).padStart(3, '0');
@@ -1844,9 +1845,10 @@ function loadElevTile(latFloor, lonFloor) {
   const key = elevTileKey(latFloor, lonFloor);
   if (!elevTileCache.has(key)) {
     elevTileCache.set(key, (async () => {
+      if (typeof GeoTIFF === 'undefined') throw new Error('geotiff library not loaded (CDN blocked?)');
       const tiff = await GeoTIFF.fromUrl(`${ELEV_TILE_DIR}${key}.tif`);
       return await tiff.getImage();
-    })().catch(() => null));
+    })().catch((e) => { elevTileErrors.set(key, String(e && e.message || e)); console.error('elevation tile load failed', key, e); return null; }));
   }
   return elevTileCache.get(key);
 }
@@ -1891,6 +1893,8 @@ async function loadElevationBlock(lat, lon, halfPx) {
     try {
       raster = await image.readRasters({ window: [left, top, right + 1, bottom + 1] });
     } catch (e) {
+      elevTileErrors.set(elevTileKey(latFloor, lonFloor), 'read error: ' + String(e && e.message || e));
+      console.error('elevation tile read failed', e);
       return;
     }
     const band = raster[0];
@@ -2916,10 +2920,13 @@ function metersToDegLon(m, lat) { return m / (111000 * Math.cos(lat * Math.PI / 
 // 標高タイルから複数地点の標高をまとめて取得する。タイルが存在しない範囲
 // (パミール高原・モンゴル国内の一部)では null を返すので、呼び出し側で
 // Open-Elevation にフォールバックする。
+let elevLastMissing = null; // 直近のタイル参照で値が取れなかった地点数(原因切り分け用)
 async function elevationsFromTiles(block, locations) {
   if (!block || !block.ok) return null;
   const out = locations.map(l => block.get(l.latitude, l.longitude));
-  return out.some(v => v === null || typeof v !== 'number') ? null : out;
+  const missing = out.filter(v => v === null || typeof v !== 'number').length;
+  elevLastMissing = { missing, total: out.length };
+  return missing ? null : out;
 }
 
 async function fetchElevations(locations) {
@@ -3203,7 +3210,7 @@ async function queryPoint(lat, lon) {
     map.invalidateSize();
     centerOnPoint(lat, lon, Math.max(map.getZoom(), 13));
   } catch (e) {
-    resultEl.innerHTML = '<div class="empty-card"><div class="ec-title">Could not evaluate this point</div><div class="ec-text">Could not fetch elevation data. Please try again shortly.</div></div>';
+    resultEl.innerHTML = '<div class="empty-card"><div class="ec-title">Could not evaluate this point</div><div class="ec-text">Could not fetch elevation data. Please try again shortly.' + (elevTileErrors.size ? '<br><small>Tile errors: ' + Array.from(elevTileErrors.entries()).map(([k, v]) => k + ' — ' + escapeHtml(v)).join('; ') + '</small>' : '<br><small>Elevation tiles (JAXA) returned no value for ' + (elevLastMissing ? elevLastMissing.missing + ' of ' + elevLastMissing.total + ' sample points' : 'this point') + ' (tile file missing or unreadable); the external fallback API also failed.</small>') + '</div></div>';
   }
 }
 
@@ -3217,15 +3224,17 @@ function outOfChina(lat, lon) {
 function gcj02Delta(lat, lon) {
   const a = 6378245.0;
   const ee = 0.00669342162296594323;
-  let dLat = -100.0 + 2.0 * lon + 3.0 * lat + 0.2 * lat * lat + 0.1 * lon * lat + 0.2 * Math.sqrt(Math.abs(lon));
-  dLat += (20.0 * Math.sin(6.0 * lon * Math.PI) + 20.0 * Math.sin(2.0 * lon * Math.PI)) * 2.0 / 3.0;
-  dLat += (20.0 * Math.sin(lat * Math.PI) + 40.0 * Math.sin(lat / 3.0 * Math.PI)) * 2.0 / 3.0;
-  dLat += (160.0 * Math.sin(lat / 12.0 * Math.PI) + 320 * Math.sin(lat * Math.PI / 30.0)) * 2.0 / 3.0;
+  // 標準アルゴリズム(eviltransform等)は、経度-105・緯度-35を基準にした多項式で補正量を計算する
+  const x = lon - 105.0, y = lat - 35.0;
+  let dLat = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  dLat += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+  dLat += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
+  dLat += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
 
-  let dLon = 300.0 + lon + 2.0 * lat + 0.1 * lon * lon + 0.1 * lon * lat + 0.1 * Math.sqrt(Math.abs(lon));
-  dLon += (20.0 * Math.sin(6.0 * lon * Math.PI) + 20.0 * Math.sin(2.0 * lon * Math.PI)) * 2.0 / 3.0;
-  dLon += (20.0 * Math.sin(lon * Math.PI) + 40.0 * Math.sin(lon / 3.0 * Math.PI)) * 2.0 / 3.0;
-  dLon += (150.0 * Math.sin(lon / 12.0 * Math.PI) + 300.0 * Math.sin(lon / 30.0 * Math.PI)) * 2.0 / 3.0;
+  let dLon = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  dLon += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+  dLon += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
+  dLon += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
 
   const radLat = lat / 180.0 * Math.PI;
   let magic = Math.sin(radLat);
