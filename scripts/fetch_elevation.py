@@ -22,6 +22,19 @@ Open-Elevation の値で静かに上書きされる状態になっていた(ジ�
 その格子全体が最低標高になってしまう。そのため既定は平均(mean)とする。
 --agg min で最小値に切り替えられるようにはしてある。
 
+海の扱いについて(2026年10月修正)
+------------------------------------
+AW3D30 は海面を 0 で埋めている。旧版は海の画素も平均に含めていたため、
+(1) 全域が海のタイル(フィリピン海など)が「平均0m=標高区分1.0(最も低い区分)」の点として
+    出力され、凍結ハザード側で国外・海上の点が混入する原因になっていた
+(2) 海岸のタイルは、半分が海だと陸の標高が高くても平均が極端に下がり、ヒートマップの
+    高潮判定に渡す標高が実態より低くなった
+なお、このファイルの risk / mean_elev_m は標高だけから決まる値である。水害ハザード全体は
+外水・内水・高潮の3機構の最大値で、高潮の入力としてこの標高を使い(海岸線までの距離でも
+減衰する)、外水・内水は河川近接・降雨強度などから別に計算する(index.html参照)。
+そこで、標高が 0 m を超える画素(陸)だけで代表標高を出し、陸の画素が1つもないタイルは
+出力しないことにした。出力する各点には、陸の割合(land_frac)も付ける。
+
 なお、この値はあくまで概算である。正確な標高は地点検索側が150mタイルから直接読む。
 
 使い方
@@ -41,6 +54,10 @@ import rasterio
 
 TILE_PX = 720
 NODATA_THRESHOLD_M = -1000.0
+# この値を超える画素を「陸」とみなす(AW3D30 は海面を 0 で埋めている)。
+LAND_THRESHOLD_M = 0.0
+# 読み込みに失敗したタイルがこの割合を超えたら書き出さない
+MAX_FAILED_RATIO = 0.1
 
 # 海抜の閾値とリスク値。index.html の elevFromGridProps() が
 # risk 1.0/0.75/0.4/0.1 を代表標高 2/4/7/50m に読み戻すため、
@@ -86,6 +103,8 @@ def main():
 
     features = []
     failed = []
+    skipped_nodata = []
+    skipped_sea = []
     for n, name in enumerate(tiles, 1):
         addr = parse_tile_name(name)
         if addr is None:
@@ -104,10 +123,17 @@ def main():
         if valid.size == 0:
             # 無効値だけのタイルは、0m(=最高リスク)と誤解されないよう出力しない。
             # 「データが無い」は「安全」でも「危険」でもない。
+            skipped_nodata.append(name)
             print(f'  スキップ(有効画素なし): {name}')
             continue
 
-        elev = float(np.mean(valid)) if args.agg == 'mean' else float(np.min(valid))
+        land = valid[valid > LAND_THRESHOLD_M]
+        if land.size == 0:
+            # 全域が海(標高0)のタイル。陸の標高が無いので、リスク1.0の点として出さない。
+            skipped_sea.append(name)
+            continue
+
+        elev = float(np.mean(land)) if args.agg == 'mean' else float(np.min(land))
         features.append({
             'type': 'Feature',
             'geometry': {'type': 'Point', 'coordinates': [lon0 + 0.5, lat0 + 0.5]},
@@ -115,20 +141,27 @@ def main():
                 'risk': elev_to_risk(elev),
                 'mean_elev_m': round(elev, 1),
                 'agg': args.agg,
+                'land_frac': round(float(land.size) / float(valid.size), 2),
             },
         })
         if n % 200 == 0:
             print(f'  {n}/{len(tiles)} 枚')
 
-    print(f'生成した地点: {len(features):,}')
+    print(f'生成した地点: {len(features):,} / タイル {len(tiles):,} 枚')
+    print(f'  除外: 全域が海 {len(skipped_sea)} 枚, 有効画素なし {len(skipped_nodata)} 枚, '
+          f'読み込み失敗 {len(failed)} 枚')
     if failed:
         print(f'読み込みに失敗したタイル: {len(failed)} 枚 — {", ".join(failed[:10])}')
 
-    # タイルが大量に落ちた状態で上書きすると、ヒートマップに穴が空いたまま
-    # 気づかない。1割以上落ちたら書き出さない。
-    if len(features) < len(tiles) * 0.9:
-        print(f'エラー: 生成できた地点が少なすぎます({len(features)}/{len(tiles)})。'
+    # タイルが大量に読めない状態で上書きすると、ヒートマップに穴が空いたまま
+    # 気づかない。1割を超えて読み込みに失敗したら書き出さない。
+    # (海だけのタイルを意図的に除外するため、旧版の「生成数/タイル数」では判定しない)
+    if len(failed) > len(tiles) * MAX_FAILED_RATIO:
+        print(f'エラー: 読み込みに失敗したタイルが多すぎます({len(failed)}/{len(tiles)})。'
               f'書き出しを中止します', file=sys.stderr)
+        return 1
+    if not features:
+        print('エラー: 1点も生成できませんでした。書き出しを中止します', file=sys.stderr)
         return 1
 
     # 書き込み途中で落ちても既存の正常なファイルを壊さないよう、一時ファイル経由で置換する
