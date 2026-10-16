@@ -156,6 +156,9 @@ EFFECTIVE_HUMIDITY_DECAY = 0.7           # 実効湿度の減衰係数(気象庁
 EFFECTIVE_HUMIDITY_LOOKBACK_DAYS = 6     # 遡って加重平均に含める日数
 RADIATIVE_TEMP_RANGE_C = (0.0, 5.0)
 
+# 生成できた地点数が対象地点数のこの割合を下回ったら、書き出さずに異常終了する
+MIN_SUCCESS_RATIO = 0.9
+
 RETRY = 3
 RETRY_WAIT_SEC = 10
 REQUEST_TIMEOUT_SEC = 60
@@ -234,6 +237,15 @@ def fetch_power_daily(lat, lon, start, end):
                 time.sleep(RETRY_WAIT_SEC)
     print(f"  [WARN] lat={lat} lon={lon}: 取得失敗 ({last_err})", file=sys.stderr)
     return None
+
+
+def season_of(d):
+    """YYYYMMDD -> 冬季シーズン(7月〜翌6月)の番号。翌年6月までを含む年(終了年)で表す。
+    例: 2009-12-20 も 2010-02-10 も 2010。
+    【2026年10月修正】年最大値・年最悪の寒潮階級を暦年(1〜12月)で区切ると、同じ冬の
+    12月の寒波と1〜2月の寒波が別の年に割り振られ、逆に別々の冬の寒波が同じ年に
+    混ざっていた。冬は暦年をまたぐため、7月始まりのシーズンを単位とする。"""
+    return int(d[:4]) + (1 if int(d[4:6]) >= 7 else 0)
 
 
 def _valid(v):
@@ -362,7 +374,7 @@ def compute_indices(daily):
     dates_sorted = sorted(t2m_min.keys())
     if not dates_sorted:
         return None
-    n_years = len(set(d[:4] for d in dates_sorted))
+    n_years = len(set(season_of(d) for d in dates_sorted))  # シーズン数
     if n_years == 0:
         return None
 
@@ -402,7 +414,7 @@ def compute_indices(daily):
     max_run_fdd_by_year = {}
     max_consec_by_year = {}
     for start, length, run_fdd in runs:
-        y = start[:4]
+        y = season_of(start)
         if run_fdd > max_run_fdd_by_year.get(y, -1):
             max_run_fdd_by_year[y] = run_fdd
             max_consec_by_year[y] = length  # 同じ(最もFDDが大きかった)runの連続日数
@@ -419,7 +431,14 @@ def compute_indices(daily):
     # 揃えて10年としている(2026年9月、当初の25年案から変更)。較正イベントが
     # 実際に何年再現期間に相当するかはcalibrate_freeze_thresholds.pyで
     # 逆算済み(貴陽43年・長沙68年など、事例ごとに稀さが大きく異なることが判明)。
-    fdd_series = list(max_run_fdd_by_year.values())
+    # 【2026年10月修正】氷点下日が1日もなかった年は max_run_fdd_by_year に入らないため、
+    # 以前は「凍結した年だけ」の系列にGumbelを当てていた。これだと、20年中2年しか
+    # 凍らない南方の地点でも、その2年の値から10年再現値を出してしまい過大評価になる
+    # (1年だけ凍った地点は、その1年のFDDがそのまま fdd_t_ref になっていた)。
+    # 年最大値法では「その年の最大値」が全年分必要なので、凍らなかった年は FDD=0 として
+    # 全観測年を系列に入れる(降雨の年最大値が毎年存在するのと同じ形にそろえる)。
+    all_years = sorted(set(season_of(d) for d in dates_sorted))
+    fdd_series = [max_run_fdd_by_year.get(y, 0.0) for y in all_years]
     gumbel = fit_gumbel(fdd_series)
     if gumbel is not None:
         gumbel_mu, gumbel_beta = gumbel
@@ -429,6 +448,7 @@ def compute_indices(daily):
         # 観測年数が少なすぎてGumbelフィットが信頼できない場合は、
         # 単純平均にフォールバックする(降雨強度がyears_used不足の地点で
         # 再現期間の行自体を表示しないのと同様、呼び出し側で扱いを変える余地を残す)
+        # (全年0=一度も凍らない地点もここに来る。全観測年で割った平均なので0になる)
         gumbel_mu, gumbel_beta = None, None
         fdd_t_ref = sum(fdd_series) / len(fdd_series) if fdd_series else 0.0
     fdd_annual_mean = sum(max_run_fdd_by_year.values()) / n_years if max_run_fdd_by_year else 0.0
@@ -444,7 +464,7 @@ def compute_indices(daily):
         tier = _cold_wave_tier_for_day(i, dates_sorted, t2m_min, ws2m)
         if tier >= 1:
             cold_wave_count += 1  # 蓝色以上を1回とカウント(診断用、旧来と同じ定義)
-        y = d[:4]
+        y = season_of(d)
         if tier > max_tier_by_year.get(y, 0):
             max_tier_by_year[y] = tier
     cold_wave_annual_freq = cold_wave_count / n_years
@@ -495,8 +515,10 @@ def main():
     parser = argparse.ArgumentParser(description="凍結ハザード(freeze_risk.geojson)を生成する")
     parser.add_argument("--elevation", default="data/elevation_risk.geojson",
                          help="グリッド定義を再利用する既存ファイル")
-    parser.add_argument("--start-year", type=int, default=2006)
-    parser.add_argument("--end-year", type=int, default=2025)
+    parser.add_argument("--start-year", type=int, default=2006,
+                         help="最初のシーズンの終了年(2006なら2005年7月〜2006年6月から)")
+    parser.add_argument("--end-year", type=int, default=2025,
+                         help="最後のシーズンの終了年(2025なら〜2025年6月まで)")
     parser.add_argument("--out", default="data/freeze_risk.geojson")
     parser.add_argument("--limit", type=int, default=None,
                          help="デバッグ用: 先頭N地点のみ処理して動作確認する")
@@ -507,7 +529,10 @@ def main():
         points = points[: args.limit]
     print(f"対象グリッド点数: {len(points)}")
 
-    start, end = f"{args.start_year}0101", f"{args.end_year}1231"
+    # シーズン(7月〜翌6月)を欠けなく揃えるため、start_year-1年7月〜end_year年6月を取得する。
+    # 既定(2006〜2025)なら 2005-07-01〜2025-06-30 の完全な20シーズン。
+    # 暦年のどの日も同じ回数(20回)ずつ含まれるため、暖房日数の日別気候値にも影響しない。
+    start, end = f"{args.start_year - 1}0701", f"{args.end_year}0630"
     features = []
     for i, (lon, lat) in enumerate(points, 1):
         print(f"[{i}/{len(points)}] lat={lat} lon={lon}")
@@ -524,12 +549,19 @@ def main():
             "properties": idx,
         })
 
+    # 【2026年10月追加】取得失敗の地点が多いまま(最悪0件で)上書き・コミットされるのを防ぐ。
+    # fetch_elevation.py と同じく、9割未満しか生成できなかったら書き出さない。
+    if not features or len(features) < len(points) * MIN_SUCCESS_RATIO:
+        print(f"エラー: 生成できた地点が少なすぎます({len(features)}/{len(points)})。"
+              f"NASA POWER側の障害の可能性があります。既存ファイルは変更せず終了します", file=sys.stderr)
+        sys.exit(1)
+
     geojson = {
         "type": "FeatureCollection",
         "properties": {
             "generated": date.today().isoformat(),
             "source": "NASA POWER (power.larc.nasa.gov), community=AG",
-            "period": f"{args.start_year}-{args.end_year}",
+            "period": f"{args.start_year - 1}-07 to {args.end_year}-06 ({args.end_year - args.start_year + 1} winter seasons)",
             "note": ("①fdd_t_ref(fdd_return_period_years年再現期間相当のFDD。年ごとの"
                      "最悪1連続結氷イベントの系列にGumbel分布をフィットして算出。"
                      "統合スコアはこちらを使用) ①fdd(参考値: 単純な複数年平均、スコア不使用) "
