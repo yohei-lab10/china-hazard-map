@@ -74,8 +74,9 @@ REQUEST_TIMEOUT_SEC = 60
 
 # fetch_freeze.pyのFDD_REFERENCE_RETURN_PERIOD_YEARSと同じ範囲・値。
 # 依存を避けるためこのファイル単体で完結させる(他のfetch_*.pyと同じ方針)。
-FULL_HISTORY_START = "20060101"
-FULL_HISTORY_END = "20251231"
+# fetch_freeze.pyと同じ、7月始まりの完全な20シーズン(2005-07-01〜2025-06-30)
+FULL_HISTORY_START = "20050701"
+FULL_HISTORY_END = "20250630"
 
 # (イベント名, 都市名, 緯度, 経度, 開始日 YYYYMMDD, 終了日 YYYYMMDD)
 # 緯度経度は各都市庁舎付近の概算値。要検証。
@@ -111,6 +112,11 @@ def fetch_power_daily(lat, lon, start, end):
                 time.sleep(RETRY_WAIT_SEC)
     print(f"  [WARN] 取得失敗: {last_err}", file=sys.stderr)
     return None
+
+
+def season_of(d):
+    """YYYYMMDD -> 冬季シーズン(7月〜翌6月)の終了年。fetch_freeze.pyと同じ定義。"""
+    return int(d[:4]) + (1 if int(d[4:6]) >= 7 else 0)
 
 
 def _valid(v):
@@ -170,10 +176,13 @@ def yearly_max_event_fdd_series(daily):
         runs.append((current_start, current_len, current_fdd))
     max_run_fdd_by_year = {}
     for start, length, run_fdd in runs:
-        y = start[:4]
+        y = season_of(start)
         if run_fdd > max_run_fdd_by_year.get(y, -1):
             max_run_fdd_by_year[y] = run_fdd
-    return max_run_fdd_by_year
+    # 【2026年10月修正】氷点下日のなかった年はFDD=0として全観測年を系列に入れる
+    # (fetch_freeze.pyと同じ。入れないと「凍った年だけ」の分布になり、再現期間を過小評価する)。
+    all_years = sorted(set(season_of(d) for d in dates_sorted))
+    return {y: max_run_fdd_by_year.get(y, 0.0) for y in all_years}
 
 
 def event_fdd(daily):
