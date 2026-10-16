@@ -117,9 +117,9 @@ def main():
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
                 zf.extractall(tmpdir)
 
-            shp_path = find_shp(tmpdir)
+            shp_path = find_vector_file(tmpdir)
             if shp_path is None:
-                raise FileNotFoundError("ダウンロードしたzip内に.shpファイルが見つかりませんでした")
+                raise FileNotFoundError("zip内に対応する地理空間ファイル(.shp/.gpkg/.geojson)が見つかりませんでした")
 
             print(f"[fetch_rivers] Shapefile読み込み中: {shp_path}", flush=True)
             gdf = gpd.read_file(shp_path)
@@ -143,6 +143,8 @@ def main():
         geom = row.geometry
         if geom is None or geom.is_empty:
             continue
+        if geom.geom_type == "MultiLineString":
+            geom = max(geom.geoms, key=lambda g: g.length)  # 最長パートを採用(HydroRIVERSでは通常発生しない)
         coords = list(geom.coords)
         features.append({
             "type": "Feature",
@@ -153,8 +155,13 @@ def main():
         })
 
     geojson = {"type": "FeatureCollection", "features": features}
-    with open(args.out, "w", encoding="utf-8") as f:
+    if not features:
+        raise SystemExit("エラー: 1本も河川を抽出できませんでした。書き出しを中止します")
+    # 書き込み途中で落ちても既存の正常なファイルを壊さないよう、一時ファイル経由で置換する
+    tmp_path = args.out + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(geojson, f, ensure_ascii=False)
+    os.replace(tmp_path, args.out)
 
     print(f"[fetch_rivers] {len(features)}本の河川を {args.out} に保存しました", flush=True)
 
