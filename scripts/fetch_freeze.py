@@ -53,7 +53,11 @@ scripts/fetch_freeze.py
       中央気象台の寒潮予警信号(蓝色/黄色/橙色の3段階)を採用:
         - 蓝色: GB/T 20484-2017の基本寒潮定義(24h降温8℃以上、または48h
           10℃以上、または72h12℃以上、かつ最低気温4℃以下)
-        - 橙色: 24h降温12℃以上、かつ最低気温0℃以下、かつ風力6級(10.8m/s)以上
+        - 橙色: 24h降温12℃以上、かつ最低気温0℃以下
+          【2026年10月】CMA原基準の「風力6級以上」は外した。CMAは予報区域内の10m風
+          (瞬間的・局地的)を見るが、NASA POWERは約50km格子の2m日平均風速で、
+          10.8m/s以上の日が事実上存在せず橙色が全点でほぼ発火しなかったため
+          (旧版: 重症度0.66超は2点のみ)
         - 黄色: 蓝色と橙色の間に位置する暫定基準(24h降温10℃以上、かつ
           最低気温4℃以下)。中央気象台の正式な数値基準を確認できなかった
           ための暫定値であり要検証。
@@ -83,7 +87,7 @@ scripts/fetch_freeze.py
 【データソース】
   NASA POWER Daily Point API(認証・APIキー不要・無料)
   https://power.larc.nasa.gov/api/temporal/daily/point
-  取得パラメータ: T2M, T2M_MIN, WS2M (community=AG)
+  取得パラメータ: T2M, T2M_MIN (community=AG)
 
 【グリッド】
   中国の陸域境界を独自に再定義せず、既存の data/elevation_risk.geojson
@@ -91,8 +95,7 @@ scripts/fetch_freeze.py
   座標をそのまま再利用する。海上・国外への無駄なAPI呼び出しを避けるため。
 
 【暫定値・要検証】
-  ②の最低気温閾値(4℃)は国家標準どおりだが、④の閾値(雲量30%/風速3m/s/
-  湿度50%)および最終スコアへの重み付け(α, β, γ)は設計レビュー時点の
+  ②の最低気温閾値(4℃)は国家標準どおりだが、黄色基準および最終スコアの係数は
   仮置き。実データのヒストグラムを確認してから調整する前提
   (降雨強度で10年再現期間を採用した際と同じプロセスを踏襲)。
   本スクリプトは①②④の生値のみを出力し、統合スコアの計算はUI側
@@ -110,7 +113,7 @@ from datetime import date
 import requests
 
 POWER_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
-POWER_PARAMETERS = "T2M,T2M_MIN,WS2M"
+POWER_PARAMETERS = "T2M,T2M_MIN"
 POWER_COMMUNITY = "AG"
 
 # 中央気象台の寒潮予警信号(3段階)。蓝色はGB/T 20484-2017の基本寒潮定義。
@@ -122,7 +125,6 @@ COLD_WAVE_YELLOW_MIN_TEMP_C = 4.0   # 【暫定・要検証】
 COLD_WAVE_YELLOW_DROP_24H_C = 10.0  # 【暫定・要検証】
 COLD_WAVE_ORANGE_MIN_TEMP_C = 0.0
 COLD_WAVE_ORANGE_DROP_24H_C = 12.0
-COLD_WAVE_ORANGE_WIND_MS = 10.8  # 風力6級の下限(ボーフォート風力階級)
 COLD_WAVE_TIER_VALUE = {0: 0.0, 1: 0.33, 2: 0.66, 3: 1.0}  # 蓝=1, 黄=2, 橙=3
 
 # ①FDDのGumbel分布から読み取る参照再現期間(年)。暫定値・要検証。
@@ -235,7 +237,7 @@ def _valid(v):
     return v is not None and v > -900
 
 
-def _cold_wave_tier_for_day(i, dates_sorted, t2m_min, ws2m):
+def _cold_wave_tier_for_day(i, dates_sorted, t2m_min):
     """i日目(dates_sorted[i])が中央気象台の寒潮予警のどの階級に該当するか。
     0=非該当, 1=蓝色, 2=黄色, 3=橙色。"""
     tmin_today = t2m_min.get(dates_sorted[i])
@@ -252,11 +254,9 @@ def _cold_wave_tier_for_day(i, dates_sorted, t2m_min, ws2m):
         return tmin_prev - tmin_today
 
     d1 = drop(1)
-    wind_today = ws2m.get(dates_sorted[i])
-    # 橙色: 24h降温12℃以上 かつ 最低気温0℃以下 かつ 風力6級(10.8m/s)以上
+    # 橙色: 24h降温12℃以上 かつ 最低気温0℃以下(風力条件は2026年10月に除外)
     if (d1 is not None and d1 >= COLD_WAVE_ORANGE_DROP_24H_C
-            and tmin_today <= COLD_WAVE_ORANGE_MIN_TEMP_C
-            and _valid(wind_today) and wind_today >= COLD_WAVE_ORANGE_WIND_MS):
+            and tmin_today <= COLD_WAVE_ORANGE_MIN_TEMP_C):
         return 3
     # 黄色(暫定・要検証): 24h降温10℃以上 かつ 最低気温4℃以下
     if (d1 is not None and d1 >= COLD_WAVE_YELLOW_DROP_24H_C
@@ -324,7 +324,6 @@ def compute_indices(daily):
     """1地点分の日次時系列から ①FDD ②寒潮の重症度 ③暖房日数を算出。"""
     t2m = daily.get("T2M", {})
     t2m_min = daily.get("T2M_MIN", {})
-    ws2m = daily.get("WS2M", {})
 
     dates_sorted = sorted(t2m_min.keys())
     if not dates_sorted:
@@ -418,7 +417,7 @@ def compute_indices(daily):
     cold_wave_count = 0
     max_tier_by_year = {}
     for i, d in enumerate(dates_sorted):
-        tier = _cold_wave_tier_for_day(i, dates_sorted, t2m_min, ws2m)
+        tier = _cold_wave_tier_for_day(i, dates_sorted, t2m_min)
         if tier >= 1:
             cold_wave_count += 1  # 蓝色以上を1回とカウント(診断用、旧来と同じ定義)
         y = season_of(d)
