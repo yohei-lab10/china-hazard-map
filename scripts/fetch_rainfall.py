@@ -248,10 +248,20 @@ def fetch_daily_raster_max_per_cell(day, grid_points):
     values = []
     with MemoryFile(raw) as memfile:
         with memfile.open() as src:
+            # 【2026年10月修正】以前は src.read(1) をグリッド点ごとのループ内で呼んでおり、
+            # 全地球ラスター(約1,400万画素)を点の数(約2,000回)だけ読み直していた。
+            # 1日1回だけ読み込んで使い回す。
+            band = src.read(1)
+            n_rows, n_cols = band.shape
             for lat, lon in grid_points:
                 try:
                     row, col = src.index(lon, lat)
-                    val = src.read(1)[row, col]
+                    # 範囲外の行・列は、負の値だとNumPyの末尾からの添字として
+                    # 黙って別の画素を返してしまうため、ここで明示的に除外する
+                    if not (0 <= row < n_rows and 0 <= col < n_cols):
+                        values.append(None)
+                        continue
+                    val = band[row, col]
                     # CHIRPSのno-data値(-9999)を除外
                     values.append(float(val) if val > -9000 else None)
                 except (IndexError, ValueError):
