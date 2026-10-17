@@ -28,7 +28,9 @@ max_wind_ktは後方互換のため引き続き出力する(古い実装のフ�
 (USA_R34_NE/SE/SW/NW、4方位別、単位nmile)の平均値をkmに変換し、
 properties.r34_km(coordinatesと同じ並び順の配列、欠測はnull)として保持する。
 34ktは国際的に「暴風域(gale-force wind)」の目安とされる閾値。
-本来は4方位で非対称な形をしているが、簡略化のため4方位の平均値による円で近似している。
+本来は4方位で非対称な形をしているが、簡略化のため円で近似している。
+【2026年10月改訂】円の半径は、4方位の平均値から「4象限の面積の合計と等しい円の半径」に
+変更した(0を欠測扱いしていた誤りの修正。詳細はcompute_r34_km()参照)。
 """
 import argparse
 import json
@@ -101,16 +103,24 @@ def filter_china_typhoons(df: pd.DataFrame, start_date: datetime) -> pd.DataFram
 
 
 def compute_r34_km(row) -> float:
-    """4方位(NE/SE/SW/NW)のR34(nmile)のうち、有効な値だけの平均をkmに変換して返す。
-    全方位が欠測(0またはNaN、IBTrACSでは未観測時に-999等が入ることもある)ならNoneを返す。"""
+    """4方位(NE/SE/SW/NW)のR34(nmile)から、等面積の円の半径(km)を返す。
+
+    【2026年10月修正】以前は 0 を欠測扱いにして除外し、残った方位の単純平均をとっていた。
+    しかしIBTrACSの 0 は「その象限には34kt以上の風が及んでいない」という有効な値で、
+    欠測は空欄(NaN)または負の値である。0 を除くと、例えば NE=120・他の3方位=0 の
+    非対称な台風が、半径120kmの円(面積が実際の4倍)として扱われていた。
+    4つの象限(各1/4円)の面積の合計と同じ面積の円に直すと半径は
+    sqrt((r1²+r2²+r3²+r4²)/4) となる(NE=120・他0 なら60km)。有効な象限だけで平均する点は従来どおり。
+    有効な値が無い、またはすべて0(34kt未満など)の場合は None を返す。"""
     vals = []
     for col in R34_COLUMNS:
         v = row.get(col)
-        if pd.notna(v) and v > 0:
+        if pd.notna(v) and v >= 0:
             vals.append(float(v))
-    if not vals:
+    if not vals or max(vals) <= 0:
         return None
-    return (sum(vals) / len(vals)) * NMILE_TO_KM
+    r_eq_nmile = (sum(v * v for v in vals) / len(vals)) ** 0.5
+    return r_eq_nmile * NMILE_TO_KM
 
 
 def to_geojson(df: pd.DataFrame) -> dict:
