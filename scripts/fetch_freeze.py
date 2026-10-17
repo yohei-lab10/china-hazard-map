@@ -75,29 +75,15 @@ scripts/fetch_freeze.py
       別途一度限りで手動生成する(gen_heating_boundary.py 参照)。
       南方(境界より南)にのみ割増し係数として適用する想定。
 
-  ④ 放射冷却リスク 【2026年9月改訂: 各条件を公式な気象基準に揃えた】
-      放射性霜の気象学的な条件(快晴・弱風・乾燥な夜に地表が気温以上に
-      冷える現象)を、恣意的な数値ではなく既存の公式基準で近似:
-        - 快晴: 雲量(CLOUD_AMT) < 0.10 (気象庁の天気予報用語における
-          「快晴」= 雲量0〜1/10 に対応)
-        - 無風: 風速(WS2M) < 1.5 m/s (風力階級0〜1級。国際的なボーフォート
-          風力階級で、中国・日本とも共通)
-        - 乾燥: 最小湿度(RH2M) < 40% かつ 実効湿度 < 60%
-          (気象庁「乾燥注意報」の代表的な基準。実効湿度は当日を含む直近
-          数日の日平均湿度を減衰係数0.7で加重平均した指数で、木材=可燃物
-          の乾燥度を表す。ただしNASA POWERは日平均湿度までしか提供せず、
-          真の「その日の最低湿度」は取得できないため、「最小湿度」は
-          日平均湿度で代用する近似値である点に注意)
-        - かつ日平均気温が 0〜5℃ の「氷点際どい」範囲
-      を満たす日の年平均発生回数。気温データだけでは捉えられない、
-      屋外露出配管の追加冷え込みリスクを補足する。
-      なお乾燥注意報は日本の気象庁の基準であり、中国気象局(CMA)には
-      対応する公式基準が見当たらなかったための代用である。
+  ④ 放射冷却リスク 【2026年10月廃止】
+      5条件(快晴・無風・乾燥・実効湿度・0〜5℃)の同時成立が日平均データでは
+      ほぼ起きず(全1,516点で最大0.05回/年、発火10点)、スコアへの寄与が実質ゼロ
+      だったため、算出・出力・スコア加算をすべて廃止した。
 
 【データソース】
   NASA POWER Daily Point API(認証・APIキー不要・無料)
   https://power.larc.nasa.gov/api/temporal/daily/point
-  取得パラメータ: T2M, T2M_MIN, WS2M, RH2M, CLOUD_AMT (community=AG)
+  取得パラメータ: T2M, T2M_MIN, WS2M (community=AG)
 
 【グリッド】
   中国の陸域境界を独自に再定義せず、既存の data/elevation_risk.geojson
@@ -124,7 +110,7 @@ from datetime import date
 import requests
 
 POWER_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
-POWER_PARAMETERS = "T2M,T2M_MIN,WS2M,RH2M,CLOUD_AMT"
+POWER_PARAMETERS = "T2M,T2M_MIN,WS2M"
 POWER_COMMUNITY = "AG"
 
 # 中央気象台の寒潮予警信号(3段階)。蓝色はGB/T 20484-2017の基本寒潮定義。
@@ -147,14 +133,10 @@ COLD_WAVE_TIER_VALUE = {0: 0.0, 1: 0.33, 2: 0.66, 3: 1.0}  # 蓝=1, 黄=2, 橙=3
 # 10年を採用する(2026年9月、当初の25年は観測期間の1.25倍で外挿が強すぎたため変更)。
 FDD_REFERENCE_RETURN_PERIOD_YEARS = 10
 
-# ④放射冷却リスクの暫定閾値(要検証)
-RADIATIVE_CLOUD_MAX = 0.10   # 快晴(雲量0〜1/10)。CLOUD_AMTは0〜1のフラクション
-RADIATIVE_WIND_MAX_MS = 1.5  # 風力階級0〜1級(ボーフォート風力階級)
-RADIATIVE_MIN_HUMIDITY_PCT = 40.0        # 「最小湿度」の代用(実際は日平均湿度)
-RADIATIVE_EFFECTIVE_HUMIDITY_PCT = 60.0  # 実効湿度(気象庁「乾燥注意報」代表値)
-EFFECTIVE_HUMIDITY_DECAY = 0.7           # 実効湿度の減衰係数(気象庁の一般的な値)
-EFFECTIVE_HUMIDITY_LOOKBACK_DAYS = 6     # 遡って加重平均に含める日数
-RADIATIVE_TEMP_RANGE_C = (0.0, 5.0)
+# ①のGumbel外挿の上限倍率。年中凍結する地点(チベット高原など)では系列が飽和し、
+# βが過大になって再現値が実測最大を大きく超える(例: 実測6,567に対し43,912)。
+# 物理的に意味のある範囲に収めるため、20年の実測最大FDDのこの倍率を上限とする。
+FDD_EXTRAPOLATION_CAP_RATIO = 1.2
 
 # 生成できた地点数が対象地点数のこの割合を下回ったら、書き出さずに異常終了する
 MIN_SUCCESS_RATIO = 0.9
@@ -253,31 +235,6 @@ def _valid(v):
     return v is not None and v > -900
 
 
-def compute_effective_humidity_series(dates_sorted, rh2m, decay=EFFECTIVE_HUMIDITY_DECAY,
-                                       lookback_days=EFFECTIVE_HUMIDITY_LOOKBACK_DAYS):
-    """気象庁方式の実効湿度を日ごとに算出する。
-    実効湿度_t = Σ(r^i × H_{t-i}) / Σ(r^i)  (i=0..lookback_days、tは当日)
-    「当日と前日以前の日平均湿度を減衰係数で加重平均する」という定義通りの実装。
-    データ系列の先頭付近(遡れる日数が足りない日)は、実際に遡れた日数分だけで
-    正規化するため、常に有効な加重平均になる。"""
-    eff = {}
-    for idx, d in enumerate(dates_sorted):
-        weighted_sum, weight_total = 0.0, 0.0
-        for i in range(0, lookback_days + 1):
-            j = idx - i
-            if j < 0:
-                break
-            v = rh2m.get(dates_sorted[j])
-            if not _valid(v):
-                continue
-            w = decay ** i
-            weighted_sum += w * v
-            weight_total += w
-        if weight_total > 0:
-            eff[d] = weighted_sum / weight_total
-    return eff
-
-
 def _cold_wave_tier_for_day(i, dates_sorted, t2m_min, ws2m):
     """i日目(dates_sorted[i])が中央気象台の寒潮予警のどの階級に該当するか。
     0=非該当, 1=蓝色, 2=黄色, 3=橙色。"""
@@ -364,12 +321,10 @@ def compute_heating_days(t2m):
 
 
 def compute_indices(daily):
-    """1地点分の日次時系列から ①FDD ②寒潮の重症度 ④放射冷却頻度 の年平均を算出。"""
+    """1地点分の日次時系列から ①FDD ②寒潮の重症度 ③暖房日数を算出。"""
     t2m = daily.get("T2M", {})
     t2m_min = daily.get("T2M_MIN", {})
     ws2m = daily.get("WS2M", {})
-    rh2m = daily.get("RH2M", {})
-    cloud = daily.get("CLOUD_AMT", {})
 
     dates_sorted = sorted(t2m_min.keys())
     if not dates_sorted:
@@ -444,6 +399,8 @@ def compute_indices(daily):
         gumbel_mu, gumbel_beta = gumbel
         fdd_t_ref = gumbel_return_level(gumbel_mu, gumbel_beta, FDD_REFERENCE_RETURN_PERIOD_YEARS)
         fdd_t_ref = max(0.0, fdd_t_ref)  # Gumbelは理論上負値も取りうるため、物理的に無意味な負のFDDは0に丸める
+        # 飽和した系列での外挿暴走を防ぐ: 実測最大FDDの FDD_EXTRAPOLATION_CAP_RATIO 倍を上限とする
+        fdd_t_ref = min(fdd_t_ref, max(fdd_series) * FDD_EXTRAPOLATION_CAP_RATIO)
     else:
         # 観測年数が少なすぎてGumbelフィットが信頼できない場合は、
         # 単純平均にフォールバックする(降雨強度がyears_used不足の地点で
@@ -471,23 +428,6 @@ def compute_indices(daily):
     cold_wave_severity = (sum(COLD_WAVE_TIER_VALUE[t] for t in max_tier_by_year.values()) / n_years
                            if max_tier_by_year else 0.0)
 
-    # ④ 放射冷却リスク頻度
-    # 【2026年9月改訂】単純なRH<50%から、気象庁「乾燥注意報」に合わせた
-    # 「最小湿度」+「実効湿度」の2条件に変更。
-    effective_humidity = compute_effective_humidity_series(dates_sorted, rh2m)
-    radiative_count = 0
-    for d in dates_sorted:
-        t, w, rh, c = t2m.get(d), ws2m.get(d), rh2m.get(d), cloud.get(d)
-        eh = effective_humidity.get(d)
-        if not all(_valid(x) for x in (t, w, rh, c)) or eh is None:
-            continue
-        if (c < RADIATIVE_CLOUD_MAX and w < RADIATIVE_WIND_MAX_MS
-                and rh < RADIATIVE_MIN_HUMIDITY_PCT
-                and eh < RADIATIVE_EFFECTIVE_HUMIDITY_PCT
-                and RADIATIVE_TEMP_RANGE_C[0] <= t <= RADIATIVE_TEMP_RANGE_C[1]):
-            radiative_count += 1
-    radiative_annual_freq = radiative_count / n_years
-
     # ③ 暖房日数: 累年(複数年)の同一暦日の日平均気温(T2M)を平均した気候値の日別曲線を
     # 作り、HEATING_MOVING_AVG_DAYS日の移動平均(年末年始は循環)で平滑化して、
     # 5℃以下/8℃以下の日数を数える。関連標準(新疆の居住建築省エネ設計標準案2.0.3)の
@@ -504,7 +444,6 @@ def compute_indices(daily):
         "max_consec_freeze_days": round(max_consec_annual_mean, 1),
         "cold_wave_freq": round(cold_wave_annual_freq, 2),
         "cold_wave_severity": round(cold_wave_severity, 3),
-        "radiative_freq": round(radiative_annual_freq, 2),
         "heating_days": round(heating_days, 1) if heating_days is not None else None,
         "heating_days_8": round(heating_days_8, 1) if heating_days_8 is not None else None,
         "years_used": n_years,
@@ -569,7 +508,7 @@ def main():
                      "②cold_wave_freq(蓝色相当の年間発生回数、診断用) "
                      "②cold_wave_severity(年最悪の寒潮階級[蓝0.33/黄0.66/橙1.0]の複数年平均、"
                      "統合スコアはこちらを使用) "
-                     "④radiative_freq(放射冷却条件の年平均発生回数)。"
+                     "(④放射冷却は2026年10月に廃止)。"
                      "③heating_days/heating_days_8(累年平均の日別気温を5日移動平均した曲線で5℃/8℃以下の日数。暖房区判定に使用、近似)。"
                      "統合スコアの算出はindex.html側で行う。"),
         },
