@@ -60,8 +60,9 @@ permissions:
 # ============================================================================
 # 【2026年9月追加】凍結ハザード(水道管凍結・破裂リスク)の気候値レイヤーを追加。
 #
-# fetch_freeze.py が NASA POWER(認証・APIキー不要)から気温・風速・湿度・雲量を
-# 取得し、①累積結氷度日数 ②寒潮頻度(GB/T20484-2017) ④放射冷却頻度 を算出する。
+# fetch_freeze.py が NASA POWER(認証・APIキー不要)から日平均・日最低気温を
+# 取得し、①累積結氷度日数 ②寒潮の重症度(GB/T20484-2017) ③暖房日数 を算出する
+# (2026年10月: ④放射冷却は廃止、風速・湿度・雲量は取得しない)。
 # グリッドは data/elevation_risk.geojson の1度グリッドを再利用するため、
 # 中国の陸域境界を本ジョブ側で再定義する必要はない。
 #
@@ -92,7 +93,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/earthquakes.geojson
           git diff --staged --quiet || git commit -m "chore: update earthquakes.geojson [auto]"
-          git pull --rebase origin main
+          git pull --rebase -X theirs origin main
           git push
 
   update-typhoons:
@@ -113,7 +114,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/typhoons.geojson
           git diff --staged --quiet || git commit -m "chore: update typhoons.geojson [auto]"
-          git pull --rebase origin main
+          git pull --rebase -X theirs origin main
           git push
 
   update-floods:
@@ -134,7 +135,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/floods.geojson
           git diff --staged --quiet || git commit -m "chore: update floods.geojson [auto]"
-          git pull --rebase origin main
+          git pull --rebase -X theirs origin main
           git push
 
   update-rainfall:
@@ -174,7 +175,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/rainfall_risk.geojson data/rainfall_annual_max_cache.json
           git diff --staged --quiet || git commit -m "chore: update rainfall_risk.geojson [auto]"
-          git pull --rebase origin main
+          git pull --rebase -X theirs origin main
           git push
 
   # 【2026年9月追加】外水氾濫(機構1)に湖沼を組み込むための、HydroLAKESからの
@@ -205,7 +206,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/lakes.geojson
           git diff --staged --quiet || git commit -m "chore: generate lakes.geojson from HydroLAKES [auto]"
-          git pull --rebase origin main
+          git pull --rebase -X theirs origin main
           git push
 
   # 【2026年9月追加】凍結ハザード(水道管凍結・破裂リスク)。詳細は上のコメントブロックと
@@ -213,6 +214,10 @@ jobs:
   # hydrolakes_urlのような外部URL入力は不要。
   update-freeze:
     runs-on: ubuntu-latest
+    # 2026年10月: 同じデータを2回同時に生成して push が競合(rebase conflict)するのを防ぐ
+    concurrency:
+      group: update-freeze
+      cancel-in-progress: false
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_freeze == 'true'
     timeout-minutes: 180
     steps:
@@ -230,7 +235,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/freeze_risk.geojson
           git diff --staged --quiet || git commit -m "chore: update freeze_risk.geojson [auto]"
-          git pull --rebase origin main
+          git pull --rebase -X theirs origin main
           git push
 
   # 【一時ジョブ・要削除】①FDDの絶対閾値を過去の実被害事例から逆算するための
