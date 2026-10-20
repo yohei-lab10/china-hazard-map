@@ -86904,6 +86904,24 @@
         "depth_km": 16.528,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u0hz"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000u3c7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.4577,
+          31.948
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "31 km NW of Jiangyou, China",
+        "time": 1792407428127,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u3c7"
+      }
     }
   ]
 }
