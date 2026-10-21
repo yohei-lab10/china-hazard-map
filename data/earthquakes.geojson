@@ -86922,6 +86922,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u3c7"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000u3ka",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.6436,
+          37.9037
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "263 km WSW of Yanglong, China",
+        "time": 1792478483116,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u3ka"
+      }
     }
   ]
 }
