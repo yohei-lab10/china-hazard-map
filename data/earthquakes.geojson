@@ -86940,6 +86940,60 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u3ka"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000u43g",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.7797,
+          32.3805
+        ]
+      },
+      "properties": {
+        "mag": 7,
+        "place": "191 km ENE of Nagqu, China",
+        "time": 1792679620353,
+        "depth_km": 18,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u43g"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000u44n",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.8669,
+          32.4401
+        ]
+      },
+      "properties": {
+        "mag": 5.2,
+        "place": "201 km ENE of Nagqu, China",
+        "time": 1792681924462,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u44n"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000u45j",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.9886,
+          32.3707
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "207 km ENE of Nagqu, China",
+        "time": 1792692404294,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u45j"
+      }
     }
   ]
 }
