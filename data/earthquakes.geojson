@@ -86994,6 +86994,42 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u45j"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000u4lg",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.048,
+          32.5629
+        ]
+      },
+      "properties": {
+        "mag": 5.3,
+        "place": "223 km ENE of Nagqu, China",
+        "time": 1792831193139,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u4lg"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000u4qq",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          131.873,
+          31.8226
+        ]
+      },
+      "properties": {
+        "mag": 5.3,
+        "place": "44 km ESE of Miyazaki, Japan",
+        "time": 1792886376599,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u4qq"
+      }
     }
   ]
 }
