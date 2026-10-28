@@ -87066,6 +87066,24 @@
         "depth_km": 7,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000u4ty"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000ttis",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.9028,
+          32.5388
+        ]
+      },
+      "properties": {
+        "mag": 5.4,
+        "place": "210 km ENE of Nagqu, China",
+        "time": 1793127473135,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000ttis"
+      }
     }
   ]
 }
