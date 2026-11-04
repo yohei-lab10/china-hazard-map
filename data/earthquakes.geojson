@@ -87084,6 +87084,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000ttis"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tvtj",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.3023,
+          39.3619
+        ]
+      },
+      "properties": {
+        "mag": 5.2,
+        "place": "91 km ESE of Kyzyl-Eshme, Kyrgyzstan",
+        "time": 1793741648654,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tvtj"
+      }
     }
   ]
 }
