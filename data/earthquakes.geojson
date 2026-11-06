@@ -87102,6 +87102,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tvtj"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000tw8p",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.9399,
+          35.6318
+        ]
+      },
+      "properties": {
+        "mag": 5,
+        "place": "130 km NE of Thang, India",
+        "time": 1793897785875,
+        "depth_km": 76.944,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tw8p"
+      }
     }
   ]
 }
