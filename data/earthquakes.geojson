@@ -87091,14 +87091,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          73.3023,
-          39.3619
+          73.3772,
+          39.3453
         ]
       },
       "properties": {
         "mag": 5.2,
-        "place": "91 km ESE of Kyzyl-Eshme, Kyrgyzstan",
-        "time": 1793741648654,
+        "place": "98 km ESE of Kyzyl-Eshme, Kyrgyzstan",
+        "time": 1793741648472,
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tvtj"
       }
