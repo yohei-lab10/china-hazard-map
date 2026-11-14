@@ -87120,6 +87120,24 @@
         "depth_km": 76.944,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tw8p"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000ty14",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          83.6657,
+          42.1734
+        ]
+      },
+      "properties": {
+        "mag": 5.2,
+        "place": "79 km NE of Kuqa, China",
+        "time": 1794586671680,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000ty14"
+      }
     }
   ]
 }
