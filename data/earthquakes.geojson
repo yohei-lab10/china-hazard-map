@@ -87145,14 +87145,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          130.4609,
-          32.2779
+          130.4701,
+          32.3069
         ]
       },
       "properties": {
         "mag": 5.3,
-        "place": "4 km NNW of Tsunagi, Japan",
-        "time": 1795022543454,
+        "place": "7 km N of Tsunagi, Japan",
+        "time": 1795022543552,
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tz1n"
       }
