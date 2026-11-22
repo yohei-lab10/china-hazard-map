@@ -87145,16 +87145,34 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          130.4701,
-          32.3069
+          130.4667,
+          32.2798
         ]
       },
       "properties": {
         "mag": 5.3,
-        "place": "7 km N of Tsunagi, Japan",
-        "time": 1795022543552,
+        "place": "4 km N of Tsunagi, Japan",
+        "time": 1795022543428,
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tz1n"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000ucly",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          96.6398,
+          37.1958
+        ]
+      },
+      "properties": {
+        "mag": 5.9,
+        "place": "238 km SW of Yanglong, China",
+        "time": 1795257933230,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ucly"
       }
     }
   ]
