@@ -87174,6 +87174,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ucly"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000ucrp",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.9381,
+          43.4743
+        ]
+      },
+      "properties": {
+        "mag": 5.1,
+        "place": "45 km SE of Ürümqi, China",
+        "time": 1795338508009,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ucrp"
+      }
     }
   ]
 }
