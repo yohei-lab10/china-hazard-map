@@ -87192,6 +87192,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ucrp"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000ud3i",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.9467,
+          27.8328
+        ]
+      },
+      "properties": {
+        "mag": 5.3,
+        "place": "67 km WNW of Mangan, India",
+        "time": 1795483962417,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ud3i"
+      }
     }
   ]
 }
