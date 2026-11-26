@@ -87210,6 +87210,24 @@
         "depth_km": 10,
         "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000ud3i"
       }
+    },
+    {
+      "type": "Feature",
+      "id": "us6000udef",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5241,
+          21.8162
+        ]
+      },
+      "properties": {
+        "mag": 5.3,
+        "place": "83 km ESE of Hengchun, Taiwan",
+        "time": 1795596436394,
+        "depth_km": 10,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us6000udef"
+      }
     }
   ]
 }
