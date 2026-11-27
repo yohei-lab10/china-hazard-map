@@ -1779,39 +1779,75 @@ function nearbyRiverFeatures(lat, lon) {
 // (scripts/fetch_lakes.py参照)。これにより面積は自前で計算する必要がなく、
 // ライブAPI呼び出しも無くなり、地図表示・レポートいずれの再現性も上がった。
 let lakesGeojsonCacheGlobal = null;
-let lakeSpatialIndex = null; // Map<"latCell_lonCell", number[]>(lakesデータのインデックス、featuresの添字)
+let lakeSpatialIndex = null; // Map<"latCell_lonCell", segment[]>(湖岸の線分のインデックス)
 const LAKE_INDEX_CELL_DEG = 0.02; // 河川と同じ格子サイズ(約2.2km四方)
 
+// 湖データの形状を「順番どおりの点の並び」の配列にする。
+// MultiLineString(外側の岸を線で保持)が現行形式。旧形式のMultiPointは点の順番が
+// 失われているため線で結ばず、1点だけの長さ0の線分として扱う(lakes.geojsonの
+// 再生成前でも画面が動くようにするための互換処理)。
+function lakeShoreLines(geometry) {
+  const coords = geometry?.coordinates;
+  if (!coords) return [];
+  if (geometry.type === 'MultiLineString') return coords;
+  if (geometry.type === 'MultiPoint') return coords.map(p => [p, p]);
+  return [];
+}
+
+// 線分は「両端を囲む矩形に含まれる全マス」に登録する。点があるマスだけに登録すると、
+// 線の途中が通るマスから湖が見つからない。矩形は実際に通るマスより広いが漏れはない。
 function buildLakeSpatialIndex(lakesGeojson) {
+  if (!lakesGeojson) return null;
   const index = new Map();
-  if (!lakesGeojson) return index;
-  lakesGeojson.features.forEach((f, idx) => {
-    const coords = f.geometry?.coordinates;
-    if (!coords) return;
-    const seenCells = new Set();
-    coords.forEach(([lon, lat]) => {
-      const cellKey = `${Math.floor(lat / LAKE_INDEX_CELL_DEG)}_${Math.floor(lon / LAKE_INDEX_CELL_DEG)}`;
-      if (seenCells.has(cellKey)) return;
-      seenCells.add(cellKey);
-      if (!index.has(cellKey)) index.set(cellKey, []);
-      index.get(cellKey).push(idx);
+  const cellOf = v => Math.floor(v / LAKE_INDEX_CELL_DEG);
+  lakesGeojson.features.forEach((f, featureIdx) => {
+    lakeShoreLines(f.geometry).forEach(line => {
+      for (let i = 0; i + 1 < line.length; i++) {
+        const seg = { featureIdx, a: line[i], b: line[i + 1] }; // a, b = [経度, 緯度]
+        for (let y = cellOf(Math.min(seg.a[1], seg.b[1])); y <= cellOf(Math.max(seg.a[1], seg.b[1])); y++) {
+          for (let x = cellOf(Math.min(seg.a[0], seg.b[0])); x <= cellOf(Math.max(seg.a[0], seg.b[0])); x++) {
+            const cellKey = `${y}_${x}`;
+            if (!index.has(cellKey)) index.set(cellKey, []);
+            index.get(cellKey).push(seg);
+          }
+        }
+      }
     });
   });
   return index;
 }
 
-function nearbyLakeFeatures(lat, lon) {
+// 外水氾濫の評価対象は2km以内。境界の取りこぼしを防ぐため少し余裕を持たせる。
+const LAKE_SEARCH_RADIUS_KM = 2.05;
+
+// 指定地点の2km圏にかかる全マスを調べ、湖ごとの最寄りの湖岸(線上の点)を返す。
+// 経度1度の長さは北ほど短くなるため、調べるマス数は緯度に応じて変わる。
+function nearbyLakeShores(lat, lon) {
   if (!lakeSpatialIndex || !lakesGeojsonCacheGlobal) return [];
-  const baseLat = Math.floor(lat / LAKE_INDEX_CELL_DEG);
-  const baseLon = Math.floor(lon / LAKE_INDEX_CELL_DEG);
-  const candidateIdx = new Set();
-  for (let dLat = -1; dLat <= 1; dLat++) {
-    for (let dLon = -1; dLon <= 1; dLon++) {
-      const bucket = lakeSpatialIndex.get(`${baseLat + dLat}_${baseLon + dLon}`);
-      if (bucket) bucket.forEach(i => candidateIdx.add(i));
+  const dLat = LAKE_SEARCH_RADIUS_KM / 110.57;
+  const dLon = LAKE_SEARCH_RADIUS_KM / (111.32 * Math.cos(lat * Math.PI / 180));
+  const cellOf = v => Math.floor(v / LAKE_INDEX_CELL_DEG);
+  const seen = new Set();
+  const nearest = new Map(); // featureIdx -> { distKm, lat, lon }
+  for (let y = cellOf(lat - dLat); y <= cellOf(lat + dLat); y++) {
+    for (let x = cellOf(lon - dLon); x <= cellOf(lon + dLon); x++) {
+      const bucket = lakeSpatialIndex.get(`${y}_${x}`);
+      if (!bucket) continue;
+      bucket.forEach(seg => {
+        if (seen.has(seg)) return;
+        seen.add(seg);
+        const [lon1, lat1] = seg.a, [lon2, lat2] = seg.b;
+        const c = closestPointOnSegmentKm(lat, lon, lat1, lon1, lat2, lon2);
+        const prev = nearest.get(seg.featureIdx);
+        if (!prev || c.distKm < prev.distKm) {
+          nearest.set(seg.featureIdx, {
+            distKm: c.distKm, lat: lat1 + c.t * (lat2 - lat1), lon: lon1 + c.t * (lon2 - lon1),
+          });
+        }
+      });
     }
   }
-  return Array.from(candidateIdx).map(i => lakesGeojsonCacheGlobal.features[i]);
+  return Array.from(nearest, ([featureIdx, p]) => ({ feature: lakesGeojsonCacheGlobal.features[featureIdx], ...p }));
 }
 
 // 湖沼の規模係数。河川のriverOrderFactor(HydroRIVERSのorder、Strahler次数)に
@@ -2105,7 +2141,7 @@ function nearestVertexOnRiver(lat, lon, coords) {
   return best ? { distKm: bestD, lat: best.lat, lon: best.lon } : null;
 }
 
-function fluvialScoreAt(lat, lon, elevGet, centerElev, meta, riverCandidates, lakeCandidates) {
+function fluvialScoreAt(lat, lon, elevGet, centerElev, meta, riverCandidates) {
   // 【2026年9月】河川データが読み込めていない場合は 0 ではなく null を返す。
   // 0 は「評価した結果、近くに川が無かった」という判定であり、取得失敗とは意味が違う。
   // 0 を返すと combineWaterHazard が正当な候補として最大値比較に入れてしまい、
@@ -2113,13 +2149,10 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev, meta, riverCandidates, la
   // 【2026年9月追加】湖沼(data/lakes.geojson)は河川と対等な候補として扱う。
   // 河川・湖のどちらも読み込めていない場合のみnullを返す(片方だけでも評価は成立する)。
   if ((!riverSpatialIndex || !riversGeojsonCacheGlobal) && (!lakeSpatialIndex || !lakesGeojsonCacheGlobal)) return null;
-  // 【2026年9月・性能改善】riverCandidates/lakeCandidatesを省略した場合はこれまで通り
-  // (lat, lon)から都度取得するが、呼び出し側(地点検索の441マスのグリッド描画)が
-  // 検索中心1点ぶんだけ先に取得して使い回せば、大きな湖(例: 太湖・453点)に対する
-  // nearestVertexOnRiver()の線形探索を441回ではなく1回ぶんの候補取得で済ませられる。
-  // 太湖近辺で検索するとPCブラウザの反応が悪くなる、という報告を受けて追加した。
+  // 【2026年9月・性能改善】riverCandidatesを省略した場合は(lat, lon)から都度取得する。
+  // 湖は線分単位のインデックスで近くの岸だけを調べられるため、常に地点ごとに取得する。
   const rivers = riverCandidates || nearbyRiverFeatures(lat, lon);
-  const lakes = lakeCandidates || nearbyLakeFeatures(lat, lon);
+  const lakes = nearbyLakeShores(lat, lon);
   let best = 0;
   let bestSource = null; // 'river' | 'lake'。呼び出し側がラベル("River flooding"等)を出し分けるために使う。
   rivers.forEach(f => {
@@ -2141,14 +2174,11 @@ function fluvialScoreAt(lat, lon, elevGet, centerElev, meta, riverCandidates, la
   // 湖沼も同じ距離減衰・比高係数を使い、規模係数だけlakeAreaFactor(面積km²)に差し替える。
   // 「河川か湖か」ではなく、どちらであれ近くの外水がどれだけ危険かという同じ問いなので、
   // 両方を候補としてまとめて評価し、大きい方(=より危険な方)を採用する。
-  lakes.forEach(f => {
-    const coords = f.geometry?.coordinates;
-    if (!coords) return;
-    const nv = nearestVertexOnRiver(lat, lon, coords); // 頂点群への最近傍探索は湖でも共通利用できる
-    if (!nv || nv.distKm > 2) return;
+  lakes.forEach(nv => {
+    if (nv.distKm > 2) return; // 距離は湖岸の線上の最寄り点まで
     const prox = riverProximityScore(nv.distKm * 1000);
     if (prox === 0) return;
-    const scale = lakeAreaFactor(f.properties?.area_km2);
+    const scale = lakeAreaFactor(nv.feature.properties?.area_km2);
     let relief = null;
     if (elevGet && centerElev !== null) {
       const lakeElev = elevGet(nv.lat, nv.lon);
@@ -3116,9 +3146,8 @@ async function queryPoint(lat, lon) {
       waterCellRatios = new Array(gridCells.length).fill(null);
       const gridVals = gridElevations;
       // 【2026年9月・性能改善】441マス全てが検索地点周辺 約1km以内にあるため、候補となる
-      // 河川・湖はマスごとにほぼ変わらない。検索地点1点ぶんだけ候補を取得して使い回す。
+      // 河川はマスごとにほぼ変わらない。検索地点1点ぶんだけ候補を取得して使い回す(湖はマスごとに取得)。
       const localRiverCandidates = nearbyRiverFeatures(lat, lon);
-      const localLakeCandidates = nearbyLakeFeatures(lat, lon);
       gridCells.forEach((cell, idx) => {
         const cellElev = gridVals[idx];
         if (typeof cellElev !== 'number') return;
@@ -3130,7 +3159,7 @@ async function queryPoint(lat, lon) {
         const cellDep = depressionFactor(cellElev,
           subGridAround(gridVals, GRID_STEPS * 2 + 1, Math.floor(idx / (GRID_STEPS * 2 + 1)), idx % (GRID_STEPS * 2 + 1), DEPRESSION_HALF));
         const cellPluvial = cellRain === null ? null : Math.max(0, Math.min(1, cellRain * cellDep.factor));
-        const cellFluvial = fluvialScoreAt(cell.lat, cell.lon, elevBlock && elevBlock.ok ? elevBlock.get : null, cellElev, null, localRiverCandidates, localLakeCandidates);
+        const cellFluvial = fluvialScoreAt(cell.lat, cell.lon, elevBlock && elevBlock.ok ? elevBlock.get : null, cellElev, null, localRiverCandidates);
         const cellSurge = surgeScoreAt(cell.lat, cell.lon, cellElev);
         const cellCombined = combineWaterHazard(cellFluvial, cellPluvial, cellSurge);
         if (!cellCombined) return; // データなしのマスは何も描かない
