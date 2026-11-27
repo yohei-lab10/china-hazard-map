@@ -36,9 +36,9 @@ HydroLAKESの配布ファイルは全世界で約763MB(shapefile)あるが、こ
 捨てるのと同じ考え方)。一時ディレクトリで展開・処理し、処理が終わったら
 OS側で自動的に削除される。
 
-出力する data/lakes.geojson には、各湖につき面積(area_km2)と間引いた
-湖岸の点群(shapely.simplifyで簡略化、coastline_points.jsonと同じ
-「間引いて点群にする」発想)だけを持たせ、ファイルサイズを抑える。
+出力する data/lakes.geojson には、各湖につき面積(area_km2)と、外側の岸の
+線(shapely.simplifyで許容誤差約50mに簡略化し、点の順番を保持)だけを持たせる。
+湖内の島の岸は含めないため、島の上の地点は湖のハザードが低く出る場合がある。
 
 使い方
 ------
@@ -51,9 +51,10 @@ OS側で自動的に削除される。
 で最新の配布URLを確認すること。
 
 出力は GeoJSON FeatureCollection。各Featureが1つの湖で、
-geometry は湖岸沿いの間引いた代表点(MultiPoint)、properties.area_km2 が
-HydroLAKES由来の面積。rivers.geojsonと同じFeatureCollectionパターンなので、
-index.html側は既存のnearbyLakeFeatures/lakeAreaFactorでそのまま読める。
+geometry は外側の岸の線(MultiLineString。各線は閉じた輪)、properties.area_km2 が
+HydroLAKES由来の面積。index.html側は線分までの距離で評価する
+(buildLakeSpatialIndex/nearbyLakeShores)。MultiLineString未対応の古い
+index.htmlでは読めないため、index.htmlを先に更新してから再生成すること。
 """
 
 import argparse
@@ -67,11 +68,12 @@ import geopandas as gpd
 import requests
 
 # 中国本土の標高タイルが存在する範囲と同じバウンディングボックス(緩衝込み)。
-# 国境をまたぐ湖(例: 中露国境のハンカ湖)は、これで一律に「重なっていれば含む」扱いにする。
+# 読み込み量を減らすための一次絞り込みで、対象国は後段のCountry属性で決める。
 CHINA_BBOX = (15.0, 55.0, 70.0, 136.0)  # min_lat, max_lat, min_lon, max_lon
 
 MIN_AREA_KM2 = 0.1  # HydroLAKESの最小収録単位(10ヘクタール)と同じ
-SIMPLIFY_TOLERANCE_DEG = 0.005  # 約500m。湖岸点群を間引く許容誤差
+SIMPLIFY_TOLERANCE_DEG = 0.0005  # 緯度方向で約55m。湖岸線を簡略化する許容誤差
+MAX_OUTPUT_BYTES = 25 * 1024 * 1024  # Cloudflare Workersの静的ファイル1個の上限(25MiB)
 
 
 def download_and_extract(url, workdir):
@@ -168,25 +170,29 @@ def main():
             if geom is None or geom.is_empty:
                 continue
             geom = geom.simplify(SIMPLIFY_TOLERANCE_DEG, preserve_topology=True)
-            # MultiPolygon(離島を持つ湖など)は全パーツの頂点をまとめて1つの
-            # 点群にする。湖岸への最短距離判定にしか使わないため、
-            # パーツごとに分ける必要はない(river/coastlineと同じ簡略化)。
             if geom.geom_type == 'Polygon':
                 polys = [geom]
             elif geom.geom_type == 'MultiPolygon':
                 polys = list(geom.geoms)
             else:
                 continue
-            pts = set()
+            # 外側の岸だけを、点の順番を保ったまま線にする(並べ替えない)。
+            # MultiPolygonは水面が複数に分かれた形なので、それぞれを別の線にする。
+            lines = []
             for poly in polys:
+                line = []
                 for x, y in poly.exterior.coords:
-                    pts.add((round(x, 5), round(y, 5)))
-            if not pts:
+                    p = [round(x, 5), round(y, 5)]
+                    if not line or line[-1] != p:  # 丸めで重なった連続点は除く
+                        line.append(p)
+                if len(line) >= 2:
+                    lines.append(line)
+            if not lines:
                 continue
             features.append({
                 'type': 'Feature',
                 'properties': {'area_km2': round(float(row['Lake_area']), 2)},
-                'geometry': {'type': 'MultiPoint', 'coordinates': sorted(pts)},
+                'geometry': {'type': 'MultiLineString', 'coordinates': lines},
             })
 
         # 出力順を安定させる(差分が読めるように)。面積の大きい順。
@@ -196,7 +202,9 @@ def main():
             print('上位5件:')
             for f in features[:5]:
                 print(f"  {f['properties']['area_km2']:>10,.1f} km²  "
-                      f"({len(f['geometry']['coordinates'])}点)")
+                      f"({sum(len(l) for l in f['geometry']['coordinates']):,}点)")
+        total_points = sum(len(l) for f in features for l in f['geometry']['coordinates'])
+        print(f'湖岸の点の合計: {total_points:,} 点')
 
         if not features:
             print('エラー: 1件も湖を抽出できませんでした。書き出しを中止します', file=sys.stderr)
@@ -207,6 +215,12 @@ def main():
         tmp = args.out + '.tmp'
         with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(geojson, f, separators=(',', ':'))
+        size = os.path.getsize(tmp)
+        if size > MAX_OUTPUT_BYTES:
+            os.remove(tmp)
+            print(f'エラー: 出力が {size / (1024 * 1024):.2f} MiB で配信の上限25MiBを超えます。'
+                  '書き出しを中止します(既存のファイルは変更していません)', file=sys.stderr)
+            return 1
         os.replace(tmp, args.out)
         size_mb = os.path.getsize(args.out) / (1024 * 1024)
         print(f'書き出し完了: {args.out} ({size_mb:.2f} MB)')
