@@ -369,6 +369,8 @@
   .seg-opt input:focus-visible + span { outline: 2px solid #fff; outline-offset: 1px; }
   .coord-help { font-size: 11.5px; line-height: 1.45; color: rgba(242,247,242,0.8); margin-top: -2px; }
   .coord-help a { color: var(--accent); font-weight: 600; }
+  .coord-error { font-size: 12px; line-height: 1.5; color: #ffd7d7; background: rgba(178,58,72,0.35); border: 1px solid rgba(255,140,150,0.6); border-radius: 8px; padding: 8px 10px; }
+  .coord-error[hidden] { display: none; }
   .locate-btn {
     height: 46px; border: none; border-radius: 14px; cursor: pointer;
     background: var(--accent); color: var(--ink); font-size: 14px; font-weight: 700;
@@ -780,6 +782,7 @@
               <label class="seg-opt"><input type="radio" name="coordSystem" id="coordBd09" value="bd09"><span>BD-09</span></label>
             </div>
             <div class="coord-help" id="coordHelp"></div>
+            <div class="coord-error" id="coordError" role="alert" hidden></div>
             <button type="button" class="locate-btn" id="searchBtn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
               Locate
@@ -3263,10 +3266,39 @@ function bd09ToWgs84(lat, lon) {
   return gcj02ToWgs84(gcj.lat, gcj.lon);
 }
 
+// ==== 座標の桁数チェック(2026年11月) ====
+// 百度地図の座標拾取器は、未認証だと小数2桁(約1km刻み)までしか表示しない。その値をそのまま入力すると
+// 最大約1kmずれた地点が評価されてしまうため、GCJ-02/BD-09 で小数3桁(約100m)未満の入力はエラーにする。
+// WGS84(GPS・OSM)は、市区町村レベルの概算入力も許容するため対象外。
+const MIN_COORD_DECIMALS = 3;
+function countDecimals(str) {
+  const m = String(str).trim().match(/^[+-]?\d*\.?(\d*)$/);
+  return m ? m[1].length : 0;
+}
+function coordPrecisionError(latStr, lonStr, system) {
+  if (system !== 'gcj02' && system !== 'bd09') return null;
+  if (countDecimals(latStr) >= MIN_COORD_DECIMALS && countDecimals(lonStr) >= MIN_COORD_DECIMALS) return null;
+  const name = system === 'bd09' ? 'BD-09' : 'GCJ-02';
+  return `Not enough decimal places for ${name} (need ${MIN_COORD_DECIMALS}+ for both latitude and longitude). `
+    + `Baidu's coordinate picker shows only 2 decimals (up to ~1 km off) unless your account is verified. `
+    + `Use Amap (高德) coordinates, a verified Baidu account, or long-press the map instead.`;
+}
+function showCoordError(msg) {
+  const el = document.getElementById('coordError');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.hidden = !msg;
+}
+
 document.getElementById('searchBtn').addEventListener('click', () => {
-  let lat = parseFloat(document.getElementById('searchLat').value);
-  let lon = parseFloat(document.getElementById('searchLon').value);
+  const rawLat = document.getElementById('searchLat').value;
+  const rawLon = document.getElementById('searchLon').value;
+  let lat = parseFloat(rawLat);
+  let lon = parseFloat(rawLon);
   if (isNaN(lat) || isNaN(lon)) return;
+  const precisionError = coordPrecisionError(rawLat, rawLon, document.querySelector('input[name="coordSystem"]:checked').value);
+  if (precisionError) { showCoordError(precisionError); return; }
+  showCoordError('');
   // 緯度は-90〜90の範囲しかありえない。範囲外なら経度と入れ替わっている可能性が高いので自動補正する
   // (百度地図など「経度,緯度」の順でコピーされるサイトからの貼り付けを想定)
   if ((lat < -90 || lat > 90) && lon >= -90 && lon <= 90) {
@@ -3800,10 +3832,13 @@ async function generateIntegratedReport() {
   const status = document.getElementById('reportStatus');
   const validLocs = reportLocations.filter(l => l.lat !== '' && l.lon !== '');
   if (validLocs.length === 0) { status.textContent = 'Enter at least one location.'; return; }
+  const system = document.querySelector('input[name="reportCoordSystem"]:checked').value;
+  for (const loc of validLocs) {
+    const err = coordPrecisionError(loc.lat, loc.lon, system);
+    if (err) { status.textContent = (loc.name ? `${loc.name}: ` : '') + err; return; }
+  }
   btn.disabled = true;
   status.textContent = 'Computing hazard data…';
-
-  const system = document.querySelector('input[name="reportCoordSystem"]:checked').value;
   const lang = document.querySelector('input[name="reportLang"]:checked').value;
 
   try {
@@ -4347,7 +4382,8 @@ function initShell() {
   });
 
   // 座標系の切替と、Enterキーでの検索
-  document.querySelectorAll('input[name="coordSystem"]').forEach(r => r.addEventListener('change', updateCoordUi));
+  document.querySelectorAll('input[name="coordSystem"]').forEach(r => r.addEventListener('change', () => { updateCoordUi(); showCoordError(''); }));
+  ['searchLat', 'searchLon'].forEach(id => document.getElementById(id).addEventListener('input', () => showCoordError('')));
   updateCoordUi();
   document.getElementById('searchForm').addEventListener('submit', (e) => {
     e.preventDefault();
