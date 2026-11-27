@@ -903,6 +903,13 @@ const LAYERS = [
 // 地点検索で「評価バッジ+リスク凡例」を表示する4レイヤー(表示順: 水災・凍結・台風・地震)
 const BADGE_LAYER_KEYS = ['waterHazard', 'freeze', 'typhoonHazard', 'earthquake'];
 
+// レポートの日付は端末の現地日付を使う。toISOString()は世界標準時(UTC)のため、
+// 中国時間の0〜8時に作ると前日の日付になる。
+function localDateString(d = new Date()) {
+  const two = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+}
+
 // 各データセットの提供者・ライセンス表記。無償公開データでも「出典の明示」は
 // ライセンス条件そのものであり、商用提供時は省略できない。画面(METHODOLOGY)と
 // PDFレポートの両方に出す。
@@ -920,7 +927,7 @@ const DATA_ATTRIBUTION = [
 
 const METHODOLOGY = [
   { label: 'Water Hazard', color: COLORS.waterHazard,
-    desc: 'Three flood mechanisms are evaluated separately and the most severe one is reported: river flooding (distance to river, river scale, height above the river), surface water flooding (extreme rainfall intensity combined with how low-lying the site is relative to its surroundings), and coastal storm surge (elevation against a surge level that decays inland). Proximity to a river confluence increases the river flooding term modestly. Past flood records adjust the result upward by at most 20%. The point search reads 150m elevation tiles directly; the map-wide layer is an approximation that omits the local terrain terms. A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
+    desc: 'Three flood mechanisms are evaluated separately and the most severe one is reported: river and lake flooding (distance to the river or lake shore, size of the river or lake, height above the water), surface water flooding (extreme rainfall intensity combined with how low-lying the site is relative to its surroundings), and coastal storm surge (elevation against a surge level that decays inland). Proximity to a river confluence increases the river flooding term modestly. Past flood records adjust the result upward by at most 20%. The point search reads 150m elevation tiles directly; the map-wide layer is an approximation that omits the local terrain terms. A simplified reference indicator, not a hydrodynamic flood simulation. Areas with no data are left blank on the map, not colored gray or treated as low risk.' },
   { label: 'Freeze Hazard', color: COLORS.freeze,
     desc: 'Source: NASA POWER daily climate data, 20 winter seasons (Jul 2005 – Jun 2025). Two independent scores are computed and the higher one is used: a sustained-cold score (freezing degree days using daily minimum temperature) and a sudden-cold-snap score (based on CMA cold wave alert tiers, GB/T 20484-2017). The result is then scaled by a heating factor based on annual days with mean temperature ≤5°C: ×1.3 where heating is not called for (<60 days; buildings and pipes generally not built for cold) down to ×0.7 where heating facilities are required (≥90 days, per the GB 50736-2012 criterion), interpolated in between. A climatological estimate, not a forecast.' },
   { label: 'Typhoon Hazard', color: COLORS.typhoonHazard,
@@ -3381,8 +3388,8 @@ const HAZARD_EXPLAIN_I18N = {
     score: 'SCORE', latitude: 'Latitude', longitude: 'Longitude', labels: { what: 'What it is', read: 'How to read', limit: 'Note' },
     scaleLow: 'Low', scaleHigh: 'Extreme',
     scaleNote: 'Scores run from 0 (lowest) to 1 (highest) in five bands. Each hazard is scored on its own scale; scores of different hazards are not combined or directly comparable.',
-    sub: { water: 'River · Heavy rain · Storm surge', freeze: 'Sub-zero spells · Cold waves', typhoon: 'Tropical cyclones · JMA scale', earthquake: 'Ground shaking · Seismic history' },
-    water: { what: 'Exposure to flooding from rivers, ponding after heavy rain, and coastal storm surge. The three are assessed separately and the most severe one sets the score.', read: 'Rainfall figures show the 24-hour rain expected once in 10 to 100 years. Low-lying or bowl-shaped ground raises the chance of water collecting. Warming scenarios show sensitivity only.', limit: 'Based on regional-scale data. It does not replace a site survey or a review of drainage and flood defences.' },
+    sub: { water: 'River / lake · Heavy rain · Storm surge', freeze: 'Sub-zero spells · Cold waves', typhoon: 'Tropical cyclones · JMA scale', earthquake: 'Ground shaking · Seismic history' },
+    water: { what: 'Exposure to flooding from rivers and lakes, ponding after heavy rain, and coastal storm surge. The three are assessed separately and the most severe one sets the score.', read: 'Rainfall figures show the 24-hour rain expected once in 10 to 100 years. Low-lying or bowl-shaped ground raises the chance of water collecting. Warming scenarios show sensitivity only.', limit: 'Based on regional-scale data. It does not replace a site survey or a review of drainage and flood defences.' },
     freeze: { what: 'Exposure to long sub-zero spells and sudden cold snaps that can burst pipes, damage outdoor equipment and interrupt operations.', read: 'The score reflects how long and how intense the worst freezing spells are, and how often severe cold waves occur. It also considers whether the region normally has winter heating: a mild-winter region can be hit harder because buildings and pipes are rarely built for deep cold.', limit: 'Regional climate data. Local insulation, heating and pipe protection are not reflected.' },
     typhoon: { what: 'Exposure to tropical cyclones that have passed near the site, grouped by the JMA intensity scale.', read: 'The highlighted band is the strongest class of storm recorded near the site. The return period shows roughly how often a storm of that kind has passed.', limit: 'Based on historical tracks. Actual wind at the site also depends on terrain and building structure.' },
     earthquake: { what: 'Exposure to ground shaking from earthquakes recorded around the site over several decades.', read: 'Nearby events are weighted by size and distance, so large, close earthquakes count most. The score is a relative indicator, not a seismic-intensity or loss estimate.', limit: 'Soil conditions, building codes and faults not yet in the catalogue are not reflected.' },
@@ -3391,8 +3398,8 @@ const HAZARD_EXPLAIN_I18N = {
     score: 'スコア', latitude: '緯度', longitude: '経度', labels: { what: '概要', read: '見方', limit: '留意点' },
     scaleLow: '低', scaleHigh: '極めて高',
     scaleNote: 'スコアは0(最小)〜1(最大)を5段階で表します。ハザードごとに別の尺度で評価しており、ハザード間でスコアを合算・単純比較することはできません。',
-    sub: { water: '河川・豪雨・高潮', freeze: '氷点下の持続・寒波', typhoon: '熱帯低気圧・JMA階級', earthquake: '地震動・観測履歴' },
-    water: { what: '河川の氾濫、豪雨後の内水(冠水)、沿岸の高潮による浸水の危険度。3つの機構を個別に評価し、最も深刻なものをスコアとします。', read: '降雨量は、10〜100年に一度想定される24時間雨量です。低地や窪地では水が溜まりやすくなります。気候シナリオは感度を示す参考値です。', limit: '広域データに基づく評価です。現地調査や排水・防水設備の確認の代わりにはなりません。' },
+    sub: { water: '河川・湖・豪雨・高潮', freeze: '氷点下の持続・寒波', typhoon: '熱帯低気圧・JMA階級', earthquake: '地震動・観測履歴' },
+    water: { what: '河川・湖の氾濫、豪雨後の内水(冠水)、沿岸の高潮による浸水の危険度。3つの機構を個別に評価し、最も深刻なものをスコアとします。', read: '降雨量は、10〜100年に一度想定される24時間雨量です。低地や窪地では水が溜まりやすくなります。気候シナリオは感度を示す参考値です。', limit: '広域データに基づく評価です。現地調査や排水・防水設備の確認の代わりにはなりません。' },
     freeze: { what: '長く続く氷点下や急な寒波により、配管の破裂、屋外設備の損傷、操業停止が起こる危険度。', read: '最悪クラスの凍結期間の長さと強さ、強い寒波の頻度を反映します。冬に暖房が通常使われる地域かどうかも考慮し、冬が温暖な地域は建物・配管が寒さに備えていないことが多いため、相対的に高くなる場合があります。', limit: '広域の気候データに基づきます。個別の断熱・暖房・配管保護の状況は反映されません。' },
     typhoon: { what: '拠点の近くを通過した熱帯低気圧の強さを、JMA階級で分類した危険度。', read: '強調表示された帯が、近傍で観測された最大の階級です。再現期間は、その規模の台風がおおよそ何年に一度通過したかを示します。', limit: '過去の進路記録に基づきます。実際の風速は地形や建物構造にも左右されます。' },
     earthquake: { what: '拠点周辺で過去数十年に観測された地震による揺れの危険度。', read: '周辺の地震を規模と距離で重み付けし、大きく近い地震ほど強く反映します。相対的な指標であり、震度や損害額の推定ではありません。', limit: '地盤条件、建築基準、カタログ未記載の断層は反映されません。' },
@@ -3401,8 +3408,8 @@ const HAZARD_EXPLAIN_I18N = {
     score: '得分', latitude: '纬度', longitude: '经度', labels: { what: '概述', read: '解读', limit: '说明' },
     scaleLow: '低', scaleHigh: '极高',
     scaleNote: '得分范围为0(最低)至1(最高),分为五档。各灾害使用各自的尺度评估,不同灾害的得分不合并,也不宜直接比较。',
-    sub: { water: '河流·暴雨·风暴潮', freeze: '持续低温·寒潮', typhoon: '热带气旋·JMA等级', earthquake: '地震动·历史记录' },
-    water: { what: '河流泛滥、暴雨后内涝积水及沿海风暴潮造成淹没的风险。三种机制分别评估,取最严重者作为得分。', read: '降雨量为10至100年一遇的24小时雨量。低洼或碗状地形更易积水。气候情景仅用于反映敏感性。', limit: '基于区域尺度数据,不能替代现场勘查及排水、防洪设施的核查。' },
+    sub: { water: '河湖·暴雨·风暴潮', freeze: '持续低温·寒潮', typhoon: '热带气旋·JMA等级', earthquake: '地震动·历史记录' },
+    water: { what: '河流及湖泊泛滥、暴雨后内涝积水及沿海风暴潮造成淹没的风险。三种机制分别评估,取最严重者作为得分。', read: '降雨量为10至100年一遇的24小时雨量。低洼或碗状地形更易积水。气候情景仅用于反映敏感性。', limit: '基于区域尺度数据,不能替代现场勘查及排水、防洪设施的核查。' },
     freeze: { what: '长时间低于冰点及突发寒潮导致管道冻裂、室外设备受损和停产的风险。', read: '得分反映最严重冰冻时段的持续时间与强度,以及强寒潮的出现频率,并考虑该地区冬季是否通常供暖:冬季温和地区的建筑和管道往往未按严寒设防,风险可能相对更高。', limit: '基于区域气候数据,未反映个别场所的保温、供暖和管道防护情况。' },
     typhoon: { what: '场地附近曾经过的热带气旋,按JMA强度等级分类后的风险。', read: '高亮色带为场地附近记录到的最强等级。重现期大致表示该规模台风多少年经过一次。', limit: '基于历史路径记录,实际风力还取决于地形与建筑结构。' },
     earthquake: { what: '场地周边数十年来记录到的地震所带来的地震动风险。', read: '按震级与距离对周边地震加权,近而强的地震影响最大。该得分为相对指标,并非烈度或损失估算。', limit: '未反映土壤条件、建筑规范及目录中尚未记录的断层。' },
@@ -3577,7 +3584,7 @@ const RPT_I18N = {
     freezeSouthNote: 'Mild-winter region: buildings and pipes are rarely built for deep cold, so the freeze score is adjusted upward.',
     freezeNorthNote: 'Cold-winter region with a long heating season: heating and frost-proofing are normally in place, so the score is adjusted downward. Losses can still occur.',
     typhoonFreq: (yrs, total) => `Category 1+ passages occur on average once every ~${yrs} years, based on ${total} years of track data.`,
-    waterMechLabels: { river: 'River flooding', surface: 'Surface water', surge: 'Storm surge' },
+    waterMechLabels: { river: 'River / lake flooding', surface: 'Surface water', surge: 'Storm surge' },
     dominantMech: (name) => `Dominant mechanism: <b>${name}</b>.`,
     scCurrent: 'Current', scNote: 'Score under each climate scenario (reference only — headline score always uses Current rainfall).',
     rainfallTitle: 'Rainfall intensity',
@@ -3594,7 +3601,7 @@ const RPT_I18N = {
     provenance: { earthquakes: 'Earthquakes', typhoons: 'Typhoons', rainfall: 'Rainfall', elevation: 'Elevation', freeze: 'Freeze hazard' },
     multiYearMean: 'multi-year mean', gumbelNote: 'CHIRPS annual maxima, statistical return-period estimate', resampledNote: 'JAXA AW3D30, resampled to 150 m',
     disclaimerTitle: 'Disclaimer.',
-    disclaimerBody: 'Screening-level hazard indicators from public historical and climatological data. Not a guarantee of future events, not an expected loss estimate, and not a sole basis for underwriting, pricing, or coverage decisions. Scores are relative within mainland China only. Rainfall figures beyond the observation period are statistical extrapolations. Elevation/terrain figures are for reference and not used directly in the scores.',
+    disclaimerBody: 'Screening-level hazard indicators from public historical and climatological data. Not a guarantee of future events, not an expected loss estimate, and not a sole basis for underwriting, pricing, or coverage decisions. Scores are relative within mainland China only. Rainfall figures beyond the observation period are statistical extrapolations. Elevation and terrain data are used in calculating the water hazard score. This is a simplified assessment based on regional-scale data and does not replace a site survey.',
     copyright: (y) => `© ${y} YM @MSIG. All rights reserved.`,
   },
   ja: {
@@ -3630,7 +3637,7 @@ const RPT_I18N = {
     provenance: { earthquakes: '地震', typhoons: '台風', rainfall: '降雨', elevation: '標高', freeze: '凍結ハザード' },
     multiYearMean: '年の多年平均', gumbelNote: 'CHIRPS年最大値、統計的な再現期間推定', resampledNote: 'JAXA AW3D30、150mにリサンプリング',
     disclaimerTitle: '免責事項。',
-    disclaimerBody: '本レポートは公開の過去実績・気候データに基づくスクリーニングレベルの指標です。将来の災害発生の保証、予想損害額の見積もり、または引受・保険料算定・補償内容決定の唯一の根拠となるものではありません。スコアは中国本土内での相対値です。観測期間を超える降雨の値は統計的な外挿です。標高・地形の数値は参考値であり、スコアの算出に直接使用されるものではありません。',
+    disclaimerBody: '本レポートは公開の過去実績・気候データに基づくスクリーニングレベルの指標です。将来の災害発生の保証、予想損害額の見積もり、または引受・保険料算定・補償内容決定の唯一の根拠となるものではありません。スコアは中国本土内での相対値です。観測期間を超える降雨の値は統計的な外挿です。標高・地形データは水害ハザードのスコア算出に使用しています。広域データに基づく簡易評価であり、現地調査の代わりにはなりません。',
     copyright: (y) => `© ${y} YM @MSIG. All rights reserved.`,
   },
   zh: {
@@ -3649,7 +3656,7 @@ const RPT_I18N = {
     freezeSouthNote: '冬季温和地区:建筑与管道通常未按严寒标准建造,故冻结得分上调。',
     freezeNorthNote: '严寒且供暖期长的地区:通常具备供暖与防冻措施,故得分下调,但仍可能发生损失。',
     typhoonFreq: (yrs, total) => `Category 1级以上台风:平均约每${yrs}年一次(基于${total}年数据)。`,
-    waterMechLabels: { river: '河流洪水', surface: '内涝', surge: '风暴潮' },
+    waterMechLabels: { river: '河湖洪水', surface: '内涝', surge: '风暴潮' },
     dominantMech: (name) => `主导机制:<b>${name}</b>。`,
     scCurrent: '当前', scNote: '各气候情景下的得分(仅供参考——总体得分始终采用当前降雨数据)。',
     rainfallTitle: '降雨强度',
@@ -3666,7 +3673,7 @@ const RPT_I18N = {
     provenance: { earthquakes: '地震', typhoons: '台风', rainfall: '降雨', elevation: '标高', freeze: '冻结灾害' },
     multiYearMean: '年多年平均', gumbelNote: 'CHIRPS年最大值,统计推算重现期', resampledNote: 'JAXA AW3D30,重采样至150米',
     disclaimerTitle: '免责声明。',
-    disclaimerBody: '本报告基于公开的历史及气候数据,提供筛查级别的灾害指标。不构成对未来事件的保证,不是预期损失估算,也不能作为核保、定价或承保决策的唯一依据。得分仅为中国大陆范围内的相对值。超出观测期的降雨数值为统计外推结果。标高与地形数据仅供参考,未直接用于得分计算。',
+    disclaimerBody: '本报告基于公开的历史及气候数据,提供筛查级别的灾害指标。不构成对未来事件的保证,不是预期损失估算,也不能作为核保、定价或承保决策的唯一依据。得分仅为中国大陆范围内的相对值。超出观测期的降雨数值为统计外推结果。标高与地形数据用于水灾风险得分的计算。本结果是基于区域尺度数据的简易评估,不能替代现场勘查。',
     copyright: (y) => `© ${y} YM @MSIG. 保留所有权利。`,
   },
 };
@@ -3947,7 +3954,7 @@ async function generateIntegratedReport() {
         cursor = cut;
       }
     }
-    pdf.save(`hazard-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    pdf.save(`hazard-report-${localDateString()}.pdf`);
 
     document.getElementById('reportView').innerHTML = '';
     status.textContent = 'PDF downloaded.';
@@ -3967,7 +3974,7 @@ async function renderReportView(results, lang) {
     view.id = 'reportView';
     document.body.appendChild(view);
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateString();
 
   // 共通ヘッダー。LOGO枠は保険会社ごとの差し替えを想定したプレースホルダ。
   const rptHead = (rightLine) => `
