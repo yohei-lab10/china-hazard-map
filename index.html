@@ -914,7 +914,7 @@ const DATA_ATTRIBUTION = [
   ['Elevation', 'ALOS World 3D-30m (AW3D30) © JAXA — used under the AW3D30 Terms of Use'],
   ['Rivers', 'HydroRIVERS / HydroSHEDS — Lehner, B., Grill, G. (2013). hydrosheds.org'],
   ['Flood records', 'Dartmouth Flood Observatory, University of Colorado'],
-  ['Lakes', '© OpenStreetMap contributors (Overpass API)'],
+  ['Lakes', 'HydroLAKES v1.0 — Messager et al. (2016), Nature Communications 7:13603, doi:10.1038/ncomms13603. CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Modified: China subset; outer shorelines only, simplified'],
   ['Freeze hazard', 'NASA POWER — NASA Langley Research Center; cold wave tiers per CMA GB/T 20484-2017'],
 ];
 
@@ -3026,8 +3026,6 @@ async function queryPoint(lat, lon) {
     const centerElev = elevations[0];
 
     // バッジは「水害ハザード」の統合値(降雨×標高の高い方 × 洪水実績の重み)で判定する。
-    // 湖の近接判定は、Overpass API(OpenStreetMap)にこの検索1回につき1回だけ問い合わせる
-    // (169マス個別には問い合わせず、結果を使い回すことで通信回数を抑える)。
 
     // 【2026年9月改訂】バッジ本体(スコア・severityバー)が気候シナリオの選択に
     // 連動するよう変更。以前は常に現在気候(0)固定で、選択中のシナリオは別行の
@@ -3994,7 +3992,7 @@ async function renderReportView(results, lang) {
         ${provenanceRows.map(([k, v]) => `${k}: ${v}.`).join(' ')}
         ${earthquakeFallbackLive ? '<b> Warning: the pre-generated earthquake catalog could not be loaded, so the earthquake figure reflects only the past 30 days and understates the hazard.</b>' : ''}
         <div style="margin-top:5px;">
-          ${DATA_ATTRIBUTION.filter(([k]) => k !== 'Base map' && k !== 'Lakes').map(([k, v]) => `${k}: ${v}`).join(' · ')}
+          ${DATA_ATTRIBUTION.filter(([k]) => k !== 'Base map').map(([k, v]) => `${k}: ${v}`).join(' · ')}
         </div>
       </div>`;
 
